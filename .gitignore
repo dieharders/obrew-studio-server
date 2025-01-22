@@ -51,6 +51,10 @@ next-env.d.ts
 *.spec
 /includes
 
+# virtual env
+.virtualenvs
+.venv
+
 # generated
 /threads
 /memories

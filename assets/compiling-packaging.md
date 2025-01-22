@@ -1,12 +1,12 @@
-# Bundling
+# Compiling
 
-Take all dependencies, dlls, code and bundle with an executable. Be sure to generate self-signed certs for easy SSL setup in local environment.
+Take all dependencies, dlls, source code and bundle with an executable. Be sure to generate self-signed certs for easy SSL setup in local environment.
 
-## Bundling Nvida CUDA toolkit deps:
+## Compiling Nvida CUDA toolkit deps:
 
 If you already have the required toolkit files installed and have built for GPU then the necessary GPU drivers/dlls should be detected by PyInstaller and included in the `_deps` dir.
 
-## Bundling with PyInstaller:
+## Compiling with PyInstaller:
 
 This is handled automatically by npm scripts so you do not need to execute these manually. The -F flag bundles everything into one .exe file.
 
@@ -22,7 +22,7 @@ Then use it to bundle a python script:
 pyinstaller -c -F your_program.py
 ```
 
-## Bundling with auto-py-to-exe (recommended)
+## Compiling with auto-py-to-exe (recommended)
 
 This is a GUI tool that greatly simplifies the process. You can also save and load configs. It uses PyInstaller under the hood and requires it to be installed. Please note if using a conda or virtual environment, be sure to install both PyInstaller and auto-py-to-exe in your virtual environment and also run them from there, otherwise one or both will build from incorrect deps.
 
@@ -41,7 +41,7 @@ auto-py-to-exe
 
 # Packaging
 
-Compress & pack the bundled code into an installation wizard.
+Compress & bundle your code into an installation wizard.
 
 ## Inno Installer Setup Wizard
 

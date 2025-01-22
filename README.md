@@ -9,9 +9,8 @@
 - [Getting Started](assets/getting-started.md)
 - [API Documentation](assets/api-docs.md)
 - [Build Steps](assets/build-steps.md)
-- [Bundling & Packaging](assets/bundling-packaging.md)
+- [Compiling & Packaging](assets/compiling-packaging.md)
 - [Deploy & Release](assets/deploy-release.md)
-- [Development](assets/development.md)
 
 ## Introduction
 
