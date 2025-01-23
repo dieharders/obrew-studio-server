@@ -1,0 +1,130 @@
+name: 'Manual Windows Release'
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_name:
+        description: 'Release title'
+        required: true
+      release_type:
+        description: 'Type of release (draft, private, public)'
+        required: true
+        default: 'draft'
+      release_notes:
+        description: 'Release notes'
+        required: false
+
+jobs:
+  # Assumes you created a git tag with `yarn version --[op]`
+  create_release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    outputs:
+      release_upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create a release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.event.inputs.ref || github.ref_name }}
+          release_name: ${{ github.event.inputs.release_name }}
+          body: ${{ github.event.inputs.release_notes }}
+          draft: ${{ github.event.inputs.release_type == 'draft' }} # not visible to the public
+          prerelease: ${{ github.event.inputs.release_type == 'private' }} # visible only to collaborators
+
+  build:
+    name: Build for ${{ matrix.os }} and Upload Artifacts
+    needs: create_release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest] # builds for each platform, in seperate vm's, in this order
+    continue-on-error: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history for proper Git submodule initialization
+          ref: ${{ github.event.inputs.ref || github.ref }} # checks out code you specify in github UI
+
+      - name: Install CUDA Toolkit (Windows)
+        shell: cmd
+        if: startsWith(runner.os, 'Windows')
+        run: |
+          choco install cuda --version=12.2 -y
+          refreshenv
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Set up pip for Python
+        shell: bash
+        run: |
+          python --version
+          pip --version || python -m ensurepip --upgrade
+          python -m pip install --upgrade pip setuptools wheel
+
+      - name: Install Python Deps
+        shell: bash
+        run: pip install -r requirements.txt
+
+      - name: Configure llama-cpp-python for GPU:cuBLAS (Windows)
+        shell: cmd
+        if: startsWith(runner.os, 'Windows')
+        run: |
+          $env:PATH += ";C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\bin"
+          $env:LD_LIBRARY_PATH += ";C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\lib\x64"
+          $env:CMAKE_ARGS = "-DLLAMA_CUBLAS=on"
+          set FORCE_CMAKE=1 && set CMAKE_ARGS=-DLLAMA_CUBLAS=on && pip install llama-cpp-python --force-reinstall --ignore-installed --upgrade --no-cache-dir --verbose
+
+      - name: Build Python code (pyinstaller)
+        shell: bash
+        run: pyinstaller --noconfirm --onedir --windowed --icon "./backends/ui/favicon.ico" --name "Obrew-Server" --clean --no-embed-manifest --add-data "./public;public/" --add-data "./backends/ui/public;public/" --add-data "${{ env.CONDA_ENV_PATH }}/Lib/site-packages/llama_cpp;llama_cpp/" --hidden-import "tiktoken_ext.openai_public" --hidden-import "tiktoken_ext" --add-data "${{ runner.temp }}/site-packages/posthog;posthog/" --add-data "${{ runner.temp }}/site-packages/chromadb;chromadb/" --add-data "${{ runner.temp }}/site-packages/importlib_resources;importlib_resources/" --add-data "${{ runner.temp }}/site-packages/backoff;backoff/" --add-data "${{ runner.temp }}/site-packages/pypika;pypika/" --add-data "${{ runner.temp }}/site-packages/hnswlib.cp312-win_amd64.pyd;." --add-data "./.env.example;." --add-data "./tools/functions;tools/functions/"  "./backends/main.py"
+
+      - name: Create Inno-Setup package
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        with:
+          path: inno-setup-config-Windows-Github.iss
+          options: /O+
+
+      # Zip all files/folders in /installer and put in /artifacts/windows-latest/
+      - name: Zip assets (Windows)
+        shell: pwsh
+        if: startsWith(runner.os, 'Windows')
+        # Ensure the output directory matches the OutputDir in .iss file
+        run: |
+          mkdir -p ./artifacts/windows-latest
+          Compress-Archive -Path "D:/${{ github.workspace }}/${{ github.workspace }}/installer/*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}-artifact
+          path: ./artifacts/${{ matrix.os }}/${{ matrix.os }}-artifacts.zip # upload from
+
+  upload_assets:
+    name: Upload Assets to Release
+    needs: [build, create_release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Windows artifact
+        if: always()
+        uses: actions/download-artifact@v3
+        with:
+          name: windows-latest-artifact
+          path: ./artifacts/windows
+
+      - name: Upload Windows asset archive
+        if: always()
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.release_upload_url }}
+          asset_path: ./artifacts/windows/windows-latest-artifacts.zip # file location
+          asset_name: ObrewServer.WIN.Setup.zip # display name on release page (not file name)
+          asset_content_type: application/zip
