@@ -1,4 +1,4 @@
-# 🍺 Obrew Studio Server - Your Personal Ai Engine
+# 🍺 Obrew Studio: Server - Your Personal Ai Engine
 
 <img src="assets/images/doc-poster.png" align="center" />
 

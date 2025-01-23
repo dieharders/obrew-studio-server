@@ -25,7 +25,7 @@ DefaultDirName={userappdata}\ObrewServer
 DisableProgramGroupPage=yes
 ; the following line to run in non administrative install mode (install for current user only.)
 PrivilegesRequired=lowest
-OutputDir=C:\Project Files\brain-dump-ai\backend-homebrew-ai\installer
+OutputDir=C:\Project Files\brain-dump-ai\obrew-studio-server\installer
 OutputBaseFilename=ObrewServer.WIN.Setup
 Compression=lzma
 SolidCompression=yes
@@ -38,8 +38,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "C:\Project Files\brain-dump-ai\backend-homebrew-ai\output\Obrew-Server\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Project Files\brain-dump-ai\backend-homebrew-ai\output\Obrew-Server\_deps\*"; DestDir: "{app}/_deps"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "C:\Project Files\brain-dump-ai\obrew-studio-server\output\Obrew-Server\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Project Files\brain-dump-ai\obrew-studio-server\output\Obrew-Server\_deps\*"; DestDir: "{app}/_deps"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
