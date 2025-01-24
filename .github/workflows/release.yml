@@ -1,4 +1,4 @@
-name: 'Manual Windows Release'
+name: 'Manual Release'
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ on:
         required: false
 
 jobs:
-  # Assumes you created a git tag with `yarn version --[op]`
+  # Assumes you created a git tag with `yarn version --[operation]`
   create_release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
@@ -49,12 +49,11 @@ jobs:
           fetch-depth: 0 # Fetch all history for proper Git submodule initialization
           ref: ${{ github.event.inputs.ref || github.ref }} # checks out code you specify in github UI
 
-      - name: Install CUDA Toolkit (Windows)
-        shell: cmd
-        if: startsWith(runner.os, 'Windows')
-        run: |
-          choco install cuda --version=12.2 -y
-          refreshenv
+      # Wont be needed as we will be using the llama.cpp server binary which has this and the dll's included.
+      # - name: Install CUDA Toolkit (Windows)
+      #   uses: Jimver/cuda-toolkit@master
+      #   if: startsWith(runner.os, 'Windows')
+      #   id: cuda-toolkit
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -72,23 +71,36 @@ jobs:
         shell: bash
         run: pip install -r requirements.txt
 
-      - name: Configure llama-cpp-python for GPU:cuBLAS (Windows)
-        shell: cmd
-        if: startsWith(runner.os, 'Windows')
-        run: |
-          $env:PATH += ";C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\bin"
-          $env:LD_LIBRARY_PATH += ";C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\lib\x64"
-          $env:CMAKE_ARGS = "-DLLAMA_CUBLAS=on"
-          set FORCE_CMAKE=1 && set CMAKE_ARGS=-DLLAMA_CUBLAS=on && pip install llama-cpp-python --force-reinstall --ignore-installed --upgrade --no-cache-dir --verbose
+      # Not needed when using server binary
+      # - name: Download Pre-Compiled llama-cpp-python
+      #   run: |
+      #     # Replace the URL with your hosted .whl file
+      #     Invoke-WebRequest -Uri "https://your-storage-service/llama_cpp_python_cublas-0.1.0-py3-none-any.whl" -OutFile "llama_cpp_python_cublas.whl"
 
-      - name: Build Python code (pyinstaller)
+      # - name: Install llama-cpp-python with cuBLAS
+      #   run: |
+      #     python -m pip install llama_cpp_python_cublas.whl
+
+      # Not needed when using server binary
+      # - name: Configure llama-cpp-python for GPU:cuBLAS (Windows)
+      #   shell: cmd
+      #   if: startsWith(runner.os, 'Windows')
+      #   run: |
+      #     $env:PATH += ";C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\bin"
+      #     $env:LD_LIBRARY_PATH += ";C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\lib\x64"
+      #     $env:CMAKE_ARGS = "-DLLAMA_CUBLAS=on"
+      #     set FORCE_CMAKE=1 && set CMAKE_ARGS=-DLLAMA_CUBLAS=on && pip install llama-cpp-python --force-reinstall --ignore-installed --upgrade --no-cache-dir --verbose
+
+      - name: Build app binary (pyinstaller)
         shell: bash
         run: pyinstaller --noconfirm --onedir --windowed --icon "./backends/ui/favicon.ico" --name "Obrew-Server" --clean --no-embed-manifest --add-data "./public;public/" --add-data "./backends/ui/public;public/" --add-data "${{ env.CONDA_ENV_PATH }}/Lib/site-packages/llama_cpp;llama_cpp/" --hidden-import "tiktoken_ext.openai_public" --hidden-import "tiktoken_ext" --add-data "${{ runner.temp }}/site-packages/posthog;posthog/" --add-data "${{ runner.temp }}/site-packages/chromadb;chromadb/" --add-data "${{ runner.temp }}/site-packages/importlib_resources;importlib_resources/" --add-data "${{ runner.temp }}/site-packages/backoff;backoff/" --add-data "${{ runner.temp }}/site-packages/pypika;pypika/" --add-data "${{ runner.temp }}/site-packages/hnswlib.cp312-win_amd64.pyd;." --add-data "./.env.example;." --add-data "./tools/functions;tools/functions/"  "./backends/main.py"
 
-      - name: Create Inno-Setup package
+      # @TODO Need to define a way to determine which .iss file to use for target platform
+      - name: Create installer package (Inno-Setup)
+        if: startsWith(runner.os, 'Windows')
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
-          path: inno-setup-config-Windows-Github.iss
+          path: inno-setup-config-windows-github.iss
           options: /O+
 
       # Zip all files/folders in /installer and put in /artifacts/windows-latest/
