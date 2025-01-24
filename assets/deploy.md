@@ -20,36 +20,4 @@ yarn makecert
 
 This should be enough for any webapp served over https to access the server. If you see "Warning: Potential Security Risk Ahead" in your browser when using the webapp, you can ignore it by clicking `advanced` then `Accept the Risk` button to continue.
 
-# Releasing
-
-## Create a release on Github with link to installer
-
-1. Create a tag with:
-
-Increase the patch version by 1 (x.x.1 to x.x.2)
-
-```bash
-yarn version --patch
-```
-
-Increase the minor version by 1 (x.1.x to x.2.x)
-
-```bash
-yarn version --minor
-```
-
-Increase the major version by 1 (1.x.x to 2.x.x)
-
-```bash
-yarn version --major
-```
-
-2. Create a new release in Github and choose the tag just created or enter a new tag name for Github to make.
-
-3. Drag & Drop the binary file you wish to bundle with the release. Then hit done.
-
-4. If the project is public then the latest release's binary should be available on the web to anyone with the link:
-
-https://github.com/[github-user]/[project-name]/releases/latest/download/[installer-file-name]
-
 [Back to main README](../README.md)

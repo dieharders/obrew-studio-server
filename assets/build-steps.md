@@ -1,57 +1,54 @@
-# Build steps for GPU Support
+# Building locally
 
-These steps outline the process of supporting GPU's. If all you need is CPU, then you can skip this.
+Take all dependencies, dlls, source code and bundle with an executable. Be sure to generate self-signed certs for easy SSL setup in local environment.
 
-## Building llama.cpp
+## Build binary with PyInstaller:
 
-When you do the normal `pip install llama-cpp-python`, it installs with only CPU support by default.
+This is handled automatically by npm scripts so you do not need to execute these manually. The -F flag bundles everything into one .exe file.
 
-If you want GPU support for various platforms you must build llama.cpp from source and then pip --force-reinstall.
+To install the pyinstaller tool:
 
-Follow these steps to build llama-cpp-python for your hardware and platform.
-
-### Build for Nvidia GPU (cuBLAS) support on Windows
-
-1. Install Visual Studio (Community 2019 is fine) with components:
-
-- C++ CMake tools for Windows
-- C++ core features
-- Windows 10/11 SDK
-- Visual Studio Build Tools
-
-2. Install the CUDA Toolkit:
-
-- Download CUDA Toolkit from https://developer.nvidia.com/cuda-toolkit
-- Install only components for CUDA
-- If the installation fails, you will need to uncheck everything and only install `visual_studio_integration`. Next proceed to install packages one at a time or in batches until everything is installed.
-- Add CUDA_PATH (C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2) to your environment variables
-
-3. llama-cpp-python build steps:
-
-If on Windows, run the following using "Command Prompt" tool. If you are developing in a python virtual or Anaconda env, be sure you have the env activated first and then run from Windows cmd prompt.
-
-```cmd
-set FORCE_CMAKE=1 && set CMAKE_ARGS=-DLLAMA_CUBLAS=on && pip install llama-cpp-python --force-reinstall --ignore-installed --upgrade --no-cache-dir --verbose
+```bash
+pip install -U pyinstaller
 ```
 
-- If CUDA is detected but you get `No CUDA toolset found` error, copy all files from:
+Then use it to bundle a python script:
 
-`C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.3\extras\visual_studio_integration\MSBuildExtensions`
+```bash
+pyinstaller -c -F your_program.py
+```
 
-into
+## Build binary with auto-py-to-exe (recommended)
 
-`C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Microsoft\VC\v160\BuildCustomizations`
+This is a GUI tool that greatly simplifies the process. You can also save and load configs. It uses PyInstaller under the hood and requires it to be installed. Please note if using a conda or virtual environment, be sure to install both PyInstaller and auto-py-to-exe in your virtual environment and also run them from there, otherwise one or both will build from incorrect deps.
 
-(Adjust the path/version as necessary)
+\*_Note_, you will need to edit paths for the following in `auto-py-to-exe` to point to your base project directory:
 
-4. Once everything is installed, be sure to set `n_gpu_layers` to an integer higher than 0 to offload inference layers to gpu. You will need to play with this number depending on VRAM and context size of model.
+- Settings -> Output directory
+- Additional Files
+- Script Location
+- Icon Location
 
-### Build GPU support for other platforms
+To run:
 
-See here https://github.com/ggerganov/llama.cpp#build
+```bash
+auto-py-to-exe
+```
 
-and here https://github.com/abetlen/llama-cpp-python/blob/main/README.md#installation-with-specific-hardware-acceleration-blas-cuda-metal-etc
+# Build using Github Action
 
-for steps to compile to other targets.
+Fork this repo in order to access a manual trigger to build for each platform (Windows, MacOS, Linux) and upload a release.
+
+Modify the `release.yml` build pipeline. Workflow permissions must be set to "Read and write". Any git tags created before a workflow existed will not be usable for that workflow. You must specify a tag to run from (not a branch name).
+
+Initiate the Workflow Manually:
+
+1. Navigate to the "Actions" tab in your GitHub repository.
+2. Select the "Manual Release" workflow.
+3. Click on "Run workflow" and provide the necessary inputs:
+
+   - release_name: The title of the release.
+   - release_notes (optional): Notes or changelog for the release.
+   - release_type: ("draft", "public", "private")
 
 [Back to main README](../README.md)
