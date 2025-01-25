@@ -112,6 +112,7 @@ def _close_app(api=None):
 
 def main():
     try:
+        # Webview api
         window_api = Api(
             port=port,
             host=host,

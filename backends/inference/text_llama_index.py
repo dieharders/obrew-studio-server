@@ -153,9 +153,9 @@ def load_text_model(
     gen_settings: classes.LoadTextInferenceCall,  # generation settings
     callback_manager: CallbackManager = None,  # Optional, debugging
 ):
-    n_ctx = init_settings.n_ctx or classes.DEFAULT_CONTEXT_WINDOW
+    n_ctx = init_settings.n_ctx or classes.DEFAULT_MIN_CONTEXT_WINDOW
     if n_ctx <= 0:
-        n_ctx = classes.DEFAULT_CONTEXT_WINDOW
+        n_ctx = classes.DEFAULT_MIN_CONTEXT_WINDOW
     seed = init_settings.seed
     temperature = gen_settings.temperature
     m_tokens = gen_settings.max_tokens
