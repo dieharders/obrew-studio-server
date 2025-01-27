@@ -63,6 +63,15 @@ jobs:
         with:
           python-version: '3.12'
 
+      # Cache dependencies
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.release.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
       # 3. Install package manager for Python
       - name: Install pip for Python
         shell: bash
