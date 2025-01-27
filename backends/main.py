@@ -5,18 +5,17 @@ import signal
 from dotenv import load_dotenv
 
 # Custom
-from ui.view import WEBVIEW
+from ui.view import Webview
 from ui.api_ui import Api
 from core import common
 
-
 ###############
-### Globals ###
+### Methods ###
 ###############
 
 
 # Parse runtime arguments passed to script
-def parse_runtime_args():
+def _parse_runtime_args():
     # Command-line arguments are accessed via sys.argv
     arguments = sys.argv[1:]
     # Initialize default variables to store parsed arguments
@@ -40,41 +39,6 @@ def parse_runtime_args():
         "mode": mode,
         "headless": headless,
     }
-
-
-# Path to the .env file in either the parent or /_deps directory
-try:
-    # Look in app's _deps dir
-    if sys._MEIPASS:
-        env_path = common.dep_path(".env")
-except Exception:
-    # Otherwise look in codebase root dir
-    current_directory = os.path.dirname(os.path.abspath(__file__))
-    parent_directory = os.path.dirname(current_directory)
-    env_path = os.path.join(parent_directory, ".env")
-load_dotenv(env_path)
-
-# Check what env is running - prod/dev
-build_env = parse_runtime_args()
-
-# Initialize global data
-host = build_env["host"]
-port = build_env["port"]
-is_headless = build_env["headless"] == "True"  # no UI
-is_debug = hasattr(sys, "gettrace") and sys.gettrace() is not None
-is_dev = build_env["mode"] == "dev" or is_debug
-is_prod = build_env["mode"] == "prod" or not is_dev
-webui_url = "https://studio.openbrewai.com"
-
-# Comment out if you want to debug on prod build (or set --mode=prod flag in command)
-if is_prod:
-    # Remove prints in prod when deploying in window mode
-    sys.stdout = open(os.devnull, "w")
-    sys.stderr = open(os.devnull, "w")
-
-###############
-### Methods ###
-###############
 
 
 def _get_server_info():
@@ -143,7 +107,7 @@ def main():
         if not is_headless:
             server_info = _get_server_info()
             remote_ip = server_info["remote_ip"]
-            view_instance = WEBVIEW(
+            view_instance = Webview(
                 js_api=window_api,
                 is_prod=is_prod,
                 is_dev=is_dev,
@@ -163,4 +127,27 @@ def main():
 # This script is the loader for the rest of the backend. It only handles UI and starting dependencies.
 if __name__ == "__main__":
     print(f"{common.PRNT_APP} Starting app...", flush=True)
+
+    # Path to the .env file in either the parent or /_deps directory
+    env_path = common.dep_path(".env")
+    load_dotenv(env_path)
+
+    # Check what env is running - prod/dev
+    build_env = _parse_runtime_args()
+
+    # Initialize global data
+    host = build_env["host"]
+    port = build_env["port"]
+    is_headless = build_env["headless"] == "True"  # no UI
+    is_debug = hasattr(sys, "gettrace") and sys.gettrace() is not None
+    is_dev = build_env["mode"] == "dev" or is_debug
+    is_prod = build_env["mode"] == "prod" or not is_dev
+    webui_url = "https://studio.openbrewai.com"
+
+    # Comment out if you want to debug on prod build (or set --mode=prod flag in command)
+    if is_prod:
+        # Remove prints in prod when deploying in window mode
+        sys.stdout = open(os.devnull, "w")
+        sys.stderr = open(os.devnull, "w")
+
     main()
