@@ -16,6 +16,7 @@ on:
 
 jobs:
   # Assumes you created a git tag with `yarn version --[operation]`
+  # @TODO should this come last?
   create_release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
@@ -35,7 +36,7 @@ jobs:
           prerelease: ${{ github.event.inputs.release_type == 'private' }} # visible only to collaborators
 
   build:
-    name: Build for ${{ matrix.os }} and Upload Artifacts
+    name: Build for ${{ matrix.os }}
     needs: create_release
     runs-on: ${{ matrix.os }}
     strategy:
@@ -43,75 +44,92 @@ jobs:
         os: [windows-latest] # builds for each platform, in seperate vm's, in this order
     continue-on-error: true
     steps:
+      # 1. Pull down repo
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Fetch all history for proper Git submodule initialization
           ref: ${{ github.event.inputs.ref || github.ref }} # checks out code you specify in github UI
 
-      # Wont be needed as we will be using the llama.cpp server binary which has this and the dll's included.
+      # Only needed if we are building llama.cpp from source
       # - name: Install CUDA Toolkit (Windows)
       #   uses: Jimver/cuda-toolkit@master
       #   if: startsWith(runner.os, 'Windows')
       #   id: cuda-toolkit
 
-      - name: Set up Python
+      # 2. Install Python
+      - name: Install Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
 
-      - name: Set up pip for Python
+      # 3. Install package manager for Python
+      - name: Install pip for Python
         shell: bash
         run: |
           python --version
           pip --version || python -m ensurepip --upgrade
           python -m pip install --upgrade pip setuptools wheel
 
-      - name: Install Python Deps
+      # 4. Install Python dependencies
+      - name: Install Python deps
         shell: bash
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.release.txt
 
-      # Not needed when using server binary
-      # - name: Download Pre-Compiled llama-cpp-python
-      #   run: |
-      #     # Replace the URL with your hosted .whl file
-      #     Invoke-WebRequest -Uri "https://your-storage-service/llama_cpp_python_cublas-0.1.0-py3-none-any.whl" -OutFile "llama_cpp_python_cublas.whl"
-
-      # - name: Install llama-cpp-python with cuBLAS
-      #   run: |
-      #     python -m pip install llama_cpp_python_cublas.whl
-
-      # Not needed when using server binary
-      # - name: Configure llama-cpp-python for GPU:cuBLAS (Windows)
-      #   shell: cmd
-      #   if: startsWith(runner.os, 'Windows')
-      #   run: |
-      #     $env:PATH += ";C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\bin"
-      #     $env:LD_LIBRARY_PATH += ";C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\lib\x64"
-      #     $env:CMAKE_ARGS = "-DLLAMA_CUBLAS=on"
-      #     set FORCE_CMAKE=1 && set CMAKE_ARGS=-DLLAMA_CUBLAS=on && pip install llama-cpp-python --force-reinstall --ignore-installed --upgrade --no-cache-dir --verbose
-
-      - name: Build app binary (pyinstaller)
+      # 5a. Build the app binary (pyinstaller) for Windows
+      - name: Build app (Windows)
         shell: bash
-        run: pyinstaller --noconfirm --onedir --windowed --icon "./backends/ui/favicon.ico" --name "Obrew-Server" --clean --no-embed-manifest --add-data "./public;public/" --add-data "./backends/ui/public;public/" --add-data "${{ env.CONDA_ENV_PATH }}/Lib/site-packages/llama_cpp;llama_cpp/" --hidden-import "tiktoken_ext.openai_public" --hidden-import "tiktoken_ext" --add-data "${{ runner.temp }}/site-packages/posthog;posthog/" --add-data "${{ runner.temp }}/site-packages/chromadb;chromadb/" --add-data "${{ runner.temp }}/site-packages/importlib_resources;importlib_resources/" --add-data "${{ runner.temp }}/site-packages/backoff;backoff/" --add-data "${{ runner.temp }}/site-packages/pypika;pypika/" --add-data "${{ runner.temp }}/site-packages/hnswlib.cp312-win_amd64.pyd;." --add-data "./.env.example;." --add-data "./tools/functions;tools/functions/"  "./backends/main.py"
-
-      # @TODO Need to define a way to determine which .iss file to use for target platform
-      - name: Create installer package (Inno-Setup)
         if: startsWith(runner.os, 'Windows')
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
-        with:
-          path: inno-setup-config-windows-github.iss
-          options: /O+
+        run: pyinstaller --noconfirm --onedir --windowed --icon "./backends/ui/favicon.ico" --name "Obrew-Server" --clean --no-embed-manifest --add-data "./public;public/" --add-data "./backends/ui/public;public/" --hidden-import "tiktoken_ext.openai_public" --hidden-import "tiktoken_ext" --add-data "${{ runner.temp }}/site-packages/posthog;posthog/" --add-data "${{ runner.temp }}/site-packages/chromadb;chromadb/" --add-data "${{ runner.temp }}/site-packages/importlib_resources;importlib_resources/" --add-data "${{ runner.temp }}/site-packages/backoff;backoff/" --add-data "${{ runner.temp }}/site-packages/pypika;pypika/" --add-data "${{ runner.temp }}/site-packages/hnswlib.cp312-win_amd64.pyd;." --add-data "./.env.example;.env" --add-data "./tools/functions;tools/functions/"  "./backends/main.py"
 
-      # Zip all files/folders in /installer and put in /artifacts/windows-latest/
+      # 5b. Build the app binary (pyinstaller) for macOS/Linux
+      # Same command, but ; replaced with :
+      - name: Build app (macOS/Linux)
+        shell: bash
+        if: runner.os != 'Windows'
+        run: pyinstaller --noconfirm --onedir --windowed --icon "./backends/ui/favicon.ico" --name "Obrew-Server" --clean --no-embed-manifest --add-data "./public:public/" --add-data "./backends/ui/public:public/" --hidden-import "tiktoken_ext.openai_public" --hidden-import "tiktoken_ext" --add-data "${{ runner.temp }}/site-packages/posthog:posthog/" --add-data "${{ runner.temp }}/site-packages/chromadb:chromadb/" --add-data "${{ runner.temp }}/site-packages/importlib_resources:importlib_resources/" --add-data "${{ runner.temp }}/site-packages/backoff:backoff/" --add-data "${{ runner.temp }}/site-packages/pypika:pypika/" --add-data "${{ runner.temp }}/site-packages/hnswlib.cp312-win_amd64.pyd:." --add-data "./.env.example:.env" --add-data "./tools/functions:tools/functions/"  "./backends/main.py"
+
+  package:
+    name: Package for ${{ matrix.os }} and Upload Artifacts
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest] # builds for each platform, in seperate vm's, in this order
+    continue-on-error: true
+    env:
+      CMAKE_SOURCE_DIR: ${{ github.workspace }} # Points to the root of your repository
+    steps:
+      # 1. Set up CMake
+      - name: Set up CMake
+        uses: lukka/get-cmake@v4
+        with:
+          cmakeVersion: latest
+
+      # 2. Set up Platform-Specific Dependencies
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install -y nsis
+
+      # 3. Configure with CMake
+      - name: Configure CMake
+        run: cmake -S $CMAKE_SOURCE_DIR -B build -D CMAKE_BUILD_TYPE=Release
+
+      # 4. Package with CPack
+      - name: Create installer package (CPack)
+        run: cmake --build build --target package
+
+      # 5. Zip all package files/folders in /build and put in /artifacts/windows-latest/
       - name: Zip assets (Windows)
         shell: pwsh
         if: startsWith(runner.os, 'Windows')
-        # Ensure the output directory matches the OutputDir in .iss file
+        # Ensure the output directory matches the OutputDir of CPack
         run: |
           mkdir -p ./artifacts/windows-latest
-          Compress-Archive -Path "D:/${{ github.workspace }}/${{ github.workspace }}/installer/*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
+          Compress-Archive -Path "build/*.*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
 
+      # 6. Upload Installer Artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
@@ -120,7 +138,7 @@ jobs:
 
   upload_assets:
     name: Upload Assets to Release
-    needs: [build, create_release]
+    needs: [build, package, create_release]
     runs-on: ubuntu-latest
     steps:
       - name: Download Windows artifact
