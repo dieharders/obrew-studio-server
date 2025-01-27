@@ -101,26 +101,26 @@ jobs:
         run: pip install -r requirements.release.txt
 
       # 5a. Build the app binary (pyinstaller) for Windows
-      - name: Build app (Windows)
-        shell: bash
-        if: startsWith(runner.os, 'Windows')
-        run: |
-          pyinstaller --noconfirm --onedir --windowed \
-            --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
-            --name "Obrew-Server" --clean \
-            --add-data "${{ github.workspace }}/public;public/" \
-            --add-data "${{ github.workspace }}/backends/ui/public;public/" \
-            --hidden-import "tiktoken_ext.openai_public" \
-            --hidden-import "tiktoken_ext" \
-            --add-data "${{ env.pythonLocation }}/lib/site-packages/posthog;posthog/" \
-            --add-data "${{ env.pythonLocation }}/lib/site-packages/chromadb;chromadb/" \
-            --add-data "${{ env.pythonLocation }}/lib/site-packages/importlib_resources;importlib_resources/" \
-            --add-data "${{ env.pythonLocation }}/lib/site-packages/backoff;backoff/" \
-            --add-data "${{ env.pythonLocation }}/lib/site-packages/pypika;pypika/" \
-            --add-data "${{ env.pythonLocation }}/lib/site-packages/hnswlib.cp312-win_amd64.pyd;." \
-            --add-data "${{ github.workspace }}/.env.example;.env" \
-            --add-data "${{ github.workspace }}/tools/functions;tools/functions/" \
-            "${{ github.workspace }}/backends/main.py"
+      # - name: Build app (Windows)
+      #   shell: bash
+      #   if: startsWith(runner.os, 'Windows')
+      #   run: |
+      #     pyinstaller --noconfirm --onedir --windowed \
+      #       --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
+      #       --name "Obrew-Server" --clean \
+      #       --add-data "${{ github.workspace }}/public;public/" \
+      #       --add-data "${{ github.workspace }}/backends/ui/public;public/" \
+      #       --hidden-import "tiktoken_ext.openai_public" \
+      #       --hidden-import "tiktoken_ext" \
+      #       --add-data "${{ env.pythonLocation }}/lib/site-packages/posthog;posthog/" \
+      #       --add-data "${{ env.pythonLocation }}/lib/site-packages/chromadb;chromadb/" \
+      #       --add-data "${{ env.pythonLocation }}/lib/site-packages/importlib_resources;importlib_resources/" \
+      #       --add-data "${{ env.pythonLocation }}/lib/site-packages/backoff;backoff/" \
+      #       --add-data "${{ env.pythonLocation }}/lib/site-packages/pypika;pypika/" \
+      #       --add-data "${{ env.pythonLocation }}/lib/site-packages/hnswlib.cp312-win_amd64.pyd;." \
+      #       --add-data "${{ github.workspace }}/.env.example;.env" \
+      #       --add-data "${{ github.workspace }}/tools/functions;tools/functions/" \
+      #       "${{ github.workspace }}/backends/main.py"
 
       # 5b. Build the app binary (pyinstaller) for macOS/Linux
       # Same command, but ; replaced with :
