@@ -14,6 +14,11 @@ on:
         description: 'Release notes'
         required: false
 
+# permissions:
+#     # Give the default GITHUB_TOKEN write permission to commit and push the
+#     # added or changed files to the repository.
+#     contents: write
+
 jobs:
   # Assumes you created a git tag with `yarn version --[operation]`
   # @TODO should this come last?
@@ -62,15 +67,28 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
+          cache: 'pip-cache'
+
+      - name: Print a message
+        run: |
+          echo "${{ env.pythonLocation }}"
+          echo "${{ runner.tool_cache }}"
+          echo "${{ github.workspace }}"
+          search_dir=${{ env.pythonLocation }}
+          for entry in "$search_dir"/*
+          do
+            echo "$entry"
+          done
 
       # Cache dependencies
       - name: Cache Python dependencies
         uses: actions/cache@v3
         with:
-          path: ~/.cache/pip
+          path: ${{ env.pythonLocation }}/lib/python3.12/site-packages/*
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.release.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
+            ${{ runner.os }}-
 
       # 3. Install package manager for Python
       - name: Install pip for Python
@@ -93,16 +111,16 @@ jobs:
           pyinstaller --noconfirm --onedir --windowed \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
             --name "Obrew-Server" --clean \
-            --add-data "${{ github.workspace }}\\public;public\\" \
+            --add-data "${{ github.workspace }}/public;public/" \
             --add-data "${{ github.workspace }}/backends/ui/public;public/" \
             --hidden-import "tiktoken_ext.openai_public" \
             --hidden-import "tiktoken_ext" \
-            --add-data "${{ runner.temp }}/site-packages/posthog;posthog/" \
-            --add-data "${{ runner.temp }}/site-packages/chromadb;chromadb/" \
-            --add-data "${{ runner.temp }}/site-packages/importlib_resources;importlib_resources/" \
-            --add-data "${{ runner.temp }}/site-packages/backoff;backoff/" \
-            --add-data "${{ runner.temp }}/site-packages/pypika;pypika/" \
-            --add-data "${{ runner.temp }}/site-packages/hnswlib.cp312-win_amd64.pyd;." \
+            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/posthog;posthog/" \
+            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/chromadb;chromadb/" \
+            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/importlib_resources;importlib_resources/" \
+            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/backoff;backoff/" \
+            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/pypika;pypika/" \
+            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/hnswlib.cp312-win_amd64.pyd;." \
             --add-data "${{ github.workspace }}/.env.example;.env" \
             --add-data "${{ github.workspace }}/tools/functions;tools/functions/" \
             "${{ github.workspace }}/backends/main.py"
@@ -120,12 +138,12 @@ jobs:
             --add-data "${{ github.workspace }}/backends/ui/public:public/" \
             --hidden-import "tiktoken_ext.openai_public" \
             --hidden-import "tiktoken_ext" \
-            --add-data "${{ runner.temp }}/site-packages/posthog:posthog/" \
-            --add-data "${{ runner.temp }}/site-packages/chromadb:chromadb/" \
-            --add-data "${{ runner.temp }}/site-packages/importlib_resources:importlib_resources/" \
-            --add-data "${{ runner.temp }}/site-packages/backoff:backoff/" \
-            --add-data "${{ runner.temp }}/site-packages/pypika:pypika/" \
-            --add-data "${{ runner.temp }}/site-packages/hnswlib.cp312-win_amd64.pyd:." \
+            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/posthog:posthog/" \
+            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/chromadb:chromadb/" \
+            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/importlib_resources:importlib_resources/" \
+            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/backoff:backoff/" \
+            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/pypika:pypika/" \
+            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/hnswlib.cp312-win_amd64.pyd:." \
             --add-data "${{ github.workspace }}/.env.example:.env" \
             --add-data "${{ github.workspace }}/tools/functions:tools/functions/" \
             "${{ github.workspace }}/backends/main.py"
