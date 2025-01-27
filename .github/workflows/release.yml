@@ -76,17 +76,17 @@ jobs:
       #     echo "${{ runner.tool_cache }}"
       #     echo "${{ github.workspace }}"
 
-      # Cache build dependencies (anything built that you could re-use)
+      # Cache build dependencies (anything built that you could re-use, like venv)
       # Not needed for python deps, just an example
-      # - name: Cache Python dependencies
-      #   uses: actions/cache@v3
-      #   id: cache-pip
-      #   with:
-      #     path: ${{ env.pythonLocation }}
-      #     key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.release.txt') }}
-      #     restore-keys: |
-      #       ${{ runner.os }}-pip-
-      #       ${{ runner.os }}-
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        id: cache-pip
+        with:
+          path: ${{ env.pythonLocation }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.release.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
 
       # 3. Install package manager for Python
       - name: Install pip for Python
