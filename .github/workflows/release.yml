@@ -64,26 +64,24 @@ jobs:
 
       # 2. Install Python
       - name: Install Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
 
-      - name: Print a message
-        shell: bash
-        run: |
-          echo "${{ env.pythonLocation }}"
-          echo "${{ runner.tool_cache }}"
-          echo "${{ github.workspace }}"
-          search_dir=${{ env.pythonLocation }}
-          for entry in "$search_dir"/*; do
-            echo "$entry"
-          done
+      # - name: Print a message
+      #   shell: bash
+      #   run: |
+      #     echo "${{ env.pythonLocation }}"
+      #     echo "${{ runner.tool_cache }}"
+      #     echo "${{ github.workspace }}"
 
       # Cache dependencies
       - name: Cache Python dependencies
         uses: actions/cache@v3
+        id: cache-pip
         with:
-          path: ${{ env.pythonLocation }}/lib/python3.12/site-packages/*
+          path: ${{ env.pythonLocation }}
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.release.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
@@ -114,12 +112,12 @@ jobs:
             --add-data "${{ github.workspace }}/backends/ui/public;public/" \
             --hidden-import "tiktoken_ext.openai_public" \
             --hidden-import "tiktoken_ext" \
-            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/posthog;posthog/" \
-            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/chromadb;chromadb/" \
-            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/importlib_resources;importlib_resources/" \
-            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/backoff;backoff/" \
-            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/pypika;pypika/" \
-            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/hnswlib.cp312-win_amd64.pyd;." \
+            --add-data "${{ env.pythonLocation }}/lib/site-packages/posthog;posthog/" \
+            --add-data "${{ env.pythonLocation }}/lib/site-packages/chromadb;chromadb/" \
+            --add-data "${{ env.pythonLocation }}/lib/site-packages/importlib_resources;importlib_resources/" \
+            --add-data "${{ env.pythonLocation }}/lib/site-packages/backoff;backoff/" \
+            --add-data "${{ env.pythonLocation }}/lib/site-packages/pypika;pypika/" \
+            --add-data "${{ env.pythonLocation }}/lib/site-packages/hnswlib.cp312-win_amd64.pyd;." \
             --add-data "${{ github.workspace }}/.env.example;.env" \
             --add-data "${{ github.workspace }}/tools/functions;tools/functions/" \
             "${{ github.workspace }}/backends/main.py"
@@ -137,12 +135,12 @@ jobs:
             --add-data "${{ github.workspace }}/backends/ui/public:public/" \
             --hidden-import "tiktoken_ext.openai_public" \
             --hidden-import "tiktoken_ext" \
-            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/posthog:posthog/" \
-            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/chromadb:chromadb/" \
-            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/importlib_resources:importlib_resources/" \
-            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/backoff:backoff/" \
-            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/pypika:pypika/" \
-            --add-data "${{ runner.tool_cache }}/windows/Python/3.12.8/x64/Lib/site-packages/hnswlib.cp312-win_amd64.pyd:." \
+            --add-data "${{ env.pythonLocation }}/lib/site-packages/posthog:posthog/" \
+            --add-data "${{ env.pythonLocation }}/lib/site-packages/chromadb:chromadb/" \
+            --add-data "${{ env.pythonLocation }}/lib/site-packages/importlib_resources:importlib_resources/" \
+            --add-data "${{ env.pythonLocation }}/lib/site-packages/backoff:backoff/" \
+            --add-data "${{ env.pythonLocation }}/lib/site-packages/pypika:pypika/" \
+            --add-data "${{ env.pythonLocation }}/lib/site-packages/hnswlib.cp312-win_amd64.pyd:." \
             --add-data "${{ github.workspace }}/.env.example:.env" \
             --add-data "${{ github.workspace }}/tools/functions:tools/functions/" \
             "${{ github.workspace }}/backends/main.py"
