@@ -80,15 +80,46 @@ jobs:
       - name: Build app (Windows)
         shell: bash
         if: startsWith(runner.os, 'Windows')
-        run: pyinstaller --noconfirm --onedir --windowed --icon "./backends/ui/favicon.ico" --name "Obrew-Server" --clean --add-data "./public;public/" --add-data "./backends/ui/public;public/" --hidden-import "tiktoken_ext.openai_public" --hidden-import "tiktoken_ext" --add-data "${{ runner.temp }}/site-packages/posthog;posthog/" --add-data "${{ runner.temp }}/site-packages/chromadb;chromadb/" --add-data "${{ runner.temp }}/site-packages/importlib_resources;importlib_resources/" --add-data "${{ runner.temp }}/site-packages/backoff;backoff/" --add-data "${{ runner.temp }}/site-packages/pypika;pypika/" --add-data "${{ runner.temp }}/site-packages/hnswlib.cp312-win_amd64.pyd;." --add-data "./.env.example;.env" --add-data "./tools/functions;tools/functions/"  "./backends/main.py"
+        run: |
+          pyinstaller --noconfirm --onedir --windowed \
+            --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
+            --name "Obrew-Server" --clean \
+            --add-data "${{ github.workspace }}/public;public/" \
+            --add-data "${{ github.workspace }}/backends/ui/public;public/" \
+            --hidden-import "tiktoken_ext.openai_public" \
+            --hidden-import "tiktoken_ext" \
+            --add-data "${{ runner.temp }}/site-packages/posthog;posthog/" \
+            --add-data "${{ runner.temp }}/site-packages/chromadb;chromadb/" \
+            --add-data "${{ runner.temp }}/site-packages/importlib_resources;importlib_resources/" \
+            --add-data "${{ runner.temp }}/site-packages/backoff;backoff/" \
+            --add-data "${{ runner.temp }}/site-packages/pypika;pypika/" \
+            --add-data "${{ runner.temp }}/site-packages/hnswlib.cp312-win_amd64.pyd;." \
+            --add-data "${{ github.workspace }}/.env.example;.env" \
+            --add-data "${{ github.workspace }}/tools/functions;tools/functions/" \
+            "${{ github.workspace }}/backends/main.py"
 
       # 5b. Build the app binary (pyinstaller) for macOS/Linux
       # Same command, but ; replaced with :
       - name: Build app (macOS/Linux)
         shell: bash
         if: runner.os != 'Windows'
-        run: pyinstaller --noconfirm --onedir --windowed --icon "./backends/ui/favicon.ico" --name "Obrew-Server" --clean --add-data "./public:public/" --add-data "./backends/ui/public:public/" --hidden-import "tiktoken_ext.openai_public" --hidden-import "tiktoken_ext" --add-data "${{ runner.temp }}/site-packages/posthog:posthog/" --add-data "${{ runner.temp }}/site-packages/chromadb:chromadb/" --add-data "${{ runner.temp }}/site-packages/importlib_resources:importlib_resources/" --add-data "${{ runner.temp }}/site-packages/backoff:backoff/" --add-data "${{ runner.temp }}/site-packages/pypika:pypika/" --add-data "${{ runner.temp }}/site-packages/hnswlib.cp312-win_amd64.pyd:." --add-data "./.env.example:.env" --add-data "./tools/functions:tools/functions/"  "./backends/main.py"
-
+        run: |
+          pyinstaller --noconfirm --onedir --windowed \
+            --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
+            --name "Obrew-Server" --clean \
+            --add-data "${{ github.workspace }}/public:public/" \
+            --add-data "${{ github.workspace }}/backends/ui/public:public/" \
+            --hidden-import "tiktoken_ext.openai_public" \
+            --hidden-import "tiktoken_ext" \
+            --add-data "${{ runner.temp }}/site-packages/posthog:posthog/" \
+            --add-data "${{ runner.temp }}/site-packages/chromadb:chromadb/" \
+            --add-data "${{ runner.temp }}/site-packages/importlib_resources:importlib_resources/" \
+            --add-data "${{ runner.temp }}/site-packages/backoff:backoff/" \
+            --add-data "${{ runner.temp }}/site-packages/pypika:pypika/" \
+            --add-data "${{ runner.temp }}/site-packages/hnswlib.cp312-win_amd64.pyd:." \
+            --add-data "${{ github.workspace }}/.env.example:.env" \
+            --add-data "${{ github.workspace }}/tools/functions:tools/functions/" \
+            "${{ github.workspace }}/backends/main.py"
   package:
     name: Package for ${{ matrix.os }} and Upload Artifacts
     needs: build
@@ -96,7 +127,6 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest] # builds for each platform, in seperate vm's, in this order
-    continue-on-error: true
     env:
       CMAKE_SOURCE_DIR: ${{ github.workspace }} # Points to the root of your repository
     steps:
