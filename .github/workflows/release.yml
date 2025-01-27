@@ -69,13 +69,13 @@ jobs:
           python-version: '3.12'
 
       - name: Print a message
+        shell: bash
         run: |
           echo "${{ env.pythonLocation }}"
           echo "${{ runner.tool_cache }}"
           echo "${{ github.workspace }}"
           search_dir=${{ env.pythonLocation }}
-          for entry in "$search_dir"/*
-          do
+          for entry in "$search_dir"/*; do
             echo "$entry"
           done
 
