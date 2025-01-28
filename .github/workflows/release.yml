@@ -50,15 +50,7 @@ jobs:
           python-version: '3.12'
           # cache: 'pip' # caches the downloaded package installers only, if you cache the venv then disabling this will save about 20s
 
-      # - name: List contents of GitHub workspace
-      #   shell: bash
-      #   run: |
-      #     echo "Contents of the GitHub workspace directory:"
-      #     ls -al "${{ github.workspace }}"
-      #     # echo "Contents of the Python directory:"
-      #     # ls -al "${{ env.pythonLocation }}"
-
-      # Load the cached python virtual environment
+      # 3. Load the cached python virtual environment
       - name: Restore cached venv
         id: restore-cache
         uses: actions/cache/restore@v4
@@ -66,10 +58,9 @@ jobs:
           key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.release.txt') }}
           path: .venv
 
-      # Create virtual environment, Install package manager and dependencies for Python
+      # 4. Create virtual environment, Install package manager and dependencies for Python
       - name: Setup venv (install deps)
         shell: bash
-        # if: runner.os == 'Windows' && steps.restore-cache.outputs.cache-hit == false
         if: runner.os == 'Windows'
         run: |
           python -m venv .venv # noop if cache is found
@@ -80,19 +71,29 @@ jobs:
           .venv/Scripts/python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
           .venv/Scripts/python -m pip install -r requirements.release.txt # install deps, use --prefer-binary to install from wheels instead of source
 
-      # Cache python virtual environment for later runs
+      # 5. Cache python virtual environment for later runs
       - name: Save cached venv
         uses: actions/cache/save@v4
         with:
           key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.release.txt') }}
           path: .venv
 
-      # 5a. Build the app binary (pyinstaller) for Windows
+      - name: List contents of GitHub workspace
+        shell: bash
+        run: |
+          echo "Contents of the GitHub workspace directory:"
+          ls -al "${{ github.workspace }}"
+          echo ".venv/lib/site-packages"
+          ls -al .venv/lib/site-packages
+          # echo "Contents of the Python directory:"
+          # ls -al "${{ env.pythonLocation }}"
+
+      # 6a. Build the app binary (pyinstaller) for Windows
       - name: Build app (Windows)
         shell: bash
         if: runner.os == 'Windows'
         env:
-          PATH: .venv/Scripts
+          PATH: .venv/Scripts:${{ env.PATH }}
         run: |
           env
           .venv/Scripts/activate # must activate env before each step
@@ -102,19 +103,20 @@ jobs:
             --distpath output \
             --hidden-import "tiktoken_ext.openai_public" \
             --hidden-import "tiktoken_ext" \
+            # `env.pythonLocation` should be used if no venv
             --add-data "${{ github.workspace }}/public;public/" \
             --add-data "${{ github.workspace }}/backends/ui/public;public/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/posthog;posthog/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/chromadb;chromadb/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/importlib_resources;importlib_resources/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/backoff;backoff/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/pypika;pypika/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/hnswlib.cp312-win_amd64.pyd;." \
+            --add-data ".venv/lib/site-packages/posthog;posthog/" \
+            --add-data ".venv/lib/site-packages/chromadb;chromadb/" \
+            --add-data ".venv/lib/site-packages/importlib_resources;importlib_resources/" \
+            --add-data ".venv/lib/site-packages/backoff;backoff/" \
+            --add-data ".venv/lib/site-packages/pypika;pypika/" \
+            --add-data ".venv/lib/site-packages/hnswlib.cp312-win_amd64.pyd;." \
             --add-data "${{ github.workspace }}/.env.example;.env" \
             --add-data "${{ github.workspace }}/tools/functions;tools/functions/" \
             "${{ github.workspace }}/backends/main.py"
 
-      # 5b. Build the app binary (pyinstaller) for macOS/Linux
+      # 6b. Build the app binary (pyinstaller) for macOS/Linux
       # Same command, but ; replaced with :
       - name: Build app (macOS/Linux)
         shell: bash
@@ -127,12 +129,12 @@ jobs:
             --add-data "${{ github.workspace }}/backends/ui/public:public/" \
             --hidden-import "tiktoken_ext.openai_public" \
             --hidden-import "tiktoken_ext" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/posthog:posthog/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/chromadb:chromadb/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/importlib_resources:importlib_resources/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/backoff:backoff/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/pypika:pypika/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/hnswlib.cp312-win_amd64.pyd:." \
+            --add-data ".venv/lib/site-packages/posthog:posthog/" \
+            --add-data ".venv/lib/site-packages/chromadb:chromadb/" \
+            --add-data ".venv/lib/site-packages/importlib_resources:importlib_resources/" \
+            --add-data ".venv/lib/site-packages/backoff:backoff/" \
+            --add-data ".venv/lib/site-packages/pypika:pypika/" \
+            --add-data ".venv/lib/site-packages/hnswlib.cp312-win_amd64.pyd:." \
             --add-data "${{ github.workspace }}/.env.example:.env" \
             --add-data "${{ github.workspace }}/tools/functions:tools/functions/" \
             "${{ github.workspace }}/backends/main.py"
