@@ -148,6 +148,7 @@ jobs:
           ls -la "${{ github.workspace }}/dist"
           cmake -S . -B build_temp -D CMAKE_BUILD_TYPE=Release
           cmake --build build_temp --target package
+          ls -la "${{ github.workspace }}/output"
 
       # 9. Zip all package files/folders in /build and put in /artifacts/windows-latest/
       - name: Zip assets (Windows)

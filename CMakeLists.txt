@@ -6,17 +6,20 @@ project(Obrew-Studio)
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist" DESTINATION build_temp)
 
 # Set package information
-set(CPACK_PACKAGE_NAME "Obrew Studio")
-set(CPACK_PACKAGE_EXECUTABLES "Obrew-Server")
+set(CPACK_PACKAGE_NAME "Obrew-Studio")
 set(CPACK_PACKAGE_VERSION "0.9.0")
 set(CPACK_PACKAGE_VENDOR "OpenBrewAi")
+set(CPACK_PACKAGE_DESCRIPTION "Obrew Studio - Ai Toolkit")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The tool for building personal Ai agents")
 set(CPACK_PACKAGE_FILE_NAME "ObrewServer.WIN.Setup")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_POST_INSTALL_SCRIPT "${CMAKE_SOURCE_DIR}/download_and_extract.cmake")
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "Obrew-Studio")
 # Specify the output directory for the package
 set(CPACK_OUTPUT_FILE_PREFIX "${CMAKE_SOURCE_DIR}/output")
+# Define executable and icon
+set(CPACK_PACKAGE_EXECUTABLES "Obrew-Server" "${CMAKE_SOURCE_DIR}/backends/ui/favicon.ico")
 
 # Platform-specific settings
 if(WIN32)
