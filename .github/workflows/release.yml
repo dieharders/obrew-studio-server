@@ -73,7 +73,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           python -m venv .venv # noop if cache is found
-          .venv\Scripts\activate
+          .venv/Scripts/activate
           python -m pip list  # Verify installed packages
           # Install pip and Python deps
           python --version
@@ -94,7 +94,7 @@ jobs:
         shell: bash
         if: runner.os == 'Windows'
         run: |
-          .venv\Scripts\activate # must activate env before each step
+          .venv/Scripts/activate # must activate env before each step
           .venv/Scripts/python -m pyinstaller --noconfirm --clean --onedir --windowed \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
             --name "Obrew-Server" \
