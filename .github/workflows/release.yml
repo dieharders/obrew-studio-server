@@ -149,7 +149,7 @@ jobs:
         run: |
           echo "Listing files in the GitHub workspace: ${{ github.workspace }}"
           ls -la "${{ github.workspace }}/dist"
-          cmake -S ${{ github.workspace }} -B build_temp -D CMAKE_BUILD_TYPE=Release
+          cmake -S "${{ github.workspace }}" -B build_temp -D CMAKE_BUILD_TYPE=Release
 
       - name: Build Project (CMake)
         shell: bash
