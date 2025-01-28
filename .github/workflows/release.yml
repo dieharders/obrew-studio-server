@@ -128,8 +128,6 @@ jobs:
             "${{ github.workspace }}/backends/main.py"
           echo "Workspace directory:"
           ls -al "${{ github.workspace }}"
-          echo "Output directory:"
-          ls -al output
           echo "Build directory:"
           ls -al build/Obrew-Server
 
