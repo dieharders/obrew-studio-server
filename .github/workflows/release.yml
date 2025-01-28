@@ -48,7 +48,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip' # caches the downloaded package installers only
+          # cache: 'pip' # caches the downloaded package installers only, if you cache the venv then disabling this will save about 20s
 
       # - name: List contents of GitHub workspace
       #   shell: bash
@@ -73,7 +73,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           python -m venv .venv # noop if cache is found
-          .venv/Scripts/activate.bat
+          .venv\Scripts\activate
           python -m pip list  # Verify installed packages
           # Install pip and Python deps
           python --version
@@ -94,8 +94,8 @@ jobs:
         shell: bash
         if: runner.os == 'Windows'
         run: |
-          .venv/Scripts/activate.bat # must activate env before each step
-          pyinstaller --noconfirm --clean --onedir --windowed \
+          .venv\Scripts\activate # must activate env before each step
+          .venv/Scripts/python -m pyinstaller --noconfirm --clean --onedir --windowed \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
             --name "Obrew-Server" \
             --distpath output \
@@ -186,6 +186,7 @@ jobs:
     name: Create GitHub Release
     needs: [build, package]
     runs-on: ubuntu-latest
+    if: ${{ success() }}
     outputs:
       release_upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
