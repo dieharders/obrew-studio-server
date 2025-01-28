@@ -98,7 +98,8 @@ jobs:
       # Create virtual environment, Install package manager and dependencies for Python
       - name: Setup venv (install deps)
         shell: bash
-        if: runner.os == 'Windows' && steps.restore-cache.outputs.cache-hit == false
+        # if: runner.os == 'Windows' && steps.restore-cache.outputs.cache-hit == false
+        if: runner.os == 'Windows'
         run: |
           python -m venv .venv # noop if cache is found
           .venv/Scripts/activate.bat
