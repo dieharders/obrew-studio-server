@@ -78,15 +78,15 @@ jobs:
           key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.release.txt') }}
           path: .venv
 
-      - name: List contents of GitHub workspace
-        shell: bash
-        run: |
-          echo "Contents of the GitHub workspace directory:"
-          ls -al "${{ github.workspace }}"
-          echo ".venv/lib/site-packages"
-          ls -al .venv/lib/site-packages
-          # echo "Contents of the Python directory:"
-          # ls -al "${{ env.pythonLocation }}"
+      # - name: List contents of GitHub workspace
+      #   shell: bash
+      #   run: |
+      #     echo "Contents of the GitHub workspace directory:"
+      #     ls -al "${{ github.workspace }}"
+      #     echo ".venv/lib/site-packages"
+      #     ls -al .venv/lib/site-packages
+      #     # echo "Contents of the Python directory:"
+      #     # ls -al "${{ env.pythonLocation }}"
 
       # 6a. Build the app binary (pyinstaller) for Windows
       - name: Build app (Windows)
@@ -97,21 +97,21 @@ jobs:
         run: |
           env
           .venv/Scripts/activate # must activate env before each step
+          # `env.pythonLocation` should be used if no venv
           pyinstaller --noconfirm --clean --onedir --windowed \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
             --name "Obrew-Server" \
             --distpath output \
             --hidden-import "tiktoken_ext.openai_public" \
             --hidden-import "tiktoken_ext" \
-            # `env.pythonLocation` should be used if no venv
             --add-data "${{ github.workspace }}/public;public/" \
             --add-data "${{ github.workspace }}/backends/ui/public;public/" \
-            --add-data ".venv/lib/site-packages/posthog;posthog/" \
-            --add-data ".venv/lib/site-packages/chromadb;chromadb/" \
-            --add-data ".venv/lib/site-packages/importlib_resources;importlib_resources/" \
-            --add-data ".venv/lib/site-packages/backoff;backoff/" \
-            --add-data ".venv/lib/site-packages/pypika;pypika/" \
-            --add-data ".venv/lib/site-packages/hnswlib.cp312-win_amd64.pyd;." \
+            --add-data .venv/lib/site-packages/posthog;posthog/ \
+            --add-data .venv/lib/site-packages/chromadb;chromadb/ \
+            --add-data .venv/lib/site-packages/importlib_resources;importlib_resources/ \
+            --add-data .venv/lib/site-packages/backoff;backoff/ \
+            --add-data .venv/lib/site-packages/pypika;pypika/ \
+            --add-data .venv/lib/site-packages/hnswlib.cp312-win_amd64.pyd;. \
             --add-data "${{ github.workspace }}/.env.example;.env" \
             --add-data "${{ github.workspace }}/tools/functions;tools/functions/" \
             "${{ github.workspace }}/backends/main.py"
