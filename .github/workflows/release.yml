@@ -94,7 +94,8 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           curl -L https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-win64.zip -o upx.zip
-          tar -xf upx.zip --strip-components=1 -C C:/upx
+          # Use unzip to extract the zip file
+          unzip upx.zip -d C:/upx
           echo "C:/upx" >> $GITHUB_PATH
 
       # 6. Build the app binary (pyinstaller) for Windows
