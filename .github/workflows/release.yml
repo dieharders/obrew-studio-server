@@ -91,12 +91,12 @@ jobs:
       - name: Build app (Windows)
         shell: bash
         if: runner.os == 'Windows'
-        # env:
-        #   PATH: .venv/Scripts
+        env:
+          PATH: .venv/Scripts
         run: |
           env
           .venv/Scripts/activate # must activate env before each step
-          .venv/Scripts/python -m pyinstaller --noconfirm --clean --onedir --windowed \
+          pyinstaller --noconfirm --clean --onedir --windowed \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
             --name "Obrew-Server" \
             --distpath output \
