@@ -74,13 +74,11 @@ jobs:
         run: |
           python -m venv .venv # noop if cache is found
           .venv/Scripts/activate
-          python -m pip list  # Verify installed packages
+          .venv/Scripts/python -m pip list  # Verify installed packages
           # Install pip and Python deps
-          python --version
+          .venv/Scripts/python --version
           .venv/Scripts/python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
           .venv/Scripts/python -m pip install -r requirements.release.txt # install deps, use --prefer-binary to install from wheels instead of source
-        env:
-          PATH: ${{ github.workspace }}\.venv\Scripts:$PATH
 
       # Cache python virtual environment for later runs
       - name: Save cached venv
@@ -93,9 +91,12 @@ jobs:
       - name: Build app (Windows)
         shell: bash
         if: runner.os == 'Windows'
+        env:
+          PATH: .venv/Scripts:$PATH
         run: |
+          env
           .venv/Scripts/activate # must activate env before each step
-          .venv/Scripts/python -m pyinstaller --noconfirm --clean --onedir --windowed \
+          .venv/Scripts/python -m .venv/lib/site-packages/pyinstaller --noconfirm --clean --onedir --windowed \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
             --name "Obrew-Server" \
             --distpath output \
