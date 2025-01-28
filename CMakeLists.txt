@@ -3,14 +3,14 @@ cmake_minimum_required(VERSION 3.15)
 project(Obrew-Studio)
 
 # Copy the executable to the temporary build directory
-install(TARGETS "${CMAKE_SOURCE_DIR}/dist/Obrew-Server/Obrew-Server.exe" DESTINATION build_temp)
+install(TARGETS "${CMAKE_SOURCE_DIR}/dist/Obrew-Server.exe" DESTINATION build_temp)
 
 # Copy pre-existing files/folders to the temporary build directory
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist/Obrew-Server/_deps" DESTINATION build_temp)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist/_deps" DESTINATION build_temp)
 
 # Set package information
 set(CPACK_PACKAGE_NAME "Obrew Studio")
-set(CPACK_PACKAGE_EXECUTABLES "Obrew Studio")
+set(CPACK_PACKAGE_EXECUTABLES "Obrew-Studio")
 set(CPACK_PACKAGE_VERSION "0.9.0")
 set(CPACK_PACKAGE_VENDOR "OpenBrewAi")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The tool for building personal Ai agents")
