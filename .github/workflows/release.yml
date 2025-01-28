@@ -64,10 +64,11 @@ jobs:
 
       # 2. Install Python
       - name: Install Python
+        id: setup_python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip'
+          # cache: 'pip'
 
       # - name: List contents of GitHub workspace
       #   shell: bash
@@ -77,15 +78,21 @@ jobs:
       #     # echo "Contents of the Python directory:"
       #     # ls -al "${{ env.pythonLocation }}"
 
-      # Cache virtual environment on Windows
-      - name: Cache venv (Windows)
-        uses: actions/cache@v4
-        id: cache-venv
+      - name: Restore cached venv
+        uses: actions/cache/restore@v4
         with:
-          path: ${{ github.workspace }}/.venv
-          key: ${{ runner.os }}-venv-${{ hashFiles('requirements.release.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-venv-
+          key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.release.txt') }}
+          path: .venv
+
+      # Cache virtual environment on Windows
+      # - name: Cache venv (Windows)
+      #   uses: actions/cache@v4
+      #   id: cache-venv
+      #   with:
+      #     path: ${{ github.workspace }}/.venv
+      #     key: ${{ runner.os }}-venv-${{ hashFiles('requirements.release.txt') }}
+      #     restore-keys: |
+      #       ${{ runner.os }}-venv-
 
       # Create virtual environment, Install package manager and dependencies for Python
       - name: Setup venv (install deps)
@@ -95,11 +102,17 @@ jobs:
           python -m venv .venv # noop if cache is found
           .venv/Scripts/activate.bat
           python -m pip list  # Verify installed packages
-          ls -al "${{ github.workspace }}"
+          ls -al .venv
           # Install pip and Python deps
           python --version
-          python -m pip install --upgrade pip setuptools wheel
-          python -m pip install --prefer-binary -r requirements.release.txt
+          # python -m pip install --upgrade pip setuptools wheel
+          python -m pip install -r requirements.release.txt # --prefer-binary
+
+      - name: Saved cached virtualenv
+        uses: actions/cache/save@v4
+        with:
+          key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.release.txt') }}
+          path: .venv
 
       # Cache build output
       # - name: Cache build output
