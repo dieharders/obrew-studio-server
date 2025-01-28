@@ -134,17 +134,14 @@ jobs:
           echo "Dist directory:"
           ls -al dist/Obrew-Server
 
-      # 7. Set up CMake
-      - name: Set up CMake
+      # 7. Install up CMake
+      - name: Install CMake
         uses: lukka/get-cmake@latest
         with:
           cmakeVersion: latest
 
-      - name: Check NSIS Installation
-        run: makensis -version
-
-      # 8. Configure with CMake
-      - name: Build Project (CMake)
+      # 8. Package with CMake/CPack
+      - name: Configure CMake
         shell: bash
         run: |
           echo "Listing files in the GitHub workspace: ${{ github.workspace }}"
