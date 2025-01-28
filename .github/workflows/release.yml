@@ -102,13 +102,14 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           python -m venv .venv # noop if cache is found
+          ls -al "${{ github.workspace }}"
           .venv/Scripts/activate.bat
           python -m pip list  # Verify installed packages
           ls -al .venv
           # Install pip and Python deps
           python --version
-          .venv/bin/python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
-          .venv/bin/python -m pip install -r requirements.release.txt # --prefer-binary
+          .venv/Scripts/python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
+          .venv/Scripts/python -m pip install -r requirements.release.txt # --prefer-binary
           # python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
           # python -m pip install -r requirements.release.txt # --prefer-binary
 
