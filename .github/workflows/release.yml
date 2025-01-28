@@ -67,14 +67,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip'
-
-      # - name: Print a message
-      #   shell: bash
-      #   run: |
-      #     echo "${{ env.pythonLocation }}"
-      #     echo "${{ runner.tool_cache }}"
-      #     echo "${{ github.workspace }}"
+          # cache: 'pip'
 
       # - name: List contents of GitHub workspace
       #   shell: bash
@@ -84,37 +77,9 @@ jobs:
       #     echo "Contents of the Python directory:"
       #     ls -al "${{ env.pythonLocation }}"
 
-      # Cache build dependencies (anything built that you could re-use, like venv)
-      # Not needed for python deps, just an example
-      # - name: Cache Python dependencies
-      #   uses: actions/cache@v3
-      #   id: cache-pip
-      #   with:
-      #     path: ${{ env.pythonLocation }}
-      #     key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.release.txt') }}
-      #     restore-keys: |
-      #       ${{ runner.os }}-pip-
-      #       ${{ runner.os }}-
-
-      # Create virtual environment
-      - name: Create venv
-        shell: bash
-        if: runner.os == 'Windows'
-        run: |
-          python -m venv .venv
-          .venv/Scripts/activate.bat
-
-      # 3. Install package manager and dependencies for Python
-      - name: Install pip and Python deps
-        shell: bash
-        run: |
-          python --version
-          python -m pip install --upgrade pip setuptools wheel
-          python -m pip install --prefer-binary -r requirements.release.txt
-
       # Cache virtual environment on Windows
       - name: Cache venv (Windows)
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         id: cache-venv
         with:
           path: ${{ github.workspace }}/.venv
@@ -122,41 +87,53 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-venv-
 
+      # Create virtual environment, Install package manager and dependencies for Python
+      - name: Setup venv (install deps)
+        shell: bash
+        if: runner.os == 'Windows'
+        run: |
+          python -m venv .venv # noop if cache is found
+          .venv/Scripts/activate.bat
+          # Install pip and Python deps
+          python --version
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install --prefer-binary -r requirements.release.txt
+
       # Cache build output
       # - name: Cache build output
-      #   uses: actions/cache@v3
+      #   uses: actions/cache@v4
       #   id: cache-build
       #   if: runner.os == 'Windows'
       #   with:
       #     path: ${{ github.workspace }}/output
-      #     key: ${{ runner.os }}-build-${{ hashFiles('???') }}
+      #     key: ${{ runner.os }}-build-${{ hashFiles('output/Obrew-Server.exe') }}
       #     restore-keys: |
       #       ${{ runner.os }}-build-
 
       # 5a. Build the app binary (pyinstaller) for Windows
-      - name: Build app (Windows)
-        shell: bash
-        if: runner.os == 'Windows'
-        run: |
-          .venv/Scripts/activate.bat # activate env
-          python -m pip list  # Verify installed packages
-          pyinstaller --noconfirm --clean --onedir --windowed \
-            --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
-            --name "Obrew-Server" \
-            --distpath output \
-            --hidden-import "tiktoken_ext.openai_public" \
-            --hidden-import "tiktoken_ext" \
-            --add-data "${{ github.workspace }}/public;public/" \
-            --add-data "${{ github.workspace }}/backends/ui/public;public/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/posthog;posthog/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/chromadb;chromadb/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/importlib_resources;importlib_resources/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/backoff;backoff/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/pypika;pypika/" \
-            --add-data "${{ env.pythonLocation }}/Lib/site-packages/hnswlib.cp312-win_amd64.pyd;." \
-            --add-data "${{ github.workspace }}/.env.example;.env" \
-            --add-data "${{ github.workspace }}/tools/functions;tools/functions/" \
-            "${{ github.workspace }}/backends/main.py"
+      # - name: Build app (Windows)
+      #   shell: bash
+      #   if: runner.os == 'Windows'
+      #   run: |
+      #     .venv/Scripts/activate.bat # activate env
+      #     python -m pip list  # Verify installed packages
+      #     pyinstaller --noconfirm --clean --onedir --windowed \
+      #       --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
+      #       --name "Obrew-Server" \
+      #       --distpath output \
+      #       --hidden-import "tiktoken_ext.openai_public" \
+      #       --hidden-import "tiktoken_ext" \
+      #       --add-data "${{ github.workspace }}/public;public/" \
+      #       --add-data "${{ github.workspace }}/backends/ui/public;public/" \
+      #       --add-data "${{ env.pythonLocation }}/Lib/site-packages/posthog;posthog/" \
+      #       --add-data "${{ env.pythonLocation }}/Lib/site-packages/chromadb;chromadb/" \
+      #       --add-data "${{ env.pythonLocation }}/Lib/site-packages/importlib_resources;importlib_resources/" \
+      #       --add-data "${{ env.pythonLocation }}/Lib/site-packages/backoff;backoff/" \
+      #       --add-data "${{ env.pythonLocation }}/Lib/site-packages/pypika;pypika/" \
+      #       --add-data "${{ env.pythonLocation }}/Lib/site-packages/hnswlib.cp312-win_amd64.pyd;." \
+      #       --add-data "${{ github.workspace }}/.env.example;.env" \
+      #       --add-data "${{ github.workspace }}/tools/functions;tools/functions/" \
+      #       "${{ github.workspace }}/backends/main.py"
 
       # 5b. Build the app binary (pyinstaller) for macOS/Linux
       # Same command, but ; replaced with :
