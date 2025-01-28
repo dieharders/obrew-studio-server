@@ -1,8 +1,8 @@
 # Copy the executable to the temporary build directory
-install(TARGETS "${CMAKE_SOURCE_DIR}/build/Obrew-Server/Obrew-Server.exe" DESTINATION build_temp)
+install(TARGETS "${CMAKE_SOURCE_DIR}/dist/Obrew-Server/Obrew-Server.exe" DESTINATION build_temp)
 
 # Copy pre-existing files/folders to the temporary build directory
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/build/Obrew-Server/_deps" DESTINATION build_temp)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist/Obrew-Server/_deps" DESTINATION build_temp)
 
 # Set package information
 set(CPACK_PACKAGE_NAME "Obrew Studio")

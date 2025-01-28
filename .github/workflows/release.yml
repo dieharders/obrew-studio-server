@@ -131,7 +131,7 @@ jobs:
           echo "Build directory:"
           ls -al build/Obrew-Server
           echo "Dist directory:"
-          ls -al dist
+          ls -al dist/Obrew-Server
 
   package:
     name: Package for ${{ matrix.os }} and Upload Artifacts
@@ -152,8 +152,8 @@ jobs:
       - name: Create installer package (CPack)
         shell: bash
         run: |
-          echo "Listing files in the GitHub workspace"
-          ls -la ${{ github.workspace }}
+          echo "Listing files in the GitHub workspace: ${{ github.workspace }}"
+          ls -la "${{ github.workspace }}"
           cmake -S . -B build_temp -D CMAKE_BUILD_TYPE=Release
           cmake --build build_temp --target package
 
