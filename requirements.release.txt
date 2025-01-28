@@ -31,5 +31,4 @@ chromadb==0.5.0
 sentence-transformers==2.6.1
 # For building single exe python
 pyinstaller==6.6.0
-auto-py-to-exe==2.43.3
 python-multipart==0.0.6
