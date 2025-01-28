@@ -48,7 +48,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip'
+          cache: 'pip' # caches the downloaded package installers only
 
       # - name: List contents of GitHub workspace
       #   shell: bash
@@ -58,22 +58,13 @@ jobs:
       #     # echo "Contents of the Python directory:"
       #     # ls -al "${{ env.pythonLocation }}"
 
+      # Load the cached python virtual environment
       - name: Restore cached venv
         id: restore-cache
         uses: actions/cache/restore@v4
         with:
           key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.release.txt') }}
           path: .venv
-
-      # Cache virtual environment on Windows
-      # - name: Cache venv (Windows)
-      #   uses: actions/cache@v4
-      #   id: cache-venv
-      #   with:
-      #     path: ${{ github.workspace }}/.venv
-      #     key: ${{ runner.os }}-venv-${{ hashFiles('requirements.release.txt') }}
-      #     restore-keys: |
-      #       ${{ runner.os }}-venv-
 
       # Create virtual environment, Install package manager and dependencies for Python
       - name: Setup venv (install deps)
@@ -82,58 +73,44 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           python -m venv .venv # noop if cache is found
-          ls -al "${{ github.workspace }}"
           .venv/Scripts/activate.bat
           python -m pip list  # Verify installed packages
-          ls -al .venv
           # Install pip and Python deps
           python --version
           .venv/Scripts/python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
-          .venv/Scripts/python -m pip install -r requirements.release.txt # --prefer-binary
-          # python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
-          # python -m pip install -r requirements.release.txt # --prefer-binary
+          .venv/Scripts/python -m pip install -r requirements.release.txt # install deps, use --prefer-binary to install from wheels instead of source
 
+      # Cache python virtual environment for later runs
       - name: Save cached venv
         uses: actions/cache/save@v4
         with:
           key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.release.txt') }}
           path: .venv
 
-      # Cache build output
-      # - name: Cache build output
-      #   uses: actions/cache@v4
-      #   id: cache-build
-      #   if: runner.os == 'Windows'
-      #   with:
-      #     path: ${{ github.workspace }}/output
-      #     key: ${{ runner.os }}-build-${{ hashFiles('output/Obrew-Server.exe') }}
-      #     restore-keys: |
-      #       ${{ runner.os }}-build-
-
       # 5a. Build the app binary (pyinstaller) for Windows
-      # - name: Build app (Windows)
-      #   shell: bash
-      #   if: runner.os == 'Windows'
-      #   run: |
-      #     .venv/Scripts/activate.bat # activate env
-      #     python -m pip list  # Verify installed packages
-      #     pyinstaller --noconfirm --clean --onedir --windowed \
-      #       --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
-      #       --name "Obrew-Server" \
-      #       --distpath output \
-      #       --hidden-import "tiktoken_ext.openai_public" \
-      #       --hidden-import "tiktoken_ext" \
-      #       --add-data "${{ github.workspace }}/public;public/" \
-      #       --add-data "${{ github.workspace }}/backends/ui/public;public/" \
-      #       --add-data "${{ env.pythonLocation }}/Lib/site-packages/posthog;posthog/" \
-      #       --add-data "${{ env.pythonLocation }}/Lib/site-packages/chromadb;chromadb/" \
-      #       --add-data "${{ env.pythonLocation }}/Lib/site-packages/importlib_resources;importlib_resources/" \
-      #       --add-data "${{ env.pythonLocation }}/Lib/site-packages/backoff;backoff/" \
-      #       --add-data "${{ env.pythonLocation }}/Lib/site-packages/pypika;pypika/" \
-      #       --add-data "${{ env.pythonLocation }}/Lib/site-packages/hnswlib.cp312-win_amd64.pyd;." \
-      #       --add-data "${{ github.workspace }}/.env.example;.env" \
-      #       --add-data "${{ github.workspace }}/tools/functions;tools/functions/" \
-      #       "${{ github.workspace }}/backends/main.py"
+      - name: Build app (Windows)
+        shell: bash
+        if: runner.os == 'Windows'
+        run: |
+          .venv/Scripts/activate.bat # must activate env before each step
+          python -m pip list  # Verify installed packages
+          pyinstaller --noconfirm --clean --onedir --windowed \
+            --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
+            --name "Obrew-Server" \
+            --distpath output \
+            --hidden-import "tiktoken_ext.openai_public" \
+            --hidden-import "tiktoken_ext" \
+            --add-data "${{ github.workspace }}/public;public/" \
+            --add-data "${{ github.workspace }}/backends/ui/public;public/" \
+            --add-data "${{ env.pythonLocation }}/Lib/site-packages/posthog;posthog/" \
+            --add-data "${{ env.pythonLocation }}/Lib/site-packages/chromadb;chromadb/" \
+            --add-data "${{ env.pythonLocation }}/Lib/site-packages/importlib_resources;importlib_resources/" \
+            --add-data "${{ env.pythonLocation }}/Lib/site-packages/backoff;backoff/" \
+            --add-data "${{ env.pythonLocation }}/Lib/site-packages/pypika;pypika/" \
+            --add-data "${{ env.pythonLocation }}/Lib/site-packages/hnswlib.cp312-win_amd64.pyd;." \
+            --add-data "${{ github.workspace }}/.env.example;.env" \
+            --add-data "${{ github.workspace }}/tools/functions;tools/functions/" \
+            "${{ github.workspace }}/backends/main.py"
 
       # 5b. Build the app binary (pyinstaller) for macOS/Linux
       # Same command, but ; replaced with :
@@ -165,8 +142,6 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest] # builds for each platform, in seperate vm's, in this order
-    env:
-      CMAKE_SOURCE_DIR: ${{ github.workspace }} # Points to the root of your repository
     continue-on-error: true
     steps:
       # 1. Set up CMake
@@ -176,14 +151,14 @@ jobs:
           cmakeVersion: latest
 
       # 2. Set up Platform-Specific Dependencies
-      - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          choco install -y nsis
+      # - name: Install dependencies (Windows)
+      #   if: runner.os == 'Windows'
+      #   run: |
+      #     choco install -y nsis
 
       # 3. Configure with CMake
       - name: Configure CMake
-        run: cmake -S $CMAKE_SOURCE_DIR -B build -D CMAKE_BUILD_TYPE=Release
+        run: cmake -S ${{ github.workspace }} -B build -D CMAKE_BUILD_TYPE=Release
 
       # 4. Package with CPack
       - name: Create installer package (CPack)
