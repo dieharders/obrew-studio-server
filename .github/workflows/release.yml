@@ -85,8 +85,8 @@ jobs:
       #     ls -al "${{ github.workspace }}"
       #     echo ".venv/lib/site-packages"
       #     ls -al .venv/lib/site-packages
-      #     # echo "Contents of the Python directory:"
-      #     # ls -al "${{ env.pythonLocation }}"
+      #     echo "Contents of the Python directory:"
+      #     ls -al "${{ env.pythonLocation }}"
 
       # Download and install UPX
       - name: Download and install UPX (Windows)
@@ -133,22 +133,13 @@ jobs:
           echo "Dist directory:"
           ls -al dist/Obrew-Server
 
-  package:
-    name: Package for ${{ matrix.os }} and Upload Artifacts
-    needs: build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-latest] # builds for each platform, in seperate vm's, in this order
-    continue-on-error: true
-    steps:
-      # 1. Set up CMake
+      # 7. Set up CMake
       - name: Set up CMake
         uses: lukka/get-cmake@latest
         with:
           cmakeVersion: latest
 
-      # 2. Configure with CMake
+      # 8. Configure with CMake
       - name: Create installer package (CPack)
         shell: bash
         run: |
@@ -157,7 +148,7 @@ jobs:
           cmake -S . -B build_temp -D CMAKE_BUILD_TYPE=Release
           cmake --build build_temp --target package
 
-      # 3. Zip all package files/folders in /build and put in /artifacts/windows-latest/
+      # 9. Zip all package files/folders in /build and put in /artifacts/windows-latest/
       - name: Zip assets (Windows)
         shell: pwsh
         if: runner.os == 'Windows'
@@ -166,7 +157,7 @@ jobs:
           mkdir -p ./artifacts/windows-latest
           Compress-Archive -Path "output/*.*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
 
-      # 4. Upload Installer Artifact
+      # 10. Upload Installer Artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
@@ -176,7 +167,7 @@ jobs:
   # Assumes you created a git tag already
   create_release:
     name: Create GitHub Release
-    needs: [build, package]
+    needs: [build]
     runs-on: ubuntu-latest
     if: ${{ success() }}
     outputs:
@@ -196,7 +187,7 @@ jobs:
 
   upload_assets:
     name: Upload Assets to Release
-    needs: [build, package, create_release]
+    needs: [build, create_release]
     runs-on: ubuntu-latest
     steps:
       - name: Download Windows artifact
