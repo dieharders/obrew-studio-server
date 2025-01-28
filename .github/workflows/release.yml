@@ -130,6 +130,8 @@ jobs:
           ls -al "${{ github.workspace }}"
           echo "Build directory:"
           ls -al build/Obrew-Server
+          echo "Dist directory:"
+          ls -al dist
 
   package:
     name: Package for ${{ matrix.os }} and Upload Artifacts
@@ -147,14 +149,15 @@ jobs:
           cmakeVersion: latest
 
       # 2. Configure with CMake
-      - name: Configure CMake
-        run: cmake -S ${{ github.workspace }} -B build_temp -D CMAKE_BUILD_TYPE=Release
-
-      # 3. Package with CPack
       - name: Create installer package (CPack)
-        run: cmake --build build_temp --target package
+        shell: bash
+        run: |
+          echo "Listing files in the GitHub workspace"
+          ls -la ${{ github.workspace }}
+          cmake -S . -B build_temp -D CMAKE_BUILD_TYPE=Release
+          cmake --build build_temp --target package
 
-      # 4. Zip all package files/folders in /build and put in /artifacts/windows-latest/
+      # 3. Zip all package files/folders in /build and put in /artifacts/windows-latest/
       - name: Zip assets (Windows)
         shell: pwsh
         if: runner.os == 'Windows'
@@ -163,7 +166,7 @@ jobs:
           mkdir -p ./artifacts/windows-latest
           Compress-Archive -Path "output/*.*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
 
-      # 5. Upload Installer Artifact
+      # 4. Upload Installer Artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
