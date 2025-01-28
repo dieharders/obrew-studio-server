@@ -88,6 +88,15 @@ jobs:
       #     # echo "Contents of the Python directory:"
       #     # ls -al "${{ env.pythonLocation }}"
 
+      # Download and install UPX
+      - name: Download and install UPX (Windows)
+        shell: bash
+        if: runner.os == 'Windows'
+        run: |
+          curl -L https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-win64.zip -o upx.zip
+          tar -xf upx.zip --strip-components=1 -C C:/upx
+          echo "C:/upx" >> $GITHUB_PATH
+
       # 6. Build the app binary (pyinstaller) for Windows
       - name: Build app (Windows)
         shell: bash
@@ -97,11 +106,11 @@ jobs:
         run: |
           .venv/Scripts/activate # must activate env before each step
           # `env.pythonLocation` should be used if no venv
+          # PyInstaller will output to "build/Obrew-Server" folder in root
           pyinstaller --noconfirm --clean --onedir --windowed \
             --log-level DEBUG \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
             --name "Obrew-Server" \
-            --distpath output \
             --hidden-import "tiktoken_ext.openai_public" \
             --hidden-import "tiktoken_ext" \
             --add-data "${{ github.workspace }}/public:public/" \
@@ -120,7 +129,7 @@ jobs:
           echo "Output directory:"
           ls -al output
           echo "Build directory:"
-          ls -al build
+          ls -al build/Obrew-Server
 
   package:
     name: Package for ${{ matrix.os }} and Upload Artifacts
@@ -137,30 +146,24 @@ jobs:
         with:
           cmakeVersion: latest
 
-      # 2. Set up Platform-Specific Dependencies
-      # - name: Install dependencies (Windows)
-      #   if: runner.os == 'Windows'
-      #   run: |
-      #     choco install -y nsis
-
-      # 3. Configure with CMake
+      # 2. Configure with CMake
       - name: Configure CMake
-        run: cmake -S ${{ github.workspace }} -B build -D CMAKE_BUILD_TYPE=Release
+        run: cmake -S ${{ github.workspace }} -B build_temp -D CMAKE_BUILD_TYPE=Release
 
-      # 4. Package with CPack
+      # 3. Package with CPack
       - name: Create installer package (CPack)
-        run: cmake --build build --target package
+        run: cmake --build build_temp --target package
 
-      # 5. Zip all package files/folders in /build and put in /artifacts/windows-latest/
+      # 4. Zip all package files/folders in /build and put in /artifacts/windows-latest/
       - name: Zip assets (Windows)
         shell: pwsh
-        if: startsWith(runner.os, 'Windows')
+        if: runner.os == 'Windows'
         # Ensure the output directory matches the OutputDir of CPack
         run: |
           mkdir -p ./artifacts/windows-latest
-          Compress-Archive -Path "build/*.*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
+          Compress-Archive -Path "output/*.*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
 
-      # 6. Upload Installer Artifact
+      # 5. Upload Installer Artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
