@@ -1,4 +1,4 @@
-# Use Python version 3.12.3
+# Use Python version 3.12.8
 #
 # UUID
 nanoid==2.0.0
@@ -30,5 +30,5 @@ llama-parse==0.4.1
 chromadb==0.5.0
 sentence-transformers==2.6.1
 # For building single exe python
-pyinstaller==6.6.0
+pyinstaller==6.11.1
 python-multipart==0.0.6
