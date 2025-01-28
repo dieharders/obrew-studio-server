@@ -93,7 +93,7 @@ jobs:
         shell: bash
         if: runner.os == 'Windows'
         env:
-          PATH: .venv/Scripts:${{ env.PATH }}
+          PATH: .venv/Scripts
         run: |
           env
           .venv/Scripts/activate # must activate env before each step
