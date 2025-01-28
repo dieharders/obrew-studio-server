@@ -1,3 +1,7 @@
+cmake_minimum_required(VERSION 3.15)
+
+project(Obrew-Studio)
+
 # Copy the executable to the temporary build directory
 install(TARGETS "${CMAKE_SOURCE_DIR}/dist/Obrew-Server/Obrew-Server.exe" DESTINATION build_temp)
 
