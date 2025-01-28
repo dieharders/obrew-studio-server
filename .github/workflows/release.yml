@@ -140,13 +140,24 @@ jobs:
         with:
           cmakeVersion: latest
 
+      - name: Check NSIS Installation
+        run: makensis -version
+
       # 8. Configure with CMake
-      - name: Create installer package (CPack)
+      - name: Build Project (CMake)
         shell: bash
         run: |
           echo "Listing files in the GitHub workspace: ${{ github.workspace }}"
           ls -la "${{ github.workspace }}/dist"
-          cmake -S . -B build_temp -D CMAKE_BUILD_TYPE=Release
+          cmake -S ${{ github.workspace }} -B build_temp -D CMAKE_BUILD_TYPE=Release
+
+      - name: Build Project (CMake)
+        shell: bash
+        run: cmake --build build_temp
+
+      - name: Create Installer (CPack)
+        shell: bash
+        run: |
           cmake --build build_temp --target package
           ls -la "${{ github.workspace }}/output"
 
