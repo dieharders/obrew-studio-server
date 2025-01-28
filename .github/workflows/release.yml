@@ -68,7 +68,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          # cache: 'pip'
+          cache: 'pip'
 
       # - name: List contents of GitHub workspace
       #   shell: bash
@@ -79,6 +79,7 @@ jobs:
       #     # ls -al "${{ env.pythonLocation }}"
 
       - name: Restore cached venv
+        id: restore-cache
         uses: actions/cache/restore@v4
         with:
           key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.release.txt') }}
@@ -97,7 +98,7 @@ jobs:
       # Create virtual environment, Install package manager and dependencies for Python
       - name: Setup venv (install deps)
         shell: bash
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.restore-cache.outputs.cache-hit == false
         run: |
           python -m venv .venv # noop if cache is found
           .venv/Scripts/activate.bat
@@ -105,10 +106,12 @@ jobs:
           ls -al .venv
           # Install pip and Python deps
           python --version
-          # python -m pip install --upgrade pip setuptools wheel
-          python -m pip install -r requirements.release.txt # --prefer-binary
+          .venv/bin/python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
+          .venv/bin/python -m pip install -r requirements.release.txt # --prefer-binary
+          # python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
+          # python -m pip install -r requirements.release.txt # --prefer-binary
 
-      - name: Saved cached virtualenv
+      - name: Save cached venv
         uses: actions/cache/save@v4
         with:
           key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.release.txt') }}
