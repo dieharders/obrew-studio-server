@@ -110,7 +110,6 @@ jobs:
           # PyInstaller will output to "build/Obrew-Server" folder in root
           pyinstaller --noconfirm --clean --onedir --windowed \
             --log-level DEBUG \
-            --contents_directory _deps \
             --upx-dir C:/upx/upx-4.0.2-win64 \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
             --name "Obrew-Server" \
