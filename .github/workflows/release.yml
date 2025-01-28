@@ -22,7 +22,7 @@ on:
 jobs:
   build:
     name: Build for ${{ matrix.os }}
-    needs: create_release
+    # needs: create_release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -79,6 +79,8 @@ jobs:
           python --version
           .venv/Scripts/python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
           .venv/Scripts/python -m pip install -r requirements.release.txt # install deps, use --prefer-binary to install from wheels instead of source
+        env:
+          PATH: ${{ github.workspace }}\.venv\Scripts:$PATH
 
       # Cache python virtual environment for later runs
       - name: Save cached venv
@@ -93,7 +95,6 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           .venv/Scripts/activate.bat # must activate env before each step
-          python -m pip list  # Verify installed packages
           pyinstaller --noconfirm --clean --onedir --windowed \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
             --name "Obrew-Server" \
@@ -180,10 +181,10 @@ jobs:
           name: ${{ matrix.os }}-artifact
           path: ./artifacts/${{ matrix.os }}/${{ matrix.os }}-artifacts.zip # upload from
 
-  # Assumes you created a git tag with `yarn version --[operation]`
-  # @TODO should this come last?
+  # Assumes you created a git tag already
   create_release:
     name: Create GitHub Release
+    needs: [build, package]
     runs-on: ubuntu-latest
     outputs:
       release_upload_url: ${{ steps.create_release.outputs.upload_url }}
