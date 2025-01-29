@@ -27,6 +27,14 @@ set(CPACK_PACKAGE_EXECUTABLES "Obrew-Server" "${CMAKE_SOURCE_DIR}/backends/ui/fa
 # Platform-specific settings
 if(WIN32)
   set(CPACK_GENERATOR "NSIS")
+  # Create shortcut to .exe on the Desktop
+  install(CODE "
+      file(WRITE \"\${CMAKE_INSTALL_PREFIX}/Desktop/Obrew-Studio.lnk\"
+      \"[InternetShortcut]\nURL=file:///\${CMAKE_INSTALL_PREFIX}/Obrew-Studio.exe\n\")")
+  # Creating another shortcut for the headless version
+  install(CODE "
+      file(WRITE \"\${CMAKE_INSTALL_PREFIX}/Desktop/Obrew-Studio-headless.lnk\"
+      \"[InternetShortcut]\nURL=file:///\${CMAKE_INSTALL_PREFIX}/Obrew-Studio.exe --headless=True\n\")")
 elseif(APPLE)
   set(CPACK_GENERATOR "DragNDrop")
 elseif(UNIX)
