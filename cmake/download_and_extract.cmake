@@ -2,7 +2,9 @@
 
 include(ExternalProject)
 
-# Download the zip file
+message(STATUS "Running CPACK_POST_INSTALL_SCRIPT: download_and_extract.cmake")
+
+# Set path vars
 set(ZIP_DESTINATION "${CMAKE_INSTALL_PREFIX}/_deps/servers/llama.cpp")
 
 set(LLAMA_ZIP_URL "https://github.com/ggerganov/llama.cpp/releases/latest/download/llama-b4562-bin-win-cuda-cu12.4-x64.zip")
@@ -11,6 +13,7 @@ set(LLAMA_ZIP_FILE "${ZIP_DESTINATION}/llama.cpp.zip")
 set(CUDA_ZIP_URL "https://github.com/ggerganov/llama.cpp/releases/latest/download/cudart-llama-bin-win-cu12.4-x64.zip")
 set(CUDA_ZIP_FILE "${ZIP_DESTINATION}/cudart_dlls.zip")
 
+# Download the zip file
 file(MAKE_DIRECTORY ${ZIP_DESTINATION})
 
 # Download file A

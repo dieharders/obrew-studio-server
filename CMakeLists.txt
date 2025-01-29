@@ -2,8 +2,11 @@ cmake_minimum_required(VERSION 3.31.4)
 
 project(Obrew-Studio)
 
-# Copy pre-existing files/folders to the temporary build directory
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist" DESTINATION build_temp)
+# Copy pre-existing executable in source folder to root installation directory
+# install(FILES "${CMAKE_SOURCE_DIR}/dist/Obrew-Server/Obrew-Server.exe" DESTINATION .)
+# Copy pre-existing files in source folder to root installation directory
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist/Obrew-Server/" DESTINATION .)
+# install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist" DESTINATION build_temp)
 
 # Set package information
 set(CPACK_PACKAGE_NAME "Obrew-Studio")
@@ -14,7 +17,7 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The tool for building personal Ai agents"
 set(CPACK_PACKAGE_FILE_NAME "ObrewServer.WIN.Setup")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
-set(CPACK_POST_INSTALL_SCRIPT "${CMAKE_SOURCE_DIR}/download_and_extract.cmake")
+set(CPACK_POST_INSTALL_SCRIPT "${CMAKE_SOURCE_DIR}/cmake/download_and_extract.cmake")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "Obrew-Studio")
 # Specify the output directory for the package
 set(CPACK_OUTPUT_FILE_PREFIX "${CMAKE_SOURCE_DIR}/output")
@@ -31,4 +34,5 @@ elseif(UNIX)
 endif()
 
 # Include CPack module
+include(InstallRequiredSystemLibraries)
 include(CPack)
