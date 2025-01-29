@@ -147,7 +147,7 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         if: runner.os == 'Windows'
         with:
-          path: ${{ github.workspace }}/inno-setup-config-github.iss
+          path: '${{ github.workspace }}/inno-setup-config-github.iss'
           options: /O+
 
       # 7b. Package with CMake/CPack (macOS/Linux)
