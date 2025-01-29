@@ -24,7 +24,7 @@ DefaultDirName={userappdata}\Obrew-Studio
 DisableProgramGroupPage=yes
 ; the following line to run in non administrative install mode (install for current user only.)
 PrivilegesRequired=lowest
-OutputDir=D:\obrew-studio-server\obrew-studio-server\output
+OutputDir={#OUTPATH}
 OutputBaseFilename=Obrew-Studio.WIN.Setup
 Compression=lzma
 SolidCompression=yes
@@ -37,8 +37,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "D:\obrew-studio-server\obrew-studio-server\dist\Obrew-Server\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "D:\obrew-studio-server\obrew-studio-server\dist\Obrew-Server\_deps\*"; DestDir: "{app}/_deps"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SOURCEPATH}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SOURCEPATH}\_deps\*"; DestDir: "{app}/_deps"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

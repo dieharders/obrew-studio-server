@@ -148,7 +148,7 @@ jobs:
         if: runner.os == 'Windows'
         with:
           path: inno-setup-config-github.iss
-          options: /O+
+          options: /O+ /dOUTPATH="${{ github.workspace }}\output" /dSOURCEPATH="${{ github.workspace }}\dist\Obrew-Server"
 
       # 7b. Package with CMake/CPack (macOS/Linux)
       - name: Install CMake
