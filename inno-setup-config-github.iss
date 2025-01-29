@@ -21,12 +21,12 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-DefaultDirName={userappdata}\ObrewServer
+DefaultDirName={userappdata}\Obrew-Studio
 DisableProgramGroupPage=yes
 ; the following line to run in non administrative install mode (install for current user only.)
 PrivilegesRequired=lowest
-OutputDir=D:\obrew-studio-server\obrew-studio-server\installer
-OutputBaseFilename=ObrewServer.WIN.Setup
+OutputDir=D:\obrew-studio-server\obrew-studio-server\output
+OutputBaseFilename=Obrew-Studio.WIN.Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern

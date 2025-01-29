@@ -89,40 +89,35 @@ jobs:
       #     ls -al "${{ env.pythonLocation }}"
 
       # Download and install UPX
-      - name: Download and install UPX (Windows)
-        shell: bash
-        if: runner.os == 'Windows'
-        run: |
-          curl -L https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-win64.zip -o upx.zip
-          # Use unzip to extract the zip file
-          unzip upx.zip -d C:/upx
-          echo "C:/upx/upx-4.0.2-win64" >> $GITHUB_PATH
+      # - name: Download and install UPX (Windows)
+      #   shell: bash
+      #   if: runner.os == 'Windows'
+      #   run: |
+      #     curl -L https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-win64.zip -o upx.zip
+      #     # Use unzip to extract the zip file
+      #     unzip upx.zip -d C:/upx
+      #     echo "C:/upx/upx-4.0.2-win64" >> $GITHUB_PATH
 
-      # Install NLTK and download stopwords (llama-index)
-      - name: Install NLTK and download stopwords
-        run: |
-          .venv/Scripts/python -c "
-          import nltk
-          try:
-              nltk.data.find('corpora/stopwords')
-          except LookupError:
-              nltk.download('stopwords')
-          "
-
-      # 6. Build the app binary (pyinstaller) for Windows
-      - name: Build app (Windows)
+      # 6. Build the app .exe (pyinstaller)
+      - name: Build app
         shell: bash
-        if: runner.os == 'Windows'
         env:
           PATH: .venv/Scripts
         run: |
-          .venv/Scripts/activate # must activate env before each step
+          # Must activate env before each step
           # `env.pythonLocation` should be used if no venv
+          # For Windows
+          if [ $RUNNER_OS == 'Windows' ]; then
+            .venv/Scripts/activate
+          # For Linux/macOS
+          else
+            source .venv/bin/activate
+          fi
           # PyInstaller will output to "build/Obrew-Server" folder in root
           pyinstaller --noconfirm --clean --onedir --windowed \
             --log-level DEBUG \
             --contents-directory _deps \
-            --upx-dir C:/upx/upx-4.0.2-win64 \
+            # --upx-dir C:/upx/upx-4.0.2-win64 \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
             --name "Obrew-Server" \
             --hidden-import "tiktoken_ext.openai_public" \
@@ -138,6 +133,9 @@ jobs:
             --add-data "${{ github.workspace }}/.env.example:.env" \
             --add-data "${{ github.workspace }}/tools/functions:tools/functions/" \
             "${{ github.workspace }}/backends/main.py"
+          # Create a "servers" dir to be included in installer
+          mkdir -p dist/Obrew-Server/_deps/servers
+          # Debug
           echo "Workspace directory:"
           ls -al "${{ github.workspace }}"
           echo "Build directory:"
@@ -145,36 +143,38 @@ jobs:
           echo "Dist directory:"
           ls -al dist/Obrew-Server
 
-      # Post-install deps
-      # - name: Install cudart and llama.cpp
-      #   shell: bash
-      #   run: |
-      #     .venv/Scripts/python -c "
-      #     # download stuff here...
-      #     "
+      # 7a. Package with Inno-Setup (Windows)
+      - name: Create Installer (Inno-Setup)
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        if: runner.os == 'Windows'
+        with:
+          path: ${{ github.workspace }}/inno-setup-config-github.iss
+          options: /O+
 
-      # 7. Install up CMake
+      # 7b. Package with CMake/CPack (macOS/Linux)
       - name: Install CMake
         uses: lukka/get-cmake@latest
+        if: runner.os != 'Windows'
         with:
           cmakeVersion: latest
 
-      # 8. Package with CMake/CPack
       - name: Configure CMake
         shell: bash
+        if: runner.os != 'Windows'
         run: |
           echo "Listing files in the GitHub workspace: ${{ github.workspace }}"
-          ls -la "${{ github.workspace }}/dist"
-          cmake -S "${{ github.workspace }}" -B build_temp -D CMAKE_BUILD_TYPE=Release CMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/Obrew-Server"
+          cmake -S "${{ github.workspace }}" -B build_temp -D CMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/Obrew-Server"
 
       - name: Build Project (CMake)
         shell: bash
+        if: runner.os != 'Windows'
         run: cmake --build build_temp
 
       - name: Create Installer (CPack)
         shell: bash
+        if: runner.os != 'Windows'
         run: |
-          cmake --build build_temp --target package
+          cmake --build build_temp --target package --config Release
           ls -la "${{ github.workspace }}/output"
 
       # 9. Zip all package files/folders in /build and put in /artifacts/windows-latest/
@@ -184,6 +184,7 @@ jobs:
         # Ensure the output directory matches the OutputDir of CPack
         run: |
           mkdir -p ./artifacts/windows-latest
+          ls -la "${{ github.workspace }}/output"
           Compress-Archive -Path "output/*.*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
 
       # 10. Upload Installer Artifact
