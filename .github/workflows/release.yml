@@ -98,6 +98,17 @@ jobs:
           unzip upx.zip -d C:/upx
           echo "C:/upx/upx-4.0.2-win64" >> $GITHUB_PATH
 
+      # Install NLTK and download stopwords (llama-index)
+      - name: Install NLTK and download stopwords
+        run: |
+          .venv/Scripts/python -c "
+          import nltk
+          try:
+              nltk.data.find('corpora/stopwords')
+          except LookupError:
+              nltk.download('stopwords')
+          "
+
       # 6. Build the app binary (pyinstaller) for Windows
       - name: Build app (Windows)
         shell: bash
@@ -133,6 +144,14 @@ jobs:
           ls -al build/Obrew-Server
           echo "Dist directory:"
           ls -al dist/Obrew-Server
+
+      # Post-install deps
+      # - name: Install cudart and llama.cpp
+      #   shell: bash
+      #   run: |
+      #     .venv/Scripts/python -c "
+      #     # download stuff here...
+      #     "
 
       # 7. Install up CMake
       - name: Install CMake
