@@ -38,8 +38,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "D:\obrew-studio-server\obrew-studio-server\dist\Obrew-Server\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "D:\obrew-studio-server\obrew-studio-server\dist\Obrew-Server\_deps\*"; DestDir: "{app}/_deps"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "D:\obrew-studio-server\obrew-studio-server\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "D:\obrew-studio-server\obrew-studio-server\dist\_deps\*"; DestDir: "{app}/_deps"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
