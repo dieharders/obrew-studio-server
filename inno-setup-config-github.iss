@@ -6,7 +6,6 @@
 #define MyAppPublisher "OpenBrewAi"
 #define MyAppURL "https://www.openbrewai.com/"
 #define MyAppExeName "Obrew-Server.exe"
-#define MySetupExeName "ObrewServer.WIN.Setup.exe"
 #define MyComment "The tool for building Ai agents"
 
 [Setup]
