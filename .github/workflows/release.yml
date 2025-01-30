@@ -187,7 +187,7 @@ jobs:
 
       # 10. Upload Installer Artifact
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}-artifact
           path: ./artifacts/${{ matrix.os }}/${{ matrix.os }}-artifacts.zip # upload from
@@ -220,7 +220,7 @@ jobs:
     steps:
       - name: Download Windows artifact
         if: always()
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: windows-latest-artifact
           path: ./artifacts/windows
