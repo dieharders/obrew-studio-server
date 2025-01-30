@@ -183,7 +183,6 @@ jobs:
         # Ensure the output directory matches the OutputDir of CPack
         run: |
           mkdir -p ./artifacts/windows-latest
-          ls -la "${{ github.workspace }}/output"
           Compress-Archive -Path "output/*.*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
 
       # 10. Upload Installer Artifact
