@@ -21,6 +21,8 @@
 
 ## Introduction
 
+![obrew](assets/images/app-entry.png)
+
 The goal of this project is to be an all-in-one solution for running local Ai that is easy to install, setup and use. It handles all basic building blocks of Ai: inference, memory retrieval (RAG) and storage (vector DB), model file management, and agent/workflow building.
 
 ## Description
