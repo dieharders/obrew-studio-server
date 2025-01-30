@@ -165,15 +165,13 @@ class Updater:
         # Evaluate hardware
         gpus = get_gpu_details()
 
-        time.sleep(10)
-        self.health = "complete"
-        print("Download complete.", flush=True)
-
-        return
-
         # Download llama.cpp binaries
         deps_path = get_deps_path()
         file_path = os.path.join(deps_path, "servers", "llama.cpp", "llama-server.exe")
         target_path = os.path.join(deps_path, "servers", "llama.cpp")
         if not llama_server_exists(file_path):
             install_llama_server(gpu=gpus[0], tag="b4589", target_path=target_path)
+
+        # Finished
+        self.health = "complete"
+        print("Download complete.", flush=True)
