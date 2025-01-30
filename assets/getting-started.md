@@ -96,7 +96,9 @@ conda deactivate
 
 ### Create/Switch between virtual environments (venv)
 
-venv is the recommended tool for creating virtual environments for Python v3.6 and up.
+venv is the recommended tool for creating virtual environments for Python v3.6 and up. You should always switch environments when working or pyinstalling a different binary (launcher versus app).
+
+\* Note If using VS Code you may need to set the interpreter (while in a py file, click the interpreter button at the bottom, navigate to `.virtualenvs/Scripts/python.exe`)
 
 1. Create a new environment:
 
