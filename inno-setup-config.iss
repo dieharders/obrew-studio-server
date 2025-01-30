@@ -2,11 +2,11 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Obrew Studio"
-#define MyAppVersion "0.8.0"
+#define MyAppVersion "0.9.0"
 #define MyAppPublisher "OpenBrewAi"
 #define MyAppURL "https://www.openbrewai.com/"
-#define MyAppExeName "Obrew-Server.exe"
-#define MySetupExeName "ObrewServer.WIN.Setup.exe"
+#define MyAppExeName "Obrew-Studio.exe"
+#define MySetupExeName "Obrew-Studio.WIN.Setup.exe"
 #define MyComment "The tool for building Ai agents"
 
 [Setup]
@@ -21,12 +21,12 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-DefaultDirName={userappdata}\ObrewServer
+DefaultDirName={userappdata}\Obrew-Studio
 DisableProgramGroupPage=yes
 ; the following line to run in non administrative install mode (install for current user only.)
 PrivilegesRequired=lowest
 OutputDir=C:\Project Files\brain-dump-ai\obrew-studio-server\installer
-OutputBaseFilename=ObrewServer.WIN.Setup
+OutputBaseFilename=Obrew-Studio.WIN.Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -38,8 +38,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "C:\Project Files\brain-dump-ai\obrew-studio-server\output\Obrew-Server\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "C:\Project Files\brain-dump-ai\obrew-studio-server\output\Obrew-Server\_deps\*"; DestDir: "{app}/_deps"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "C:\Project Files\brain-dump-ai\obrew-studio-server\output\Obrew-Studio\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "C:\Project Files\brain-dump-ai\obrew-studio-server\output\Obrew-Studio\_deps\*"; DestDir: "{app}/_deps"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

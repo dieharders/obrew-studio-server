@@ -88,7 +88,7 @@ jobs:
       #     echo "Contents of the Python directory:"
       #     ls -al "${{ env.pythonLocation }}"
 
-      # Download and install UPX
+      # Download and install UPX (for pyinstaller)
       # - name: Download and install UPX (Windows)
       #   shell: bash
       #   if: runner.os == 'Windows'
@@ -113,12 +113,12 @@ jobs:
           else
             source .venv/bin/activate
           fi
-          # PyInstaller will output to "build/Obrew-Server" folder in root | --upx-dir C:/upx/upx-4.0.2-win64 \
+          # PyInstaller will output to "build/Obrew-Studio" folder in root | --upx-dir C:/upx/upx-4.0.2-win64 \
           pyinstaller --noconfirm --clean --onedir --windowed \
             --log-level DEBUG \
             --contents-directory _deps \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
-            --name "Obrew-Server" \
+            --name "Obrew-Studio" \
             --hidden-import "tiktoken_ext.openai_public" \
             --hidden-import "tiktoken_ext" \
             --add-data "${{ github.workspace }}/public:public/" \
@@ -129,18 +129,19 @@ jobs:
             --add-data .venv/lib/site-packages/backoff:backoff/ \
             --add-data .venv/lib/site-packages/pypika:pypika/ \
             --add-data .venv/lib/site-packages/hnswlib.cp312-win_amd64.pyd:. \
-            --add-data "${{ github.workspace }}/.env.example:.env" \
             --add-data "${{ github.workspace }}/tools/functions:tools/functions/" \
             "${{ github.workspace }}/backends/main.py"
           # Create a "servers" dir to be included in installer
-          mkdir -p dist/Obrew-Server/_deps/servers
+          mkdir -p "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers"
+          # Copy and rename .env.example to .env then place in _deps/
+          cp "${{ github.workspace }}/.env.example" "${{ github.workspace }}/dist/Obrew-Studio/_deps/.env"
           # Debug
           echo "Workspace directory:"
           ls -al "${{ github.workspace }}"
           echo "Build directory:"
-          ls -al build/Obrew-Server
+          ls -al build/Obrew-Studio
           echo "Dist directory:"
-          ls -al dist/Obrew-Server
+          ls -al dist/Obrew-Studio
 
       # 7a. Package with Inno-Setup (Windows)
       - name: Create Installer (Inno-Setup)
@@ -148,7 +149,7 @@ jobs:
         if: runner.os == 'Windows'
         with:
           path: inno-setup-config-github.iss
-          options: /O+ /dOUTPATH="${{ github.workspace }}\output" /dSOURCEPATH="${{ github.workspace }}\dist\Obrew-Server"
+          options: /O+ /dOUTPATH="${{ github.workspace }}\output" /dSOURCEPATH="${{ github.workspace }}\dist\Obrew-Studio"
 
       # 7b. Package with CMake/CPack (macOS/Linux)
       - name: Install CMake
@@ -162,7 +163,7 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           echo "Listing files in the GitHub workspace: ${{ github.workspace }}"
-          cmake -S "${{ github.workspace }}" -B build_temp -D CMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/Obrew-Server"
+          cmake -S "${{ github.workspace }}" -B build_temp -D CMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/Obrew-Studio"
 
       - name: Build Project (CMake)
         shell: bash
@@ -233,5 +234,5 @@ jobs:
         with:
           upload_url: ${{ needs.create_release.outputs.release_upload_url }}
           asset_path: ./artifacts/windows/windows-latest-artifacts.zip # file location
-          asset_name: ObrewServer.WIN.Setup.zip # display name on release page (not file name)
+          asset_name: Obrew-Studio.WIN.Setup.zip # display name on release page (not file name)
           asset_content_type: application/zip
