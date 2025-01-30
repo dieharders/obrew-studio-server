@@ -32,3 +32,8 @@ sentence-transformers==2.6.1
 # For building single exe python
 pyinstaller==6.11.1
 python-multipart==0.0.6
+# Req by llama-index
+nltk==3.8.1
+# GPU Profiling
+WMI==1.5.1
+GPUtil==1.4.0

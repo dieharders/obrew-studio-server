@@ -12,7 +12,7 @@ function toggleFullScreen() {
 }
 async function mountInitialPage() {
   // Fetch the new content
-  const response = await fetch('/main.html')
+  const response = await fetch('/loading.html')
   const content = await response.text()
   const parser = new DOMParser()
   const newDocument = parser.parseFromString(content, 'text/html')
@@ -58,20 +58,7 @@ function loadPageJS(newDocument) {
   }
 }
 
-// Listen for fullscreen toggle keypress
-document.addEventListener('keydown', event => {
-  if (event.key === 'F11') toggleFullScreen()
-})
-
-// View Transition
-document.addEventListener('click', async e => {
-  const link = e.target.closest('[data-link]')
-  if (!link) return
-
-  e.preventDefault()
-
-  const url = link.getAttribute('href')
-
+function transitionPage(url) {
   // If not supported
   if (!document.startViewTransition) {
     location.href = url
@@ -94,6 +81,23 @@ document.addEventListener('click', async e => {
     // Dynamically load page-specific javascript
     loadPageJS(newDocument)
   })
+}
+
+// Listen for fullscreen toggle keypress
+document.addEventListener('keydown', event => {
+  if (event.key === 'F11') toggleFullScreen()
+})
+
+// View Transition
+document.addEventListener('click', e => {
+  const link = e.target.closest('[data-link]')
+  if (!link) return
+
+  e.preventDefault()
+
+  const url = link.getAttribute('href')
+
+  transitionPage(url)
 })
 
 // Listen for pywebview api to be ready

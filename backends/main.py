@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from ui.view import Webview
 from ui.api_ui import Api
 from core import common
+from updater import Updater
 
 ###############
 ### Methods ###
@@ -85,6 +86,7 @@ def main():
             is_debug=is_debug,
             webui_url=webui_url,
             get_server_info=_get_server_info,
+            updater=Updater(),  # downloads deps and signals user to updates
         )
 
         # Handle premature keyboard interrupt

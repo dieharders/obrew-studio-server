@@ -12,6 +12,7 @@
     "server:prod": "python ./backends/main.py --mode=prod --headless=False",
     "server:headless-dev": "python ./backends/main.py --mode=dev --headless=True --host=0.0.0.0 --port=8008",
     "server:headless-prod": "python ./backends/main.py --mode=prod --headless=True --host=0.0.0.0 --port=8008",
+    "build:app": "pyinstaller --noconfirm --clean --onedir --windowed --log-level DEBUG --contents-directory _deps --icon backends/ui/favicon.ico --name Obrew-Server --hidden-import tiktoken_ext.openai_public --hidden-import tiktoken_ext --add-data public:public/ --add-data backends/ui/public:public/ --add-data .venv/lib/site-packages/posthog:posthog/ --add-data .venv/lib/site-packages/chromadb:chromadb/ --add-data .venv/lib/site-packages/importlib_resources:importlib_resources/ --add-data .venv/lib/site-packages/backoff:backoff/ --add-data .venv/lib/site-packages/pypika:pypika/ --add-data .venv/lib/site-packages/hnswlib.cp312-win_amd64.pyd:. --add-data .env.example:.env --add-data tools/functions:tools/functions/ backends/main.py",
     "python-deps": "pip install -r requirements.txt",
     "makecert": "openssl req -x509 -newkey rsa:4096 -nodes -out public/cert.pem -keyout public/key.pem -days 36500"
   },

@@ -35,6 +35,11 @@
   margin: 0;
   padding: 0;
 }
+.spinner {
+  display: block;
+  position: relative;
+  width: 100%;
+}
 /* Show/hide settings */
 #connContainer {
   padding-left: 2px;
