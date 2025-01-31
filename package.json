@@ -7,7 +7,6 @@
   "description": "Your personal Ai engine.",
   "private": false,
   "scripts": {
-    "clean": "rimraf includes renderer/.next renderer/out build release main.spec",
     "server:dev": "python ./backends/main.py --mode=dev --headless=False",
     "server:prod": "python ./backends/main.py --mode=prod --headless=False",
     "server:headless-dev": "python ./backends/main.py --mode=dev --headless=True --host=0.0.0.0 --port=8008",
