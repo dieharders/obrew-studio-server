@@ -1,6 +1,5 @@
 from typing import Dict, List
 import requests
-import time
 import zipfile
 import os
 import sys
@@ -113,7 +112,9 @@ def llama_server_exists(file_path):
 
 
 def install_llama_server(gpu: dict, tag: str, target_path: str):
-    is_nvidia_gpu = "NVIDIA" in gpu.get("gpu_name")
+    is_nvidia_gpu = "NVIDIA" in gpu.get("gpu_name") or "NVIDIA" in gpu.get(
+        "manufacturer"
+    )
     # For Windows - Nvidia
     if platform.system() == "Windows":
         if is_nvidia_gpu:
@@ -170,8 +171,10 @@ class Updater:
         file_path = os.path.join(deps_path, "servers", "llama.cpp", "llama-server.exe")
         target_path = os.path.join(deps_path, "servers", "llama.cpp")
         if not llama_server_exists(file_path):
+            print("Downloading inference server ...", flush=True)
             install_llama_server(gpu=gpus[0], tag="b4589", target_path=target_path)
+            print("Download complete.", flush=True)
 
         # Finished
         self.health = "complete"
-        print("Download complete.", flush=True)
+        print("Done.", flush=True)
