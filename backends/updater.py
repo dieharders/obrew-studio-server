@@ -168,10 +168,10 @@ class Updater:
 
         # Download llama.cpp binaries
         deps_path = get_deps_path()
-        file_path = os.path.join(deps_path, "servers", "llama.cpp", "llama-server.exe")
+        file_path = os.path.join(deps_path, "servers", "llama.cpp", "llama-cli.exe")
         target_path = os.path.join(deps_path, "servers", "llama.cpp")
         if not llama_server_exists(file_path):
-            print("Downloading inference server ...", flush=True)
+            print("Downloading inference binaries ...", flush=True)
             install_llama_server(gpu=gpus[0], tag="b4589", target_path=target_path)
             print("Download complete.", flush=True)
 
