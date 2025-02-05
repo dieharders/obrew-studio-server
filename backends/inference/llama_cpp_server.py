@@ -1,8 +1,12 @@
 import time
 import os
+import httpx
+import asyncio
 import subprocess
 import requests
+import json
 import atexit
+from fastapi import HTTPException
 from collections.abc import Callable
 from typing import List, Optional, Sequence
 from llama_index.core.base.llms.types import ChatMessage, MessageRole
@@ -16,7 +20,40 @@ DEFAULT_SYSTEM_MESSAGE = """You are an AI assistant that answers questions in a 
 """
 
 
+# https://github.com/ggerganov/llama.cpp/wiki/Templates-supported-by-llama_chat_apply_template
+def format_chat_prompt(
+    user_message, chat_history=[], system_message=DEFAULT_SYSTEM_MESSAGE
+):
+    """Manually formats a chat conversation like `--chat-template`."""
+
+    # @TODO Use when is_chat or if chat_history is provided
+    formatted_history = "\n".join(
+        f"User: {msg['user']}\nAssistant: {msg['assistant']}" for msg in chat_history
+    )
+
+    # @TODO Fix this ...
+    # llama2?
+    # <|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{prompt}<|im_end|>\n<|im_start|>assistant
+
+    return f"""
+        <|im_start|>system
+        {system_message}<|im_end|>
+        <|im_start|>user
+        {user_message}<|im_end|>
+        <|im_start|>assistant
+        """
+    # return f"""
+    #     [INST] <<SYS>>
+    #     {system_message}
+    #     <</SYS>>
+    #     {formatted_history}
+    #     User: {user_message}
+    #     Assistant:
+    #     """
+
+
 # Run a llama.cpp server binary wrapped in OpenAI api compatible-ish class
+# https://github.com/ggerganov/llama.cpp/blob/master/examples/main/README.md#common-options
 class Llama_CPP_SERVER:
     def __init__(
         self,
@@ -35,6 +72,8 @@ class Llama_CPP_SERVER:
         priority: int = 0,  # set process priority (0=default, 1, 2, 3)
     ):
         self.process = None
+        self.request_queue = asyncio.Queue()
+        self.message_format_type = None
         self.mode = mode
         self.host = host
         self.port = port
@@ -49,7 +88,7 @@ class Llama_CPP_SERVER:
         BINARY_BASE_PATH = "servers"
         BINARY_FOLDER = "llama.cpp"
         self.BINARY_PATH: str = os.path.join(
-            os.getcwd(), BINARY_BASE_PATH, BINARY_FOLDER, "llama-server.exe"
+            os.getcwd(), BINARY_BASE_PATH, BINARY_FOLDER, "llama-cli.exe"
         )
 
     # Getter
@@ -63,60 +102,78 @@ class Llama_CPP_SERVER:
         n_ctx = self.model_init_kwargs.get("--ctx-size") or 0
         if n_ctx <= 0:
             n_ctx = 0
+        grammar = settings.get("grammar")
         kwargs = {
-            "stream": settings.get("stream"),
-            "stop": settings.get("stop"),  # !Never use an empty string like [""]
-            "verbose-prompt": settings.get("echo"),
-            "model": settings.get("model"),
-            "mirostat_tau": settings.get("mirostat_tau"),
-            "tfs_z": settings.get("tfs_z"),
-            "top_k": settings.get("top_k"),
-            "top_p": settings.get("top_p"),
-            "min_p": settings.get("min_p"),
-            "repeat_penalty": settings.get("repeat_penalty"),
-            "presence_penalty": settings.get("presence_penalty"),
-            "frequency_penalty": settings.get("frequency_penalty"),
-            "temperature": settings.get("temperature"),
-            "seed": self.model_init_kwargs.get("--seed"),
-            "grammar": settings.get("grammar"),
-            "n-predict": common.calc_max_tokens(
+            # "stream": settings.get("stream"), # @TODO Need to implement for non-stream on route level
+            # "stop": settings.get("stop"),  # !Never use an empty string like [""] @TODO Implement using "Reverse Prompt"
+            "--model": settings.get("model"),
+            # "--batch-size": 2048, # @TODO get from UI
+            "--mirostat-ent": settings.get("mirostat_tau"),  # (tau) default 5.0
+            # "--tfs-z": settings.get("tfs_z"), # @TODO deprecate
+            "--top-k": settings.get("top_k"),
+            "--top-p": settings.get("top_p"),
+            "--min-p": settings.get("min_p"),
+            "--repeat-penalty": settings.get("repeat_penalty"),
+            "--presence-penalty": settings.get("presence_penalty"),
+            "--frequency-penalty": settings.get("frequency_penalty"),
+            "--temp": settings.get("temperature"),
+            "--seed": self.model_init_kwargs.get("--seed"),
+            "--predict": common.calc_max_tokens(
                 settings.get("max_tokens"), n_ctx, self.mode
             ),
         }
+        if grammar:
+            kwargs.update({"--grammar": grammar})
         self._generate_kwargs = kwargs
 
     # Shutdown server
     def unload(self):
         if self.process:
             print(
-                f"{common.PRNT_LLAMA} Shutting down llama.cpp server process.",
+                f"{common.PRNT_LLAMA} Shutting down llama.cpp cli process.",
                 flush=True,
             )
             self.process.kill()
 
-    # Start http server
-    def load_model(self):
+    async def read_logs(self):
+        async for line in self.process.stderr:
+            print("[LOG]", line.decode("utf-8").strip())  # Print logs in real-time
+
+    # Create a cli instance and load in a model
+    async def load_model(
+        self,
+        is_chat=False,
+        message_format_type=None,  # "llama2"
+        system_message=DEFAULT_SYSTEM_MESSAGE,
+    ):
         """
-        Starts the llama.cpp server using subprocess.
+        Starts the llama.cpp cli using subprocess.
         """
+
         try:
             # Create arguments for starting server
             cmd_args = [
                 self.BINARY_PATH,
+                # "--no-warmup",  # skip warming up the model with an empty run
+                "--interactive",  # User can pause Ai and add more input, keeps conn open.
+                # "--ignore-eos -n -1",  # infinite response
+                "--multiline-input",
                 "--model",
                 self.model_path,
-                "--host",
-                self.host,
-                "--port",
-                str(self.port),
-                "--prio-batch",
-                str(self.priority),
-                "--no-webui",
-                # "--log-prefix", # enable to set prefix to logs from .env: LLAMA_LOG_PREFIX
-                # "--version", # use to see version, but will self-terminate
             ]
-            if self.debug:
-                cmd_args.append("--log-verbose")
+            if message_format_type:
+                # if not used then gotten from model (or manually format)
+                cmd_args.append("--chat-template")
+                cmd_args.append(message_format_type)
+            self.message_format_type = message_format_type
+            if is_chat:
+                cmd_args.append("-cnv")  # conversation mode (chat)
+                # Changes system message when using "-cnv" mode
+                cmd_args.append("--prompt")
+                cmd_args.append(system_message),  # @TODO Get from system_message
+            else:
+                cmd_args.append("-no-cnv")
+
             # Sanitize values
             for key, value in self.model_init_kwargs.items():
                 if isinstance(value, bool):
@@ -129,73 +186,71 @@ class Llama_CPP_SERVER:
 
             # Start server process
             print(
-                f"{common.PRNT_LLAMA} Starting llama.cpp server on port {self.port}..."
+                f"{common.PRNT_LLAMA} Starting llama.cpp cli ...\nWith command: {cmd_args}"
             )
-            process = subprocess.Popen(cmd_args, text=True)
 
-            # Define the health check endpoint
-            health_url = f"http://localhost:{self.port}/health"
-            headers = {"Authorization": "Bearer no-key"}
-            start_time = time.time()
-            timeout = 30000  # 30 seconds
-
-            # Wait (health check) for the server to be ready
-            while time.time() - start_time < timeout:
-                try:
-                    response = requests.get(url=health_url, headers=headers)
-                    if response.status_code == 200:
-                        print(
-                            f"{common.PRNT_LLAMA} Server is ready to accept requests."
-                        )
-                        self.process = process
-                        # Register a cleanup to occur on python interpreter exit
-                        atexit.register(self.unload)
-                        return process
-                except requests.ConnectionError:
-                    pass
-                time.sleep(1)
-
-            print(f"{common.PRNT_LLAMA} Terminating server, timed out.")
-            process.terminate()
-            raise Exception("Server timed out")
+            # Close if instance already exists
+            # @TODO Could re-use process if the prev and loading model are the same
+            if self.process:
+                self.process.kill()
+            self.process = await asyncio.create_subprocess_exec(
+                *cmd_args,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            # Read logs
+            if self.debug:
+                asyncio.create_task(self.read_logs())
 
         except Exception as e:
-            print(f"{common.PRNT_LLAMA} Error starting the server: {e}")
-            raise Exception(f"Error starting the server: {e}")
+            print(f"{common.PRNT_LLAMA} Error starting the llama.cpp: {e}")
+            raise Exception(f"Error starting llama.cpp: {e}")
 
     # Predict the rest of the prompt
     # @TODO do something with message_format
-    def complete(
-        self, prompt: str, system_message: str, message_format: str, is_chat=False
+    async def text_completion(
+        self,
+        prompt: str,
+        system_message: str = DEFAULT_SYSTEM_MESSAGE,
+        is_chat=False,
     ):
-        """
-        Queries the /completions endpoint of the llama.cpp server.
-        """
-        chat_endpoint = "/chat" if is_chat else ""
-        if self.host == "127.0.0.1":
-            host = "http://localhost"
-        else:
-            host = self.host
-        url = f"{host}:{self.port}/v1{chat_endpoint}/completions"
-        headers = {"Content-Type": "application/json", "Authorization": "Bearer no-key"}
-        payload = {
-            "prompt": prompt,  # "prompt" for non-chat v1/completions
-            # @TODO Handle "messages": [] for chat mode v1/chat/completions
-        }
-        if system_message:
-            payload["system_message"] = system_message
-        payload.update(self.generate_kwargs)
-
         try:
-            response = requests.post(url, json=payload, headers=headers)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"{common.PRNT_LLAMA} Error querying the server: {e}")
-            raise Exception(f"Error querying the server: {e}")
+            # Format command for llama-cli
+            # @TODO Handle "messages": [] for chat mode v1/chat/completions
+            kwargs = " ".join(f"{k} {v}" for k, v in self.generate_kwargs.items())
+            # Format prompt for chat
+            formatted_prompt = json.dumps(
+                {
+                    "messages": [
+                        {"role": "system", "content": DEFAULT_SYSTEM_MESSAGE},
+                        {"role": "user", "content": prompt},
+                    ]
+                }
+            )
+            # Format prompt if none provided
+            if self.message_format_type == None:
+                formatted_prompt = format_chat_prompt(
+                    user_message=prompt, system_message=system_message
+                )
+            command = f"--prompt {formatted_prompt} --no-context-shift --no-display-prompt {kwargs}"
+            # Send command to llama-cli
+            print(f"{common.PRNT_LLAMA} Generating with command: {command}")
+            self.process.stdin.write(command.encode("utf-8") + b"\n")
+            await self.process.stdin.drain()
+            # Stream response as SSE
+            async for line in self.process.stdout:
+                payload = {
+                    "event": "GENERATING_TOKENS",
+                    "data": line.decode("utf-8").strip(),
+                }
+                yield json.dumps(payload)  # SSE format
+        except (ValueError, UnicodeEncodeError, Exception) as e:
+            print(f"{common.PRNT_LLAMA} Error querying the llama.cpp: {e}")
+            raise Exception(f"Error querying the llama.cpp: {e}")
 
 
-# Format the prompt for chat conversations
+# Convert structured chat conversation to prompt (str)
 # @TODO Could also use: from llama_index.llms.llama_cpp.llama_utils import messages_to_prompt
 def _messages_to_prompt(
     messages: Sequence[ChatMessage],
@@ -204,12 +259,12 @@ def _messages_to_prompt(
 ) -> str:
     # (end tokens, structure, etc)
     # @TODO Pass these in from UI model_configs.json (values found in config.json of HF model card)
-    BOS = template["BOS"] or ""
-    EOS = template["EOS"] or ""
-    B_INST = template["B_INST"] or ""
-    E_INST = template["E_INST"] or ""
-    B_SYS = template["B_SYS"] or ""
-    E_SYS = template["E_SYS"] or ""
+    BOS = template["BOS"] or ""  # begin string
+    EOS = template["EOS"] or ""  # end of string
+    B_INST = template["B_INST"] or ""  # begin instruction (user prompt)
+    E_INST = template["E_INST"] or ""  # end instruction (user prompt)
+    B_SYS = template["B_SYS"] or ""  # begin system instruction
+    E_SYS = template["E_SYS"] or ""  # end system instruction
 
     string_messages: List[str] = []
     if messages[0].role == MessageRole.SYSTEM:
@@ -249,7 +304,7 @@ def _messages_to_prompt(
     return "".join(string_messages)
 
 
-# Format the prompt for completion
+# Convert input to completion prompt
 # @TODO Could also use: from llama_index.llms.llama_cpp.llama_utils import completion_to_prompt
 def _completion_to_prompt(
     completion: Optional[str] = "",
@@ -290,10 +345,13 @@ def create(
     n_threads = init_settings.n_threads  # None means auto calc
     if n_threads == -1:
         n_threads = None
+    n_gpu_layers = init_settings.n_gpu_layers
+    if init_settings.n_gpu_layers == -1:
+        n_gpu_layers = 100  # all
 
     model_init_kwargs = {
         # "--device": "CUDA0",
-        "--n_gpu_layers": init_settings.n_gpu_layers,
+        "--n_gpu_layers": n_gpu_layers,
         "--no_mmap": not init_settings.use_mmap,
         "--mlock": init_settings.use_mlock,
         # "--cache-type-k": init_settings.cache_type_k, # @TODO implement this
