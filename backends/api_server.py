@@ -123,8 +123,10 @@ class ApiServer:
         self._add_routes(app_inst)
         return app_inst
 
-    def shutdown(*args):
+    def shutdown(self, *args):
         print(f"{common.PRNT_API} Server forced to shutdown.", flush=True)
+        if self.app.state.llm:
+            self.app.state.llm.unload()
         os.kill(os.getpid(), signal.SIGTERM)  # or SIGINT
 
     def startup(self):

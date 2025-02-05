@@ -138,7 +138,9 @@ class Api:
     # Send shutdown server request
     def shutdown_server(self, *args):
         try:
-            self.api_server.shutdown()
+            if self.api_server:
+                # Does not exist in GUI mode since api not set in this class?
+                self.api_server.shutdown()
             print(f"{common.PRNT_APP} Shutting down server.", flush=True)
             return
         except Exception as e:

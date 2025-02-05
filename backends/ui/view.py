@@ -54,93 +54,106 @@ from core import common
 #     root.mainloop()
 
 
-# WebView window
-def Webview(
-    js_api: Type[Api],
-    is_prod: bool,
-    is_dev: bool,
-    is_debug: bool,
-    remote_ip: str,
-    webui_url: str,
-    IS_WEBVIEW_SSL: bool,
-):
-    try:
-        # Production html files will be put in `_deps/public` folder
-        base_path = sys._MEIPASS
-        ui_path = os.path.join(base_path, "public", "index.html")
-    except Exception:
-        ui_path = "ui/public/index.html"
+class Webview:
+    def __init__(
+        self,
+        js_api: Type[Api],
+        is_prod: bool,
+        is_dev: bool,
+        is_debug: bool,
+        remote_ip: str,
+        webui_url: str,
+        IS_WEBVIEW_SSL: bool,
+    ):
+        self.webview_window = None
+        self.callback = None
+        self.api_server = None
+        self.js_api = js_api
+        self.is_prod = is_prod
+        self.is_dev = is_dev
+        self.is_debug = is_debug
+        self.remote_ip = remote_ip
+        self.webui_url = webui_url
+        self.IS_WEBVIEW_SSL = IS_WEBVIEW_SSL
 
-    webview_window = webview.create_window(
-        title="Obrew Studio",
-        url=ui_path,
-        js_api=js_api,
-        width=720,
-        height=1050,
-        min_size=(350, 450),
-        fullscreen=False,
-        # http_port=3000,
-        # draggable=True,
-        # transparent=True,
-        # frameless=True,
-        # easy_drag=True,
-    )
-
-    # Start the window
-    def callback():
-        webview.start(ssl=IS_WEBVIEW_SSL, debug=is_dev)
-
-    # Set window to fullscreen
-    def toggle_fullscreen():
-        webview_window.toggle_fullscreen()
-
-    # Tells front-end javascript to navigate to the webui
-    def launch_webui():
+    # WebView window
+    def create_window(self):
         try:
-            if not webview_window:
-                raise Exception("Window is not initialized yet.")
-            # Invoke function from the javascript context
-            webview_window.evaluate_js("launchWebUI()")
-            return ""
-        except JavascriptException as e:
-            print(f"{common.PRNT_APP} Javascript exception occured: {e}")
-        except Exception as e:
-            print(f"{common.PRNT_APP} Failed to launch WebUI: {e}")
+            # Production html files will be put in `_deps/public` folder
+            base_path = sys._MEIPASS
+            ui_path = os.path.join(base_path, "public", "index.html")
+        except Exception:
+            ui_path = "ui/public/index.html"
 
-    def launch_webui_failed():
-        try:
-            if not webview_window:
-                raise Exception("Window is not initialized yet.")
-            webview_window.evaluate_js("launchWebUIFailed()")
-            return ""
-        except Exception as e:
-            print(f"{common.PRNT_APP} Failed to callback launch WebUI: {e}")
+        self.webview_window = webview.create_window(
+            title="Obrew Studio",
+            url=ui_path,
+            js_api=self.js_api,
+            width=720,
+            height=1050,
+            min_size=(350, 450),
+            fullscreen=False,
+            # http_port=3000,
+            # draggable=True,
+            # transparent=True,
+            # frameless=True,
+            # easy_drag=True,
+        )
 
-    # Start the API server. Only used for window mode.
-    def start_server(config):
-        try:
-            print(f"{common.PRNT_APP} Starting API server...", flush=True)
-            api_server = ApiServer(
-                is_prod=is_prod,
-                is_dev=is_dev,
-                is_debug=is_debug,
-                remote_url=remote_ip,
-                SERVER_HOST=config["host"],
-                SERVER_PORT=int(config["port"]),
-                selected_webui_url=config.get("webui"),
-                hosted_webui_url=webui_url,
-                on_startup_callback=launch_webui,
-            )
-            api_server.startup()
-            return api_server
-        except Exception as e:
-            print(f"{common.PRNT_APP} Failed to start API server. {e}", flush=True)
-            launch_webui_failed()
+        # A hook to start the window
+        def callback():
+            webview.start(ssl=self.IS_WEBVIEW_SSL, debug=self.is_dev)
 
-    # Expose an inline func before runtime
-    webview_window.expose(launch_webui)
-    webview_window.expose(start_server)
-    webview_window.expose(launch_webui_failed)
-    webview_window.expose(toggle_fullscreen)
+        self.callback = callback
 
-    return dict(handle=webview_window, callback=callback)
+        # Set window to fullscreen
+        def toggle_fullscreen():
+            self.webview_window.toggle_fullscreen()
+
+        # Tells front-end javascript to navigate to the webui
+        def launch_webui():
+            try:
+                if not self.webview_window:
+                    raise Exception("Window is not initialized yet.")
+                # Invoke function from the javascript context
+                self.webview_window.evaluate_js("launchWebUI()")
+                return ""
+            except JavascriptException as e:
+                print(f"{common.PRNT_APP} Javascript exception occured: {e}")
+            except Exception as e:
+                print(f"{common.PRNT_APP} Failed to launch WebUI: {e}")
+
+        def launch_webui_failed():
+            try:
+                if not self.webview_window:
+                    raise Exception("Window is not initialized yet.")
+                self.webview_window.evaluate_js("launchWebUIFailed()")
+                return ""
+            except Exception as e:
+                print(f"{common.PRNT_APP} Failed to callback launch WebUI: {e}")
+
+        # Start the API server. Only used for window mode.
+        def start_server(config):
+            try:
+                print(f"{common.PRNT_APP} Starting API server...", flush=True)
+                self.api_server = ApiServer(
+                    is_prod=self.is_prod,
+                    is_dev=self.is_dev,
+                    is_debug=self.is_debug,
+                    remote_url=self.remote_ip,
+                    SERVER_HOST=config["host"],
+                    SERVER_PORT=int(config["port"]),
+                    selected_webui_url=config.get("webui"),
+                    hosted_webui_url=self.webui_url,
+                    on_startup_callback=launch_webui,
+                )
+                self.api_server.startup()
+            except Exception as e:
+                print(f"{common.PRNT_APP} Failed to start API server. {e}", flush=True)
+                launch_webui_failed()
+
+        # Expose an inline func before runtime
+        self.webview_window.expose(launch_webui)
+        self.webview_window.expose(start_server)
+        self.webview_window.expose(launch_webui_failed)
+        self.webview_window.expose(toggle_fullscreen)

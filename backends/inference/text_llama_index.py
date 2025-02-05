@@ -316,6 +316,5 @@ def text_chat(
     # Stream response
     token_generator = llm.stream_chat(formatted_messages, kwargs=options)
     for token in token_generator:
-        # print(token.delta, end="", flush=True)
         payload = {"event": "GENERATING_TOKENS", "data": f"{token.delta}"}
         yield json.dumps(payload)
