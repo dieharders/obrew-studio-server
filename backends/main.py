@@ -122,7 +122,8 @@ def main():
 
             # Handle window closing
             def on_window_closing():
-                view_instance.api_server.shutdown()
+                if view_instance.api_server:
+                    view_instance.api_server.shutdown()
 
             window_handle = view_instance.webview_window
             window_handle.events.closing += on_window_closing
