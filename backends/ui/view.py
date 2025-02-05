@@ -55,7 +55,7 @@ from core import common
 
 
 # WebView window
-def WEBVIEW(
+def Webview(
     js_api: Type[Api],
     is_prod: bool,
     is_dev: bool,

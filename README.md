@@ -1,26 +1,45 @@
 # 🍺 Obrew Studio: Server - Your Personal Ai Engine
 
-<img src="assets/images/doc-poster.png" align="center" />
+![banner](assets/images/banner.png)
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+<br>
+![Python](https://img.shields.io/badge/-Python-000?&logo=Python)
+![Javascript](https://img.shields.io/badge/-JavaScript-000?&logo=JavaScript)
+![FastAPI](https://img.shields.io/badge/-FastAPI-000?&logo=fastapi)
 
 ## Table of Contents
 
+- [Supported Models](https://huggingface.co/models?library=gguf&sort=trending)
 - [Features](#app-features-roadmap)
 - [How to Use](assets/how-to-use.md)
 - [Getting Started](assets/getting-started.md)
 - [API Documentation](assets/api-docs.md)
 - [Build Steps](assets/build-steps.md)
-- [Compiling & Packaging](assets/compiling-packaging.md)
-- [Deploy & Release](assets/deploy-release.md)
+- [Bundling for Release](assets/bundling-for-release.md)
+- [Deploy](assets/deploy.md)
 
 ## Introduction
 
-The goal of this project is to be an all-in-one solution for running local Ai that is easy to install, setup and use. It is a native app that runs a server which handles all basic building blocks of building with Ai: inference, vector memory, model file manager, agent builder, GUI.
+![obrew](assets/images/app-entry.png)
+
+The goal of this project is to be an all-in-one solution for running local Ai that is easy to install, setup and use. It handles all basic building blocks of Ai: inference, memory retrieval (RAG) and storage (vector DB), model file management, and agent/workflow building.
+
+## Description
+
+Obrew Studio is a native app with a GUI that can be configured to allow access from other apps you write or third party services, making it an ideal engine for Ai workloads built on your own tech stack.
 
 ## How It Works
 
-This backend is a Python server built with FastAPI. A WebUI is provided called [Obrew Studio WebUI](https://studio.openbrewai.com/) to access this server. You can also access it programmatically via the [API](assets/api-docs.md).
+![obrew](assets/images/doc-poster.png)
 
-Launch the desktop app locally, then navigate your browser to any web app that supports this project's api and start using ai locally with your own private data for free:
+This backend runs a web server that acts as the main gateway to the suite of tools. A WebUI is provided called [Obrew Studio: WebUI](https://studio.openbrewai.com/) to access this server. You can also run in headless mode to access it programmatically via the API.
+
+To use Ai locally with your private data for free:
+
+- Launch the desktop app and use the GUI to start building
+- or navigate your browser to any web app that supports the api
+- or connect with a service provider or custom stack that supports the api
 
 ## App Features Roadmap
 
@@ -31,7 +50,7 @@ Launch the desktop app locally, then navigate your browser to any web app that s
 - ✅ Windows OS installer
 - ❌ MacOS/Linux installer
 - ❌ Docker config for cloud/server deployment
-- ❌ Production ready: This project is currently under active development, there may be bugs
+- ❌ Production ready: This project is currently under active development
 
 ## Ai Features Roadmap
 
@@ -39,6 +58,7 @@ Launch the desktop app locally, then navigate your browser to any web app that s
 - ✅ Embeddings: Create vector embeddings from a file/website/media to augment memory
 - ✅ Knowledge Base: Search a vector database with Llama Index to retrieve information
 - ✅ Agents: Customized LLM, can choose or specify tool use
+- ✅ Tool Use: Choose from pre-made or write your own
 - ❌ Workflows: Composable automation of tasks, teams of agents, parallel processing, conditional routing
 - ❌ Monitors: Source citations, observability, logging, time-travel, transparency
 - ❌ Support multi-modal: vision, text, audio, 3d, and beyond

@@ -12,7 +12,7 @@ from core.classes import (
     InstalledTextModel,
     ModelConfig,
     DEFAULT_CHAT_MODE,
-    DEFAULT_CONTEXT_WINDOW,
+    DEFAULT_MIN_CONTEXT_WINDOW,
 )
 from huggingface_hub import (
     scan_cache_dir,
@@ -72,6 +72,7 @@ class bcolors:
 
 PRNT_APP = f"{bcolors.HEADER}[OBREW]{bcolors.ENDC}"
 PRNT_API = f"{bcolors.HEADER}[API]{bcolors.ENDC}"
+PRNT_LLAMA = f"{bcolors.HEADER}[LLAMA]{bcolors.ENDC}"
 PRNT_EMBED = f"{bcolors.OKCYAN}[EMBEDDING]{bcolors.ENDC}"
 
 
@@ -79,7 +80,7 @@ PRNT_EMBED = f"{bcolors.OKCYAN}[EMBEDDING]{bcolors.ENDC}"
 # This impacts how long a conversation you can have before the context_window limit is reached (and issues/hallucinations begin) for a given Ai model.
 def calc_max_tokens(
     max_tokens: int = 0,
-    context_window: int = DEFAULT_CONTEXT_WINDOW,
+    context_window: int = DEFAULT_MIN_CONTEXT_WINDOW,
     mode: str = DEFAULT_CHAT_MODE,
 ):
     system_msg_buffer = 100

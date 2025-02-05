@@ -9,7 +9,8 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from inference.classes import RetrievalTypes
 
 DEFAULT_TEMPERATURE = 0.2
-DEFAULT_CONTEXT_WINDOW = 2000
+DEFAULT_MIN_CONTEXT_WINDOW = 2000
+DEFAULT_CONTEXT_WINDOW = 0
 DEFAULT_SEED = 1337
 DEFAULT_MAX_TOKENS = 0  # 0 means we should calc it
 DEFAULT_CHAT_MODE = "instruct"
@@ -79,7 +80,7 @@ class LoadTextInferenceInit(BaseModel):
     use_mlock: Optional[bool] = False
     f16_kv: Optional[bool] = True
     seed: Optional[int] = DEFAULT_SEED
-    n_ctx: Optional[int] = DEFAULT_CONTEXT_WINDOW
+    n_ctx: Optional[int] = DEFAULT_CONTEXT_WINDOW  # load from model
     n_batch: Optional[int] = 512
     n_threads: Optional[int] = None
     offload_kqv: Optional[bool] = False
@@ -715,7 +716,7 @@ class ToolSaveRequest(BaseModel):
     @classmethod
     def prevent_none(cls, v):
         assert v is not None, "id may not be None"
-        assert v is not "", "id may not be empty"
+        assert v != "", "id may not be empty"
         return v
 
 

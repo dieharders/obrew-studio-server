@@ -7,6 +7,7 @@ from inference import agent
 from storage import route as storage_route
 from embeddings import main, query
 from inference import text_llama_index
+from inference import text_llama_cpp_server
 from core import classes, common
 from huggingface_hub import (
     hf_hub_download,
@@ -15,6 +16,7 @@ from huggingface_hub import (
     HfApi,
 )
 
+# @TODO Replace with cli_route.py
 router = APIRouter()
 
 
@@ -82,8 +84,10 @@ def get_text_model(request: Request) -> classes.LoadedTextModelResponse | dict:
 @router.post("/unload")
 def unload_text_inference(request: Request):
     app = request.app
-    text_llama_index.unload_text_model(app.state.llm)
+    if app.state.llm:
+        app.state.llm.unload()
     app.state.loaded_text_model_data = {}
+    del app.state.llm
     app.state.llm = None
     app.state.path_to_model = ""
     app.state.model_id = ""
@@ -121,13 +125,15 @@ def load_text_inference(
         if app.state.llm is None:
             model_settings = data.init
             generate_settings = data.call
-            app.state.llm = text_llama_index.load_text_model(
-                modelPath,
-                mode,
-                model_settings,
-                generate_settings,
-                callback_manager=callback_manager,
+            app.state.llm = text_llama_cpp_server.create(
+                path_to_model=modelPath,
+                model_name=model_id,
+                mode=mode,
+                init_settings=model_settings,
+                generate_settings=generate_settings,
+                # callback_manager=callback_manager,
             )
+            app.state.llm.load_model()
             # Record the currently loaded model
             app.state.loaded_text_model_data = {
                 "modelId": model_id,
@@ -279,7 +285,7 @@ def download_text_model(payload: classes.DownloadTextModelRequest):
             "message": f"Saved model file to {file_path}.",
         }
     except (KeyError, Exception, EnvironmentError, OSError, ValueError) as err:
-        print(f"Error: {err}", flush=True)
+        print(f"{common.PRNT_API} Error: {err}", flush=True)
         raise HTTPException(
             status_code=400, detail=f"Something went wrong. Reason: {err}"
         )
@@ -312,7 +318,7 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
         delete_strategy = model_cache_info.delete_revisions(*repo_commit_hash)
         delete_strategy.execute()
         freed_size = delete_strategy.expected_freed_size_str
-        print(f"Freed {freed_size} space.", flush=True)
+        print(f"{common.PRNT_API} Freed {freed_size} space.", flush=True)
 
         # Delete install record from json file
         if freed_size != "0.0":
@@ -323,7 +329,7 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
             "message": f"Deleted model file from {filename}. Freed {freed_size} of space.",
         }
     except (KeyError, Exception) as err:
-        print(f"Error: {err}", flush=True)
+        print(f"{common.PRNT_API} Error: {err}", flush=True)
         raise HTTPException(
             status_code=400, detail=f"Something went wrong. Reason: {err}"
         )
@@ -331,7 +337,7 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
 
 # Use Llama Index to run queries on vector database embeddings or run normal chat inference.
 @router.post("/inference")
-async def text_inference(
+def text_inference(
     request: Request,
     payload: classes.InferenceRequest,
 ):
@@ -380,11 +386,11 @@ async def text_inference(
 
         if not app.state.path_to_model:
             msg = "No path to model provided."
-            print(f"Error: {msg}", flush=True)
+            print(f"{common.PRNT_API} Error: {msg}", flush=True)
             raise Exception(msg)
         if not app.state.llm:
             msg = "No LLM loaded."
-            print(f"Error: {msg}", flush=True)
+            print(f"{common.PRNT_API} Error: {msg}", flush=True)
             raise Exception(msg)
 
         # Handle Agent prompt (low temperature works best)
@@ -495,14 +501,13 @@ async def text_inference(
             options["n_ctx"] = n_ctx
             # Return streaming response
             if streaming and not is_agent:
-                return EventSourceResponse(
-                    text_llama_index.text_stream_completion(
-                        prompt=query_prompt,
-                        system_message=system_message,
-                        message_format=message_format,
-                        app=app,
-                        options=options,
-                    )
+                # Update llm props
+                app.state.llm.generate_kwargs = options
+                return app.state.llm.complete(
+                    prompt=query_prompt,
+                    system_message=system_message,
+                    message_format=message_format,
+                    is_chat=False,
                 )
             # Return non-stream response
             else:
@@ -537,7 +542,7 @@ async def text_inference(
         else:
             raise Exception("No 'mode' or 'collection_names' provided.")
     except (KeyError, Exception) as err:
-        print(f"Error: {err}", flush=True)
+        print(f"{common.PRNT_API} Error: {err}", flush=True)
         raise HTTPException(
             status_code=400, detail=f"Something went wrong. Reason: {err}"
         )

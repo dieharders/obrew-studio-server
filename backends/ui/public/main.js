@@ -9,7 +9,8 @@ async function launchWebUIFailed() {
 async function launchWebUI() {
   // Nav to Obrew Studio WebUI
   // The params help front-end know what server to connect to
-  window.location = `${window.frontend.state.webui_url}/?hostname=${window.frontend.state.local_url}&port=${window.frontend.state.port}`
+  const target = window.frontend.state.webui || window.frontend.state.webui_url
+  window.location = `${target}/?hostname=${window.frontend.state.local_url}&port=${window.frontend.state.port}`
   return '' // always return something
 }
 async function startServer() {
@@ -39,7 +40,7 @@ async function shutdownServer() {
 async function getPageData() {
   const port = document.getElementById('port').value
   const selected_webui_url = document.getElementById('webui').value
-  const data = await window.pywebview.api.update_entry_page(port, selected_webui_url)
+  const data = await window.pywebview.api.update_main_page(port, selected_webui_url)
   return data
 }
 function updateQRCode(data) {

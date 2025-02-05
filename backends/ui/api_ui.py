@@ -4,7 +4,7 @@ from core import common
 from api_server import ApiServer
 
 
-# Inject these Python funcs into javascript context.
+# Inject these Python funcs into javascript context. Funcs must be sync.
 class Api:
     def __init__(
         self,
@@ -15,6 +15,7 @@ class Api:
         is_debug,
         webui_url,
         get_server_info,
+        updater,
     ):
         self.api_server = None
         self.is_prod = is_prod
@@ -24,6 +25,7 @@ class Api:
         self.host = host
         self.webui_url = webui_url
         self.get_server_info = get_server_info
+        self.updater = updater
 
     # Save .env vals and other pre-launch settings
     def save_settings(self, settings: dict):
@@ -58,10 +60,23 @@ class Api:
                 flush=True,
             )
 
+    def update_entry_page(self):
+        try:
+            # Download deps on UI startup
+            if self.updater.health == "idle":
+                self.updater.download()
+            page_data = dict()
+            return page_data
+        except Exception as e:
+            print(
+                f"{common.PRNT_APP} Failed to update Entry page: {e}",
+                flush=True,
+            )
+
     # Generate links for user to connect an external device to this machine's
     # locally running server instance.
     # QRcode generation -> https://github.com/arjones/qr-generator/tree/main
-    def update_entry_page(self, port: str, selected_webui_url: str):
+    def update_main_page(self, port: str, selected_webui_url: str):
         try:
             PORT = port or self.port
             server_info = self.get_server_info()
@@ -92,6 +107,10 @@ class Api:
     # Start the API server
     def start_headless_server(self, config):
         try:
+            # Download deps on server startup
+            if self.updater.health == "idle":
+                self.updater.download()
+
             server_info = self.get_server_info()
             remote_ip = server_info["remote_ip"]
             print(f"{common.PRNT_APP} Starting headless API server...", flush=True)

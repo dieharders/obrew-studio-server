@@ -14,30 +14,15 @@ on:
         description: 'Release notes'
         required: false
 
-jobs:
-  # Assumes you created a git tag with `yarn version --[operation]`
-  # @TODO should this come last?
-  create_release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    outputs:
-      release_upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-      - name: Create a release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.event.inputs.ref || github.ref_name }}
-          release_name: ${{ github.event.inputs.release_name }}
-          body: ${{ github.event.inputs.release_notes }}
-          draft: ${{ github.event.inputs.release_type == 'draft' }} # not visible to the public
-          prerelease: ${{ github.event.inputs.release_type == 'private' }} # visible only to collaborators
+# permissions:
+#     # Give the default GITHUB_TOKEN write permission to commit and push the
+#     # added or changed files to the repository.
+#     contents: write
 
+jobs:
   build:
     name: Build for ${{ matrix.os }}
-    needs: create_release
+    # needs: create_release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -59,91 +44,186 @@ jobs:
 
       # 2. Install Python
       - name: Install Python
-        uses: actions/setup-python@v4
+        id: setup_python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          # cache: 'pip' # caches the downloaded package installers only, if you cache the venv then disabling this will save about 20s
 
-      # 3. Install package manager for Python
-      - name: Install pip for Python
+      # 3. Load the cached python virtual environment
+      - name: Restore cached venv
+        id: restore-cache
+        uses: actions/cache/restore@v4
+        with:
+          key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.release.txt') }}
+          path: .venv
+
+      # 4. Create virtual environment, Install package manager and dependencies for Python
+      - name: Setup venv (install deps)
         shell: bash
+        if: runner.os == 'Windows'
         run: |
-          python --version
-          pip --version || python -m ensurepip --upgrade
-          python -m pip install --upgrade pip setuptools wheel
+          python -m venv .venv # noop if cache is found
+          .venv/Scripts/activate
+          .venv/Scripts/python -m pip list  # Verify installed packages
+          # Install pip and Python deps
+          .venv/Scripts/python --version
+          .venv/Scripts/python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
+          .venv/Scripts/python -m pip install -r requirements.release.txt # install deps, use --prefer-binary to install from wheels instead of source
 
-      # 4. Install Python dependencies
-      - name: Install Python deps
-        shell: bash
-        run: pip install -r requirements.release.txt
+      # 5. Cache python virtual environment for later runs
+      - name: Save cached venv
+        uses: actions/cache/save@v4
+        with:
+          key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.release.txt') }}
+          path: .venv
 
-      # 5a. Build the app binary (pyinstaller) for Windows
-      - name: Build app (Windows)
-        shell: bash
-        if: startsWith(runner.os, 'Windows')
-        run: pyinstaller --noconfirm --onedir --windowed --icon "./backends/ui/favicon.ico" --name "Obrew-Server" --clean --no-embed-manifest --add-data "./public;public/" --add-data "./backends/ui/public;public/" --hidden-import "tiktoken_ext.openai_public" --hidden-import "tiktoken_ext" --add-data "${{ runner.temp }}/site-packages/posthog;posthog/" --add-data "${{ runner.temp }}/site-packages/chromadb;chromadb/" --add-data "${{ runner.temp }}/site-packages/importlib_resources;importlib_resources/" --add-data "${{ runner.temp }}/site-packages/backoff;backoff/" --add-data "${{ runner.temp }}/site-packages/pypika;pypika/" --add-data "${{ runner.temp }}/site-packages/hnswlib.cp312-win_amd64.pyd;." --add-data "./.env.example;.env" --add-data "./tools/functions;tools/functions/"  "./backends/main.py"
+      # - name: List contents of GitHub workspace
+      #   shell: bash
+      #   run: |
+      #     echo "Contents of the GitHub workspace directory:"
+      #     ls -al "${{ github.workspace }}"
+      #     echo ".venv/lib/site-packages"
+      #     ls -al .venv/lib/site-packages
+      #     echo "Contents of the Python directory:"
+      #     ls -al "${{ env.pythonLocation }}"
 
-      # 5b. Build the app binary (pyinstaller) for macOS/Linux
-      # Same command, but ; replaced with :
-      - name: Build app (macOS/Linux)
+      # Download and install UPX (for pyinstaller)
+      # - name: Download and install UPX (Windows)
+      #   shell: bash
+      #   if: runner.os == 'Windows'
+      #   run: |
+      #     curl -L https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-win64.zip -o upx.zip
+      #     # Use unzip to extract the zip file
+      #     unzip upx.zip -d C:/upx
+      #     echo "C:/upx/upx-4.0.2-win64" >> $GITHUB_PATH
+
+      # 6. Build the app .exe (pyinstaller)
+      - name: Build app
         shell: bash
+        env:
+          PATH: .venv/Scripts
+        run: |
+          # Must activate env before each step
+          # `env.pythonLocation` should be used if no venv
+          # For Windows
+          if [ $RUNNER_OS == 'Windows' ]; then
+            .venv/Scripts/activate
+          # For Linux/macOS
+          else
+            source .venv/bin/activate
+          fi
+          # PyInstaller will output to "build/Obrew-Studio" folder in root | --upx-dir C:/upx/upx-4.0.2-win64 \
+          # FYI: "lib/site-packages/llama_cpp" is needed by module llama-index-llms-llama-cpp
+          pyinstaller --noconfirm --clean --onedir --windowed \
+            --log-level DEBUG \
+            --contents-directory _deps \
+            --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
+            --name "Obrew-Studio" \
+            --hidden-import "tiktoken_ext.openai_public" \
+            --hidden-import "tiktoken_ext" \
+            --add-data "${{ github.workspace }}/public:public/" \
+            --add-data "${{ github.workspace }}/backends/ui/public:public/" \
+            --add-data .venv/lib/site-packages/posthog:posthog/ \
+            --add-data .venv/lib/site-packages/chromadb:chromadb/ \
+            --add-data .venv/lib/site-packages/llama_cpp:llama_cpp/ \
+            --add-data .venv/lib/site-packages/importlib_resources:importlib_resources/ \
+            --add-data .venv/lib/site-packages/backoff:backoff/ \
+            --add-data .venv/lib/site-packages/pypika:pypika/ \
+            --add-data .venv/lib/site-packages/hnswlib.cp312-win_amd64.pyd:. \
+            --add-data "${{ github.workspace }}/tools/functions:tools/functions/" \
+            "${{ github.workspace }}/backends/main.py"
+          # Create a "servers" dir to be included in installer
+          mkdir -p "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers"
+          # Copy and rename .env.example to .env then place in _deps/
+          cp "${{ github.workspace }}/.env.example" "${{ github.workspace }}/dist/Obrew-Studio/_deps/.env"
+          # Debug
+          echo "Workspace directory:"
+          ls -al "${{ github.workspace }}"
+          echo "Build directory:"
+          ls -al build/Obrew-Studio
+          echo "Dist directory:"
+          ls -al dist/Obrew-Studio
+
+      # 7a. Package with Inno-Setup (Windows)
+      - name: Create Installer (Inno-Setup)
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        if: runner.os == 'Windows'
+        with:
+          path: inno-setup-config-github.iss
+          options: /O+ /dOUTPATH="${{ github.workspace }}\output" /dSOURCEPATH="${{ github.workspace }}\dist\Obrew-Studio"
+
+      # 7b. Package with CMake/CPack (macOS/Linux)
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
         if: runner.os != 'Windows'
-        run: pyinstaller --noconfirm --onedir --windowed --icon "./backends/ui/favicon.ico" --name "Obrew-Server" --clean --no-embed-manifest --add-data "./public:public/" --add-data "./backends/ui/public:public/" --hidden-import "tiktoken_ext.openai_public" --hidden-import "tiktoken_ext" --add-data "${{ runner.temp }}/site-packages/posthog:posthog/" --add-data "${{ runner.temp }}/site-packages/chromadb:chromadb/" --add-data "${{ runner.temp }}/site-packages/importlib_resources:importlib_resources/" --add-data "${{ runner.temp }}/site-packages/backoff:backoff/" --add-data "${{ runner.temp }}/site-packages/pypika:pypika/" --add-data "${{ runner.temp }}/site-packages/hnswlib.cp312-win_amd64.pyd:." --add-data "./.env.example:.env" --add-data "./tools/functions:tools/functions/"  "./backends/main.py"
-
-  package:
-    name: Package for ${{ matrix.os }} and Upload Artifacts
-    needs: build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [windows-latest] # builds for each platform, in seperate vm's, in this order
-    continue-on-error: true
-    env:
-      CMAKE_SOURCE_DIR: ${{ github.workspace }} # Points to the root of your repository
-    steps:
-      # 1. Set up CMake
-      - name: Set up CMake
-        uses: lukka/get-cmake@v4
         with:
           cmakeVersion: latest
 
-      # 2. Set up Platform-Specific Dependencies
-      - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          choco install -y nsis
-
-      # 3. Configure with CMake
       - name: Configure CMake
-        run: cmake -S $CMAKE_SOURCE_DIR -B build -D CMAKE_BUILD_TYPE=Release
+        shell: bash
+        if: runner.os != 'Windows'
+        run: |
+          echo "Listing files in the GitHub workspace: ${{ github.workspace }}"
+          cmake -S "${{ github.workspace }}" -B build_temp -D CMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/Obrew-Studio"
 
-      # 4. Package with CPack
-      - name: Create installer package (CPack)
-        run: cmake --build build --target package
+      - name: Build Project (CMake)
+        shell: bash
+        if: runner.os != 'Windows'
+        run: cmake --build build_temp
 
-      # 5. Zip all package files/folders in /build and put in /artifacts/windows-latest/
+      - name: Create Installer (CPack)
+        shell: bash
+        if: runner.os != 'Windows'
+        run: |
+          cmake --build build_temp --target package --config Release
+          ls -la "${{ github.workspace }}/output"
+
+      # 9. Zip all package files/folders in /build and put in /artifacts/windows-latest/
       - name: Zip assets (Windows)
         shell: pwsh
-        if: startsWith(runner.os, 'Windows')
+        if: runner.os == 'Windows'
         # Ensure the output directory matches the OutputDir of CPack
         run: |
           mkdir -p ./artifacts/windows-latest
-          Compress-Archive -Path "build/*.*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
+          Compress-Archive -Path "output/*.*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
 
-      # 6. Upload Installer Artifact
+      # 10. Upload Installer Artifact
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}-artifact
           path: ./artifacts/${{ matrix.os }}/${{ matrix.os }}-artifacts.zip # upload from
 
+  # Assumes you created a git tag already
+  create_release:
+    name: Create GitHub Release
+    needs: [build]
+    runs-on: ubuntu-latest
+    if: ${{ success() }}
+    outputs:
+      release_upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Create a release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.event.inputs.ref || github.ref_name }}
+          release_name: ${{ github.event.inputs.release_name }}
+          body: ${{ github.event.inputs.release_notes }}
+          draft: ${{ github.event.inputs.release_type == 'draft' }} # not visible to the public
+          prerelease: ${{ github.event.inputs.release_type == 'private' }} # visible only to collaborators
+
   upload_assets:
     name: Upload Assets to Release
-    needs: [build, package, create_release]
+    needs: [build, create_release]
     runs-on: ubuntu-latest
     steps:
       - name: Download Windows artifact
         if: always()
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: windows-latest-artifact
           path: ./artifacts/windows
@@ -156,5 +236,5 @@ jobs:
         with:
           upload_url: ${{ needs.create_release.outputs.release_upload_url }}
           asset_path: ./artifacts/windows/windows-latest-artifacts.zip # file location
-          asset_name: ObrewServer.WIN.Setup.zip # display name on release page (not file name)
+          asset_name: Obrew-Studio.WIN.Setup.zip # display name on release page (not file name)
           asset_content_type: application/zip

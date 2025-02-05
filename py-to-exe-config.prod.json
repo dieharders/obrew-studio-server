@@ -1,121 +1,121 @@
 {
- "version": "auto-py-to-exe-configuration_v1",
- "pyinstallerOptions": [
-  {
-   "optionDest": "noconfirm",
-   "value": true
-  },
-  {
-   "optionDest": "filenames",
-   "value": "C:/Project Files/brain-dump-ai/obrew-studio-server/backends/main.py"
-  },
-  {
-   "optionDest": "onefile",
-   "value": false
-  },
-  {
-   "optionDest": "console",
-   "value": false
-  },
-  {
-   "optionDest": "icon_file",
-   "value": "C:/Project Files/brain-dump-ai/obrew-studio-server/backends/ui/favicon.ico"
-  },
-  {
-   "optionDest": "name",
-   "value": "Obrew-Server"
-  },
-  {
-   "optionDest": "contents_directory",
-   "value": "_deps"
-  },
-  {
-   "optionDest": "clean_build",
-   "value": true
-  },
-  {
-   "optionDest": "strip",
-   "value": false
-  },
-  {
-   "optionDest": "noupx",
-   "value": false
-  },
-  {
-   "optionDest": "disable_windowed_traceback",
-   "value": false
-  },
-  {
-   "optionDest": "uac_admin",
-   "value": false
-  },
-  {
-   "optionDest": "uac_uiaccess",
-   "value": false
-  },
-  {
-   "optionDest": "argv_emulation",
-   "value": false
-  },
-  {
-   "optionDest": "bootloader_ignore_signals",
-   "value": false
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Project Files/brain-dump-ai/obrew-studio-server/public;public/"
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Project Files/brain-dump-ai/obrew-studio-server/backends/ui/public;public/"
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/ProgramData/anaconda3/envs/llama-index/Lib/site-packages/llama_cpp;llama_cpp/"
-  },
-  {
-   "optionDest": "hiddenimports",
-   "value": "tiktoken_ext.openai_public"
-  },
-  {
-   "optionDest": "hiddenimports",
-   "value": "tiktoken_ext"
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Users/cybro/AppData/Roaming/Python/Python312/site-packages/posthog;posthog/"
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Users/cybro/AppData/Roaming/Python/Python312/site-packages/chromadb;chromadb/"
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Users/cybro/AppData/Roaming/Python/Python312/site-packages/importlib_resources;importlib_resources/"
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Users/cybro/AppData/Roaming/Python/Python312/site-packages/backoff;backoff/"
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Users/cybro/AppData/Roaming/Python/Python312/site-packages/pypika;pypika/"
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Users/cybro/AppData/Roaming/Python/Python312/site-packages/hnswlib.cp312-win_amd64.pyd;."
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Project Files/brain-dump-ai/obrew-studio-server/.env.example;."
-  },
-  {
-   "optionDest": "datas",
-   "value": "C:/Project Files/brain-dump-ai/obrew-studio-server/tools/functions;tools/functions/"
+  "version": "auto-py-to-exe-configuration_v1",
+  "pyinstallerOptions": [
+    {
+      "optionDest": "noconfirm",
+      "value": true
+    },
+    {
+      "optionDest": "filenames",
+      "value": "C:/Project Files/brain-dump-ai/obrew-studio-server/backends/main.py"
+    },
+    {
+      "optionDest": "onefile",
+      "value": false
+    },
+    {
+      "optionDest": "console",
+      "value": false
+    },
+    {
+      "optionDest": "icon_file",
+      "value": "C:/Project Files/brain-dump-ai/obrew-studio-server/backends/ui/favicon.ico"
+    },
+    {
+      "optionDest": "name",
+      "value": "Obrew-Studio"
+    },
+    {
+      "optionDest": "contents_directory",
+      "value": "_deps"
+    },
+    {
+      "optionDest": "clean_build",
+      "value": true
+    },
+    {
+      "optionDest": "strip",
+      "value": false
+    },
+    {
+      "optionDest": "noupx",
+      "value": false
+    },
+    {
+      "optionDest": "disable_windowed_traceback",
+      "value": false
+    },
+    {
+      "optionDest": "uac_admin",
+      "value": false
+    },
+    {
+      "optionDest": "uac_uiaccess",
+      "value": false
+    },
+    {
+      "optionDest": "argv_emulation",
+      "value": false
+    },
+    {
+      "optionDest": "bootloader_ignore_signals",
+      "value": false
+    },
+    {
+      "optionDest": "datas",
+      "value": "C:/Project Files/brain-dump-ai/obrew-studio-server/public;public/"
+    },
+    {
+      "optionDest": "datas",
+      "value": "C:/Project Files/brain-dump-ai/obrew-studio-server/backends/ui/public;public/"
+    },
+    {
+      "optionDest": "datas",
+      "value": "C:/ProgramData/anaconda3/envs/llama-index/Lib/site-packages/llama_cpp;llama_cpp/"
+    },
+    {
+      "optionDest": "hiddenimports",
+      "value": "tiktoken_ext.openai_public"
+    },
+    {
+      "optionDest": "hiddenimports",
+      "value": "tiktoken_ext"
+    },
+    {
+      "optionDest": "datas",
+      "value": "C:/Users/cybro/AppData/Roaming/Python/Python312/site-packages/posthog;posthog/"
+    },
+    {
+      "optionDest": "datas",
+      "value": "C:/Users/cybro/AppData/Roaming/Python/Python312/site-packages/chromadb;chromadb/"
+    },
+    {
+      "optionDest": "datas",
+      "value": "C:/Users/cybro/AppData/Roaming/Python/Python312/site-packages/importlib_resources;importlib_resources/"
+    },
+    {
+      "optionDest": "datas",
+      "value": "C:/Users/cybro/AppData/Roaming/Python/Python312/site-packages/backoff;backoff/"
+    },
+    {
+      "optionDest": "datas",
+      "value": "C:/Users/cybro/AppData/Roaming/Python/Python312/site-packages/pypika;pypika/"
+    },
+    {
+      "optionDest": "datas",
+      "value": "C:/Users/cybro/AppData/Roaming/Python/Python312/site-packages/hnswlib.cp312-win_amd64.pyd;."
+    },
+    {
+      "optionDest": "datas",
+      "value": "C:/Project Files/brain-dump-ai/obrew-studio-server/.env.example;."
+    },
+    {
+      "optionDest": "datas",
+      "value": "C:/Project Files/brain-dump-ai/obrew-studio-server/tools/functions;tools/functions/"
+    }
+  ],
+  "nonPyinstallerOptions": {
+    "increaseRecursionLimit": true,
+    "manualArguments": ""
   }
- ],
- "nonPyinstallerOptions": {
-  "increaseRecursionLimit": true,
-  "manualArguments": ""
- }
 }
