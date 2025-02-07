@@ -1,13 +1,11 @@
 import os
-from typing import List
 from fastapi import APIRouter, Request, HTTPException, Depends
+from .classes import RetrievalTypes
 from sse_starlette.sse import EventSourceResponse
-from inference.classes import RetrievalTypes
-from inference import agent
-from storage import route as storage_route
-from embeddings import main, query
-from inference import text_llama_index
-from inference import text_llama_cpp_server
+from .llama_cpp import LLAMA_CPP
+
+# from embeddings import main
+from . import llama_cpp
 from core import classes, common
 from huggingface_hub import (
     hf_hub_download,
@@ -16,7 +14,6 @@ from huggingface_hub import (
     HfApi,
 )
 
-# @TODO Replace with cli_route.py
 router = APIRouter()
 
 
@@ -86,7 +83,7 @@ def unload_text_inference(request: Request):
     app = request.app
     if app.state.llm:
         app.state.llm.unload()
-    app.state.loaded_text_model_data = {}
+    app.state.loaded_text_model_data = {}  # deprecate this in favor of app.state.llm
     del app.state.llm
     app.state.llm = None
     app.state.path_to_model = ""
@@ -101,7 +98,7 @@ def unload_text_inference(request: Request):
 
 # Start Text Inference service
 @router.post("/load")
-def load_text_inference(
+async def load_text_inference(
     request: Request,
     data: classes.LoadInferenceRequest,
 ) -> classes.LoadInferenceResponse:
@@ -110,8 +107,8 @@ def load_text_inference(
     try:
         model_id = data.modelId
         mode = data.mode
+        message_format = data.message_format  # @TODO UI must pass this in
         modelPath = data.modelPath
-        callback_manager = main.create_index_callback_manager()
         # Record model's save path
         app.state.model_id = model_id
         app.state.path_to_model = modelPath
@@ -120,12 +117,12 @@ def load_text_inference(
             print(
                 f"{common.PRNT_API} Ejecting model {model_id} currently loaded from: {modelPath}"
             )
-            unload_text_inference()
+            unload_text_inference(request)
         # Load the specified Ai model
         if app.state.llm is None:
             model_settings = data.init
             generate_settings = data.call
-            app.state.llm = text_llama_cpp_server.create(
+            app.state.llm = llama_cpp.create(
                 path_to_model=modelPath,
                 model_name=model_id,
                 mode=mode,
@@ -133,8 +130,13 @@ def load_text_inference(
                 generate_settings=generate_settings,
                 # callback_manager=callback_manager,
             )
-            app.state.llm.load_model()
+            await app.state.llm.load_model(
+                # message_format_type="llama2",
+                mode=mode,
+                # system_message=None, # @TODO Pass from ui
+            )
             # Record the currently loaded model
+            # @TODO Cant we get this from llm? Lets remove.
             app.state.loaded_text_model_data = {
                 "modelId": model_id,
                 "mode": mode,
@@ -337,7 +339,7 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
 
 # Use Llama Index to run queries on vector database embeddings or run normal chat inference.
 @router.post("/inference")
-def text_inference(
+async def text_inference(
     request: Request,
     payload: classes.InferenceRequest,
 ):
@@ -360,29 +362,7 @@ def text_inference(
         prompt_template = payload.promptTemplate
         rag_prompt_template = payload.ragPromptTemplate
         system_message = payload.systemMessage
-        message_format = payload.messageFormat  # format wrapper for full prompt
-        m_tokens = payload.max_tokens
-        n_ctx = payload.n_ctx
         streaming = payload.stream
-        max_tokens = common.calc_max_tokens(m_tokens, n_ctx, mode)
-        options = dict(
-            stream=streaming,
-            temperature=payload.temperature,
-            max_tokens=max_tokens,
-            stop=payload.stop,
-            echo=payload.echo,
-            model=payload.model,
-            grammar=payload.grammar,
-            mirostat_tau=payload.mirostat_tau,
-            tfs_z=payload.tfs_z,
-            top_k=payload.top_k,
-            top_p=payload.top_p,
-            min_p=payload.min_p,
-            seed=payload.seed,
-            repeat_penalty=payload.repeat_penalty,
-            presence_penalty=payload.presence_penalty,
-            frequency_penalty=payload.frequency_penalty,
-        )
 
         if not app.state.path_to_model:
             msg = "No path to model provided."
@@ -392,151 +372,41 @@ def text_inference(
             msg = "No LLM loaded."
             print(f"{common.PRNT_API} Error: {msg}", flush=True)
             raise Exception(msg)
+        llm: LLAMA_CPP = app.state.llm
 
-        # Handle Agent prompt (low temperature works best)
-        is_agent = (
-            retrieval_type == RetrievalTypes.AGENT
-            and assigned_tool_names
-            and len(assigned_tool_names) > 0
-        )
-        assigned_tool: classes.ToolDefinition = None
-        if is_agent:
-            all_installed_tool_defs: List[classes.ToolDefinition] = (
-                storage_route.get_all_tool_definitions().get("data")
-            )
-            # @TODO Add tool_choice setting ? Right now we are hard-coding to first one
-            chosen_tool_name = assigned_tool_names[0]
-            assigned_tool_defs = [
-                item
-                for item in all_installed_tool_defs
-                if item["name"] in assigned_tool_names
-            ]
-            tool_def = next(
-                (
-                    item
-                    for item in assigned_tool_defs
-                    if item["name"] == chosen_tool_name
-                ),
-                None,
-            )
-            assigned_tool = tool_def
-            # Construct system msg
-            tool_attrs = agent.get_tool_props(tool_def=tool_def)
-            name_str = tool_attrs["name"]
-            description_str = tool_attrs["description"]
-            args_str = tool_attrs["arguments"]
-            example_str = tool_attrs["example_arguments"]
-            assigned_tools_defs_str = agent.dict_list_to_markdown(assigned_tool_defs)
-            # Inject template args into prompt
-            query_prompt = prompt_template.replace(QUERY_INPUT, prompt)
-            query_prompt = query_prompt.replace(TOOL_ARGUMENTS, args_str)
-            query_prompt = query_prompt.replace(TOOL_EXAMPLE_ARGUMENTS, example_str)
-            query_prompt = query_prompt.replace(TOOL_NAME, name_str)
-            query_prompt = query_prompt.replace(TOOL_DESCRIPTION, description_str)
-            query_prompt = query_prompt.replace(ASSIGNED_TOOLS, assigned_tools_defs_str)
-            print(f"Agent prompt::\n\n{query_prompt}")
-            # Inject template args into system msg
-            if system_message:
-                system_message = system_message.replace(TOOL_ARGUMENTS, args_str)
-                system_message = system_message.replace(
-                    TOOL_EXAMPLE_ARGUMENTS, example_str
+        # Update llm props, @TODO Do this automatically inside class?
+        llm.generate_kwargs = payload
+        # Instruct is for Question/Answer (good for tool use, RAG)
+        if mode == classes.CHAT_MODES.INSTRUCT.value:
+            # Handles requests sequentially and streams responses using SSE
+            # @TODO maybe implement this for all inference endpoints? Dont want multiple cli isntances created during a response eval.
+            if llm.request_queue.qsize() > 0:
+                print(f"{common.PRNT_API} Too many requests, please wait.")
+                return HTTPException(
+                    status_code=429, detail="Too many requests, please wait."
                 )
-                system_message = system_message.replace(TOOL_NAME, name_str)
-                system_message = system_message.replace(
-                    TOOL_DESCRIPTION, description_str
-                )
-                system_message = system_message.replace(
-                    ASSIGNED_TOOLS, assigned_tools_defs_str
-                )
-                print(f"Agent system message::\n\n{system_message}")
-
-        # Normal prompt
-        elif prompt_template:
-            query_prompt = prompt_template.replace(QUERY_INPUT, prompt)
-
-        # RAG - Call LLM with context loaded via llama-index/vector store
-        # Agent flow explicitly not supported for RAG due to context complexities.
-        # @TODO RAG should also support chat mode
-        is_RAG = (
-            retrieval_type == RetrievalTypes.AUGMENTED
-            and collection_names is not None
-            and len(collection_names) > 0
-        )
-        if is_RAG:
-            # Only take the first collection for now
-            collection_name = collection_names[0]
-            # Set LLM settings
-            retrieval_options = dict(
-                similarity_top_k=payload.similarity_top_k,
-                response_mode=payload.response_mode,
+            # Add request to queue
+            await llm.request_queue.put(request)
+            # Get response
+            response = llm.text_completion(
+                prompt=query_prompt,
+                system_message=system_message,
             )
-            # Update LLM generation options
-            # app.state.llm.generate_kwargs.update(options)
-
-            # Load embedding model for context retrieval
-            main.define_embedding_model(app)
-
-            # Load the vector index. @TODO Load multiple collections
-            vector_index = main.load_embedding(app, collection_name)
-
-            # Call LLM query engine
-            res = query.query_embedding(
-                llm=app.state.llm,
-                query=query_prompt,
-                prompt_template=rag_prompt_template,
-                index=vector_index,
-                options=retrieval_options,
-                streaming=streaming,
-            )
-            # Return streaming response
             if streaming:
-                token_generator = res.response_gen
-                response = text_llama_index.token_streamer(token_generator)
                 return EventSourceResponse(response)
-            # Return non-stream response
-            else:
-                return res
-        # Raw model - Call LLM in raw completion mode (uses training data)
-        elif mode == classes.CHAT_MODES.INSTRUCT.value:
-            options["n_ctx"] = n_ctx
-            # Return streaming response
-            if streaming and not is_agent:
-                # Update llm props
-                app.state.llm.generate_kwargs = options
-                return app.state.llm.complete(
-                    prompt=query_prompt,
-                    system_message=system_message,
-                    message_format=message_format,
-                    is_chat=False,
-                )
-            # Return non-stream response
-            else:
-                response = text_llama_index.text_completion(
-                    prompt=query_prompt,
-                    system_message=system_message,
-                    message_format=message_format,
-                    app=app,
-                    options=options,
-                )
-                if is_agent:
-                    # Parse out the json result using either regex or another llm call
-                    output_response = agent.parse_output(
-                        output=response.text,
-                        tool_def=assigned_tool,
-                    )
-                    response.raw = output_response.get("raw")
-                    response.text = output_response.get("text")
-                return response
-        # @TODO Stream LLM in chat mode
-        # @TODO Agent flow here
+            # @TODO Need to implement non-streaming response
+            return response
         elif mode == classes.CHAT_MODES.CHAT.value:
-            options["n_ctx"] = n_ctx
-            # Returns a streaming response
-            return EventSourceResponse(
-                text_llama_index.text_chat(
-                    messages, system_message, message_format, app, options
-                )
+            # Get response
+            response = llm.text_chat(
+                prompt=query_prompt,
+                system_message=system_message,
             )
+            if streaming:
+                return EventSourceResponse(response)
+            # @TODO Need to implement non-streaming response
+            return response
+        # @TODO Add a mode for collaborate
         elif mode is None:
             raise Exception("Check 'mode' is provided.")
         else:

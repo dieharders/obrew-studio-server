@@ -31,7 +31,7 @@
 Run cli with prompt - max 128 token response (Question/Answer, One-and-Done, aka /completions):
 
 ```bash
-C:/"Project Files"/brain-dump-ai/obrew-studio-server/servers/llama.cpp/llama-cli.exe -m C:/"Project Files"/brain-dump-ai/obrew-studio-server/text_models/models--TheBloke--llama2_7b_chat_uncensored-GGUF/snapshots/b58448a7e5adf686db9c5021a501054f2d35b1be/llama2_7b_chat_uncensored.Q5_0.gguf --prompt "What color is the French flag?" --n-predict 128 --no-display-prompt --no-context-shift --simple-io
+C:/"Project Files"/brain-dump-ai/obrew-studio-server/servers/llama.cpp/llama-cli.exe -m C:/"Project Files"/brain-dump-ai/obrew-studio-server/text_models/models--TheBloke--llama2_7b_chat_uncensored-GGUF/snapshots/b58448a7e5adf686db9c5021a501054f2d35b1be/llama2_7b_chat_uncensored.Q5_0.gguf --prompt "### HUMAN:\\nWhat color is the French flag?\\n\\n### RESPONSE:" --n-predict 128 --no-display-prompt --no-context-shift --simple-io
 ```
 
 ### Collaborative
@@ -44,21 +44,32 @@ C:/"Project Files"/brain-dump-ai/obrew-studio-server/servers/llama.cpp/llama-cli
 
 ### Conversation
 
-Run cli in conversation mode and load model with system prompt (ai waits for queries and will return control to user automatically, need to use a chat format object? can be paused, can also perform completion).
+Run cli in conversation mode and load model with system prompt (ai waits for queries and will return control to user automatically, need to use a chat format object? can be paused, can also perform completion). System message does not need to be formatted like prompts.
 
 This is an example of using a chat model with a custom template:
 
 ```bash
-C:/"Project Files"/brain-dump-ai/obrew-studio-server/servers/llama.cpp/llama-cli.exe -m C:/"Project Files"/brain-dump-ai/obrew-studio-server/text_models/models--TheBloke--llama2_7b_chat_uncensored-GGUF/snapshots/b58448a7e5adf686db9c5021a501054f2d35b1be/llama2_7b_chat_uncensored.Q5_0.gguf --prompt "You are a helpful assistant with specialized knowledge of cats." -cnv --no-display-prompt --no-context-shift --simple-io --temp 0.1 --in-prefix "" --in-suffix ""
+C:/"Project Files"/brain-dump-ai/obrew-studio-server/servers/llama.cpp/llama-cli.exe -m C:/"Project Files"/brain-dump-ai/obrew-studio-server/text_models/models--TheBloke--llama2_7b_chat_uncensored-GGUF/snapshots/b58448a7e5adf686db9c5021a501054f2d35b1be/llama2_7b_chat_uncensored.Q5_0.gguf --prompt "You are a helpful assistant with specialized knowledge of cats." -cnv --no-display-prompt --no-context-shift --simple-io --temp 0.1 --in-prefix "### HUMAN:\\n" --in-suffix "\\n\\n### RESPONSE:"
 ```
 
-Send your message like this each time:
+Then send your prompt as normal.
+
+Or, send your message like this if done manually (both prefixes are blank):
+
+```
+### HUMAN:\
+My name is albert\
+\
+### RESPONSE:
+```
+
+or for `--multiline-input`:
 
 ```
 ### HUMAN:
-{{prompt}}
+My name is albert. What is yours?
 
-### RESPONSE:
+### RESPONSE:\
 ```
 
 ### Example Prompt Format

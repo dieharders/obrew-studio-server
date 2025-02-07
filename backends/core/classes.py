@@ -8,12 +8,19 @@ from llama_index.llms.llama_cpp import LlamaCPP
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from inference.classes import RetrievalTypes
 
+
+class CHAT_MODES(Enum):
+    INSTRUCT = "instruct"
+    CHAT = "chat"
+    COLLAB = "collab"
+
+
 DEFAULT_TEMPERATURE = 0.2
 DEFAULT_MIN_CONTEXT_WINDOW = 2000
 DEFAULT_CONTEXT_WINDOW = 0
 DEFAULT_SEED = 1337
-DEFAULT_MAX_TOKENS = 0  # 0 means we should calc it
-DEFAULT_CHAT_MODE = "instruct"
+DEFAULT_MAX_TOKENS = -2  # until end of context window
+DEFAULT_CHAT_MODE = CHAT_MODES.INSTRUCT
 
 
 class AppState(dict):
@@ -30,11 +37,6 @@ class FILE_LOADER_SOLUTIONS(Enum):
     LLAMA_PARSE = "llama_parse"
     READER = "reader_api"
     DEFAULT = "default"
-
-
-class CHAT_MODES(Enum):
-    INSTRUCT = "instruct"
-    CHAT = "chat"
 
 
 class PingResponse(BaseModel):
@@ -81,9 +83,9 @@ class LoadTextInferenceInit(BaseModel):
     f16_kv: Optional[bool] = True
     seed: Optional[int] = DEFAULT_SEED
     n_ctx: Optional[int] = DEFAULT_CONTEXT_WINDOW  # load from model
-    n_batch: Optional[int] = 512
+    n_batch: Optional[int] = 2048
     n_threads: Optional[int] = None
-    offload_kqv: Optional[bool] = False
+    offload_kqv: Optional[bool] = True
     verbose: Optional[bool] = False
 
 
@@ -109,6 +111,7 @@ class LoadTextInferenceCall(BaseModel):
 class LoadInferenceRequest(BaseModel):
     modelPath: str
     modelId: str
+    message_format: Optional[str] = ""
     mode: Optional[str] = DEFAULT_CHAT_MODE
     # __init__ args - https://llama-cpp-python.readthedocs.io/en/latest/api-reference/
     init: LoadTextInferenceInit
@@ -205,9 +208,8 @@ class InferenceRequest(BaseModel):
     # suffix: Optional[str] = ""
     temperature: Optional[float] = 0.0  # precise
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
-    stop: Optional[List[str]] = (
-        []
-    )  # A list of strings to stop generation when encountered
+    # A list of strings to stop generation when encountered
+    stop: Optional[List[str]] = []
     echo: Optional[bool] = False
     model: Optional[str] = (
         "local"  # The name to use for the model in the completion object
