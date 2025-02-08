@@ -331,6 +331,7 @@ async def text_inference(
     payload: InferenceRequest,
 ):
     app: classes.FastAPIApp = request.app
+    # @TODO Re-implement this for tool use
     QUERY_INPUT = "{query_str}"
     TOOL_ARGUMENTS = "{tool_arguments_str}"
     TOOL_EXAMPLE_ARGUMENTS = "{tool_example_str}"
@@ -361,19 +362,18 @@ async def text_inference(
             raise Exception(msg)
         llm = app.state.llm
 
-        # Update llm props, @TODO Do this automatically inside class?
+        # Update llm props
         llm.generate_kwargs = payload
+        # Handles requests sequentially and streams responses using SSE
+        if llm.request_queue.qsize() > 0:
+            print(f"{common.PRNT_API} Too many requests, please wait.")
+            return HTTPException(
+                status_code=429, detail="Too many requests, please wait."
+            )
+        # Add request to queue
+        await llm.request_queue.put(request)
         # Instruct is for Question/Answer (good for tool use, RAG)
         if mode == CHAT_MODES.INSTRUCT.value:
-            # Handles requests sequentially and streams responses using SSE
-            # @TODO maybe implement this for all inference endpoints? Dont want multiple cli isntances created during a response eval.
-            if llm.request_queue.qsize() > 0:
-                print(f"{common.PRNT_API} Too many requests, please wait.")
-                return HTTPException(
-                    status_code=429, detail="Too many requests, please wait."
-                )
-            # Add request to queue
-            await llm.request_queue.put(request)
             # Get response
             response = llm.text_completion(
                 prompt=query_prompt,
@@ -393,7 +393,9 @@ async def text_inference(
                 return EventSourceResponse(response)
             # @TODO Need to implement non-streaming response
             return response
-        # @TODO Add a mode for collaborate
+        elif mode == CHAT_MODES.COLLAB.value:
+            # @TODO Add a mode for collaborate
+            raise Exception("Mode 'collab' is not implemented.")
         elif mode is None:
             raise Exception("Check 'mode' is provided.")
         else:
