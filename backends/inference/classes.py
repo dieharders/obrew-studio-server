@@ -23,6 +23,13 @@ DEFAULT_SEED = 1337
 DEFAULT_CONTEXT_WINDOW = 0
 DEFAULT_MIN_CONTEXT_WINDOW = 2000
 
+# More templates found here: https://github.com/run-llama/llama_index/blob/main/llama_index/prompts/default_prompts.py
+DEFAULT_SYSTEM_MESSAGE = """You are an AI assistant that answers questions in a friendly manner. Here are some rules you always follow:
+- Generate human readable output, avoid creating output with gibberish text.
+- Generate only the requested output, don't include any other language before or after the requested output.
+- Never say thank you, that you are happy to help, that you are an AI agent, etc. Just answer directly.
+"""
+
 
 class RagTemplateData(BaseModel):
     id: str

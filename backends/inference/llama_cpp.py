@@ -1,8 +1,8 @@
 import os
 import asyncio
 import json
-from typing import List, Literal, Optional, Sequence
-from llama_index.core.base.llms.types import ChatMessage, MessageRole
+from typing import Literal, Optional
+from inference.helpers import apply_prompt_template, sanitize_kwargs
 from core import common
 from inference.classes import (
     InferenceRequest,
@@ -12,133 +12,11 @@ from inference.classes import (
     DEFAULT_CONTEXT_WINDOW,
 )
 
-# More templates found here: https://github.com/run-llama/llama_index/blob/main/llama_index/prompts/default_prompts.py
-DEFAULT_SYSTEM_MESSAGE = """You are an AI assistant that answers questions in a friendly manner. Here are some rules you always follow:
-- Generate human readable output, avoid creating output with gibberish text.
-- Generate only the requested output, don't include any other language before or after the requested output.
-- Never say thank you, that you are happy to help, that you are an AI agent, etc. Just answer directly.
-"""
 
-DEFAULT_PROMPT_FORMAT = """### HUMAN:
-{{prompt}}
-
-### RESPONSE:"""
-
-
-# Convert input to the target prompt format for a given model.
-# Note completions dont utilize system message (b/c neither do Instruct type models) so we combine it with input msg if present.
-def _apply_prompt_template(
-    input_message: Optional[str] = "",
-    system_message: Optional[str] = None,
-    template_str: Optional[str] = None,  # Model specific template
-):
-    if template_str:
-        txt = input_message.strip()
-        # @TODO Do this for /completions: template_str.replace("{{system_message}}", txt) instead ?
-        # ...maybe make sep func for this
-
-        # @TODO Do this instead for chat since system_message is sent seperatly
-        if system_message:
-            txt = f"{system_message.strip()}\n\n{input_message.strip()}"
-        # Format to specified template
-        return template_str.replace("{{prompt}}", txt)
-    else:
-        # Dont format if no template supplied
-        if system_message:
-            return f"{system_message.strip()}\n{input_message.strip()}"
-        return f"{input_message.strip()}"
-
-
-# https://github.com/ggerganov/llama.cpp/wiki/Templates-supported-by-llama_chat_apply_template
-def _format_chat_to_prompt(
-    user_message, chat_history=[], system_message=DEFAULT_SYSTEM_MESSAGE
-):
-    """Manually formats a chat conversation like `--chat-template`."""
-
-    # @TODO Use if chat_history is provided
-    formatted_history = "\n".join(
-        f"User: {msg['user']}\nAssistant: {msg['assistant']}" for msg in chat_history
-    )
-
-    return f"""
-        <|im_start|>system
-        {system_message}<|im_end|>
-        <|im_start|>user
-        {user_message}<|im_end|>
-        <|im_start|>assistant
-        """
-
-
-# Convert structured chat conversation to prompt (str)
-# @TODO Could also use: from llama_index.llms.llama_cpp.llama_utils import messages_to_prompt
-def _messages_to_prompt(
-    messages: Sequence[ChatMessage],
-    system_prompt: Optional[str] = DEFAULT_SYSTEM_MESSAGE,
-    template: Optional[dict] = {},  # Model specific template
-) -> str:
-    # (end tokens, structure, etc)
-    # @TODO Pass these in from UI model_configs.json (values found in config.json of HF model card)
-    BOS = template["BOS"] or ""  # begin string
-    EOS = template["EOS"] or ""  # end of string
-    B_INST = template["B_INST"] or ""  # begin instruction (user prompt)
-    E_INST = template["E_INST"] or ""  # end instruction (user prompt)
-    B_SYS = template["B_SYS"] or ""  # begin system instruction
-    E_SYS = template["E_SYS"] or ""  # end system instruction
-
-    string_messages: List[str] = []
-    if messages[0].role == MessageRole.SYSTEM:
-        # pull out the system message (if it exists in messages)
-        system_message_str = messages[0].content or ""
-        messages = messages[1:]
-    else:
-        system_message_str = system_prompt
-
-    system_message_str = f"{B_SYS} {system_message_str.strip()} {E_SYS}"
-
-    for i in range(0, len(messages), 2):
-        # first message should always be a user
-        user_message = messages[i]
-        assert user_message.role == MessageRole.USER
-
-        if i == 0:
-            # make sure system prompt is included at the start
-            str_message = f"{BOS} {B_INST} {system_message_str} "
-        else:
-            # end previous user-assistant interaction
-            string_messages[-1] += f" {EOS}"
-            # no need to include system prompt
-            str_message = f"{BOS} {B_INST} "
-
-        # include user message content
-        str_message += f"{user_message.content} {E_INST}"
-
-        if len(messages) > (i + 1):
-            # if assistant message exists, add to str_message
-            assistant_message = messages[i + 1]
-            assert assistant_message.role == MessageRole.ASSISTANT
-            str_message += f" {assistant_message.content}"
-
-        string_messages.append(str_message)
-
-    return "".join(string_messages)
-
-
-def _sanitize_kwargs(kwargs: dict) -> list[str]:
-    arr = []
-    for key, value in kwargs.items():
-        if isinstance(value, bool):
-            if value == True:
-                arr.append(key)
-            else:
-                pass
-        else:
-            arr.extend([f"{key}", str(value)])
-    return arr
-
-
-# Run a llama.cpp cli binary
 # https://github.com/ggerganov/llama.cpp/blob/master/examples/main/README.md#common-options
 class LLAMA_CPP:
+    """Run a llama.cpp cli binary"""
+
     def __init__(
         self,
         model_url: str,  # Provide a url to download a model from
@@ -162,18 +40,16 @@ class LLAMA_CPP:
             n_gpu_layers = 100  # all
 
         init_kwargs = {
-            # "--device": "CUDA0",
             "--n_gpu_layers": n_gpu_layers,
             "--no_mmap": not model_init_kwargs.use_mmap,
             "--mlock": model_init_kwargs.use_mlock,
-            # "--cache-type-k": init_settings.cache_type_k, # @TODO implement this
-            # "--cache-type-v": init_settings.cache_type_v, # @TODO implement this
-            # "f16_kv": init_settings.f16_kv, # @TODO deprecate this
             "--seed": model_init_kwargs.seed,
             "--ctx-size": n_ctx,  # 0=loaded from model
             "--batch-size": model_init_kwargs.n_batch,
             "--no-kv-offload": not model_init_kwargs.offload_kqv,
-            # "torch_dtype": "auto",  # if using CUDA (reduces memory usage) # @TODO deprecate
+            # "--device": "CUDA0", # optional, target a specific device
+            # "--cache-type-k": init_settings.cache_type_k, # @TODO implement this
+            # "--cache-type-v": init_settings.cache_type_v, # @TODO implement this
         }
         if n_threads != None:
             init_kwargs["--threads"] = n_threads
@@ -213,18 +89,15 @@ class LLAMA_CPP:
         self.message_format = settings.messageFormat
         # Create args to pass to .exe
         kwargs = {
-            "--ctx-size": self.model_init_kwargs.get("--ctx-size"),
-            "--reverse-prompt": settings.stop,  # !Never use an empty string like [""]
-            "--model": settings.model,
-            "--batch-size": self.model_init_kwargs.get("--batch-size"),
+            "--reverse-prompt": settings.stop,  # Never use an empty string like [""]
             "--mirostat-ent": settings.mirostat_tau,  # (tau) default 5.0
-            # "--tfs-z": settings.tfs_z, # @TODO deprecate
             "--top-k": settings.top_k,
             "--top-p": settings.top_p,
             "--min-p": settings.min_p,
             "--repeat-penalty": settings.repeat_penalty,
             "--presence-penalty": settings.presence_penalty,
             "--frequency-penalty": settings.frequency_penalty,
+            "--ctx-size": self.model_init_kwargs.get("--ctx-size"),
             "--temp": settings.temperature,
             "--seed": self.model_init_kwargs.get("--seed"),
             "--n-predict": settings.max_tokens,
@@ -272,6 +145,7 @@ class LLAMA_CPP:
             "--interactive",
             "--ignore-eos -n -1",  # infinite response
         ]
+        # @TODO launch binary and pass args
 
     # Send multi-turn messages by role
     async def text_chat(
@@ -280,14 +154,11 @@ class LLAMA_CPP:
         system_message: str = None,
     ):
         try:
-            # Format command for llama-cli
-            # kwargs = " ".join(f"{k} {v}" for k, v in self.generate_kwargs.items())
-
             # If format type provided pass input unchanged, llama.cpp will handle it?
             formatted_prompt = prompt
             # Format prompt if none specified
             if self.message_format_type == None:
-                formatted_prompt = _apply_prompt_template(
+                formatted_prompt = apply_prompt_template(
                     input_message=prompt,
                     system_message=system_message,
                     template_str=self.message_format,
@@ -321,12 +192,14 @@ class LLAMA_CPP:
                 cmd_args.append("--prompt")
                 cmd_args.append(system_message)
             # Add stop words
-            if self.generate_kwargs.get("stop") != None:
+            if self.generate_kwargs.get("--reverse-prompt"):
                 cmd_args.append("--reverse-prompt")
-                cmd_args.append(self.generate_kwargs.get("stop"))
+                cmd_args.append(self.generate_kwargs.get("--reverse-prompt"))
 
-            # Sanitize values
-            sanitized = _sanitize_kwargs(kwargs=self.model_init_kwargs)
+            # Sanitize args
+            merged_args = self.model_init_kwargs.copy()
+            merged_args.update(self.generate_kwargs)
+            sanitized = sanitize_kwargs(kwargs=merged_args)
             cmd_args.extend(sanitized)
 
             # Start process
@@ -335,7 +208,6 @@ class LLAMA_CPP:
             )
 
             self.process = await asyncio.create_subprocess_exec(
-                # @TODO Incorporate with model_init_kwargs
                 *cmd_args,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
@@ -393,15 +265,11 @@ class LLAMA_CPP:
         system_message: str = None,
     ):
         try:
-            # Format command for llama-cli
-            # @TODO Incorporate with model_init_kwargs
-            # kwargs = " ".join(f"{k} {v}" for k, v in self.generate_kwargs.items())
-
             # If format type provided pass input unchanged, llama.cpp will handle it?
             formatted_prompt = prompt
             # Format prompt if none specified
             if self.message_format_type == None:
-                formatted_prompt = _apply_prompt_template(
+                formatted_prompt = apply_prompt_template(
                     input_message=prompt,
                     system_message=system_message,
                     template_str=self.message_format,
@@ -421,12 +289,14 @@ class LLAMA_CPP:
                 formatted_prompt,
             ]
             # Add stop words
-            if self.generate_kwargs.get("stop") != None:
+            if self.generate_kwargs.get("--reverse-prompt"):
                 cmd_args.append("--reverse-prompt")
-                cmd_args.append(self.generate_kwargs.get("stop"))
+                cmd_args.append(self.generate_kwargs.get("--reverse-prompt"))
 
-            # Sanitize values
-            sanitized = _sanitize_kwargs(kwargs=self.model_init_kwargs)
+            # Sanitize args
+            merged_args = self.model_init_kwargs.copy()
+            merged_args.update(self.generate_kwargs)
+            sanitized = sanitize_kwargs(kwargs=merged_args)
             cmd_args.extend(sanitized)
 
             # Start process

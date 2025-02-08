@@ -112,27 +112,25 @@ async def load_text_inference(
 
     try:
         model_id = data.modelId
-        mode = data.mode
         modelPath = data.modelPath
-        # Unload the model if one exists
+        # Unload the model if it exists
         if app.state.llm:
             print(
-                f"{common.PRNT_API} Ejecting model {model_id} currently loaded from: {modelPath}"
+                f"{common.PRNT_API} Ejecting current model {model_id} from: {modelPath}"
             )
             unload_text_inference(request)
         # Load the specified Ai model
-        if app.state.llm is None:
-            app.state.llm = LLAMA_CPP(
-                model_url=None,
-                model_path=modelPath,
-                model_name=model_id,
-                debug=True,  # @TODO For testing, remove when done
-                mode=mode,
-                message_format=data.message_format,  # @TODO UI must pass this in
-                generate_kwargs=data.call,
-                model_init_kwargs=data.init,
-            )
-            print(f"{common.PRNT_API} Model {model_id} loaded from: {modelPath}")
+        app.state.llm = LLAMA_CPP(
+            model_url=None,
+            model_path=modelPath,
+            model_name=model_id,
+            debug=True,  # @TODO For testing, remove when done
+            mode=data.mode,
+            message_format=data.message_format,  # @TODO UI must pass this in
+            generate_kwargs=data.call,
+            model_init_kwargs=data.init,
+        )
+        print(f"{common.PRNT_API} Model {model_id} loaded from: {modelPath}")
         return {
             "message": f"AI model [{model_id}] loaded.",
             "success": True,
