@@ -113,7 +113,6 @@ async def load_text_inference(
     try:
         model_id = data.modelId
         mode = data.mode
-        message_format = data.message_format  # @TODO UI must pass this in
         modelPath = data.modelPath
         # Unload the model if one exists
         if app.state.llm:
@@ -129,13 +128,9 @@ async def load_text_inference(
                 model_name=model_id,
                 debug=True,  # @TODO For testing, remove when done
                 mode=mode,
+                message_format=data.message_format,  # @TODO UI must pass this in
                 generate_kwargs=data.call,
                 model_init_kwargs=data.init,
-            )
-            await app.state.llm.load_model(
-                # message_format_type="llama2",
-                mode=mode,
-                # system_message=None, # @TODO Pass from ui
             )
             print(f"{common.PRNT_API} Model {model_id} loaded from: {modelPath}")
         return {

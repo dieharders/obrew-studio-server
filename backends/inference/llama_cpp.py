@@ -1,7 +1,7 @@
 import os
 import asyncio
 import json
-from typing import List, Optional, Sequence
+from typing import List, Literal, Optional, Sequence
 from llama_index.core.base.llms.types import ChatMessage, MessageRole
 from core import common
 from inference.classes import (
@@ -144,8 +144,9 @@ class LLAMA_CPP:
         model_url: str,  # Provide a url to download a model from
         model_path: str,  # Or, you can set the path to a pre-downloaded model file instead of model_url
         model_name: str,  # Friendly name
-        mode: str,  # CHAT_MODES (instruct, etc)
+        mode: Literal[CHAT_MODES.CHAT, CHAT_MODES.COLLAB, CHAT_MODES.INSTRUCT],
         prompt_format: Optional[str] = None,
+        message_format: Optional[str] = None,
         verbose=False,
         debug=False,  # Show logs
         model_init_kwargs: LoadTextInferenceInit = None,  # kwargs to pass when loading the model
@@ -180,8 +181,8 @@ class LLAMA_CPP:
         # Assign vars
         self.process = None
         self.task_logging = None
-        self.promptTemplate = None
-        self.messageFormat = None
+        self.prompt_template = None
+        self.message_format = message_format
         self.request_queue = asyncio.Queue()
         self.message_format_type = None
         self.prompt_format = prompt_format
@@ -208,8 +209,8 @@ class LLAMA_CPP:
     @generate_kwargs.setter
     def generate_kwargs(self, settings: InferenceRequest):
         grammar = settings.grammar
-        self.promptTemplate = settings.promptTemplate
-        self.messageFormat = settings.messageFormat
+        self.prompt_template = settings.promptTemplate
+        self.message_format = settings.messageFormat
         # Create args to pass to .exe
         kwargs = {
             "--ctx-size": self.model_init_kwargs.get("--ctx-size"),
@@ -257,19 +258,41 @@ class LLAMA_CPP:
                 f"{common.PRNT_LLAMA_LOG}", line.decode("utf-8").strip()
             )  # Print logs in real-time
 
-    # Create a cli instance and load in a model
-    # @TODO This should save all necessary values to the class object for subsequent requests to use during generation.
-    async def load_model(
-        self,
-        mode: CHAT_MODES = CHAT_MODES.CHAT.value,
-        message_format_type=None,  # "llama2"
-        system_message=None,
-    ):
-        """
-        Starts the llama.cpp cli using subprocess.
-        """
+    # User can pause Ai and add more input, keeps conn open.
+    async def text_collab(self):
+        # Create arguments for starting server
+        cmd_args = [
+            self.BINARY_PATH,
+            "--model",
+            self.model_path,
+            "--no-display-prompt",
+            "--no-context-shift",
+            "--simple-io",
+            "--multiline-input",  # dont have to type "/" to add a new line
+            "--interactive",
+            "--ignore-eos -n -1",  # infinite response
+        ]
 
+    # Send multi-turn messages by role
+    async def text_chat(
+        self,
+        prompt: str,
+        system_message: str = None,
+    ):
         try:
+            # Format command for llama-cli
+            # kwargs = " ".join(f"{k} {v}" for k, v in self.generate_kwargs.items())
+
+            # If format type provided pass input unchanged, llama.cpp will handle it?
+            formatted_prompt = prompt
+            # Format prompt if none specified
+            if self.message_format_type == None:
+                formatted_prompt = _apply_prompt_template(
+                    input_message=prompt,
+                    system_message=system_message,
+                    template_str=self.message_format,
+                )
+
             # Create arguments for starting server
             cmd_args = [
                 self.BINARY_PATH,
@@ -279,36 +302,32 @@ class LLAMA_CPP:
                 "--no-context-shift",
                 "--simple-io",
                 "--multiline-input",  # dont have to type "/" to add a new line
+                "--no-warmup",  # skip warming up the model with an empty run
+                "-cnv",  # conversation mode
             ]
-            if mode == CHAT_MODES.CHAT.value:
-                cmd_args.append("-cnv")  # conversation mode (chat)
-                if message_format_type:
-                    # if not used then gotten from model (or manually format)
-                    cmd_args.append("--chat-template")
-                    cmd_args.append(message_format_type)
-                    self.message_format_type = message_format_type
-                else:
-                    cmd_args.append("--in-prefix")
-                    cmd_args.append("")
-                    cmd_args.append("--in-suffix")
-                    cmd_args.append("")
-                if system_message:
-                    # Changes system message when using "-cnv" mode
-                    cmd_args.append("--prompt")
-                    cmd_args.append(system_message)  # @TODO Get from system_message
-            elif mode == CHAT_MODES.COLLAB.value:
-                # User can pause Ai and add more input, keeps conn open.
-                cmd_args.append("--interactive")
-                # "--ignore-eos -n -1",  # infinite response
+
+            # Configure args
+            if self.message_format_type:
+                # if not used then get from model (or manually format)
+                cmd_args.append("--chat-template")
+                cmd_args.append(self.message_format_type)
             else:
-                # Perform instruct op if no matches for specific mode
-                return
+                cmd_args.append("--in-prefix")
+                cmd_args.append("")
+                cmd_args.append("--in-suffix")
+                cmd_args.append("")
+            # Changes system message when using "-cnv" mode
+            if system_message:
+                cmd_args.append("--prompt")
+                cmd_args.append(system_message)
+            # Add stop words
+            if self.generate_kwargs.get("stop") != None:
+                cmd_args.append("--reverse-prompt")
+                cmd_args.append(self.generate_kwargs.get("stop"))
 
             # Sanitize values
             sanitized = _sanitize_kwargs(kwargs=self.model_init_kwargs)
             cmd_args.extend(sanitized)
-
-            # @TODO We can move everything from here down and make this (and args creation logic) to a helper func and call in each inference func. That way we only actually mount the model at inference request.
 
             # Start process
             print(
@@ -326,41 +345,6 @@ class LLAMA_CPP:
             # Read logs
             if self.debug:
                 self.task_logging = asyncio.create_task(self.read_logs())
-
-        except Exception as e:
-            print(f"{common.PRNT_LLAMA} Error starting the llama.cpp: {e}")
-            raise Exception(f"Error starting llama.cpp: {e}")
-
-    # Send multi-turn messages by role
-    # @TODO do something with message_format
-    async def text_chat(
-        self,
-        prompt: str,
-        system_message: str = None,
-    ):
-        try:
-            # Format command for llama-cli
-            # kwargs = " ".join(f"{k} {v}" for k, v in self.generate_kwargs.items())
-
-            # Format prompt for chat
-            # formatted_prompt = json.dumps(
-            #     {
-            #         "messages": [
-            #             {"role": "system", "content": DEFAULT_SYSTEM_MESSAGE},
-            #             {"role": "user", "content": prompt},
-            #         ]
-            #     }
-            # )
-
-            # If format type provided pass input unchanged, llama.cpp will handle it?
-            formatted_prompt = prompt
-            # Format prompt if none specified
-            if self.message_format_type == None:
-                formatted_prompt = _apply_prompt_template(
-                    input_message=prompt,
-                    system_message=system_message,
-                    template_str=self.messageFormat,
-                )
 
             # Send command to llama-cli
             command = f"{formatted_prompt}\\"
@@ -390,15 +374,15 @@ class LLAMA_CPP:
 
             # Finished - cleanup
             self.task_logging.cancel()
-            # Cleanup queue (if used for this)
+            # Cleanup queue (if used for this) @TODO do this for chat
             # self.request_queue.get_nowait()
             # self.request_queue.task_done()  # Signal the end of requests
             # await self.request_queue.join()  # Wait for all tasks to complete
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled.")
         except (ValueError, UnicodeEncodeError, Exception) as e:
-            print(f"{common.PRNT_LLAMA} Error querying the llama.cpp: {e}")
-            raise Exception(f"Error querying the llama.cpp: {e}")
+            print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}")
+            raise Exception(f"Error querying llama.cpp: {e}")
         except e:
             print(f"{common.PRNT_LLAMA} Some error occurred: {e}")
 
@@ -420,7 +404,7 @@ class LLAMA_CPP:
                 formatted_prompt = _apply_prompt_template(
                     input_message=prompt,
                     system_message=system_message,
-                    template_str=self.messageFormat,
+                    template_str=self.message_format,
                 )
 
             # Create arguments
@@ -436,6 +420,10 @@ class LLAMA_CPP:
                 "--prompt",
                 formatted_prompt,
             ]
+            # Add stop words
+            if self.generate_kwargs.get("stop") != None:
+                cmd_args.append("--reverse-prompt")
+                cmd_args.append(self.generate_kwargs.get("stop"))
 
             # Sanitize values
             sanitized = _sanitize_kwargs(kwargs=self.model_init_kwargs)
@@ -488,7 +476,7 @@ class LLAMA_CPP:
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled.")
         except (ValueError, UnicodeEncodeError, Exception) as e:
-            print(f"{common.PRNT_LLAMA} Error querying the llama.cpp: {e}")
-            raise Exception(f"Error querying the llama.cpp: {e}")
+            print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}")
+            raise Exception(f"Error querying llama.cpp: {e}")
         except e:
             print(f"{common.PRNT_LLAMA} Some error occurred: {e}")
