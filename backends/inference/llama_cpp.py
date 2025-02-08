@@ -69,6 +69,60 @@ def _format_chat_to_prompt(
         """
 
 
+# Convert structured chat conversation to prompt (str)
+# @TODO Could also use: from llama_index.llms.llama_cpp.llama_utils import messages_to_prompt
+def _messages_to_prompt(
+    messages: Sequence[ChatMessage],
+    system_prompt: Optional[str] = DEFAULT_SYSTEM_MESSAGE,
+    template: Optional[dict] = {},  # Model specific template
+) -> str:
+    # (end tokens, structure, etc)
+    # @TODO Pass these in from UI model_configs.json (values found in config.json of HF model card)
+    BOS = template["BOS"] or ""  # begin string
+    EOS = template["EOS"] or ""  # end of string
+    B_INST = template["B_INST"] or ""  # begin instruction (user prompt)
+    E_INST = template["E_INST"] or ""  # end instruction (user prompt)
+    B_SYS = template["B_SYS"] or ""  # begin system instruction
+    E_SYS = template["E_SYS"] or ""  # end system instruction
+
+    string_messages: List[str] = []
+    if messages[0].role == MessageRole.SYSTEM:
+        # pull out the system message (if it exists in messages)
+        system_message_str = messages[0].content or ""
+        messages = messages[1:]
+    else:
+        system_message_str = system_prompt
+
+    system_message_str = f"{B_SYS} {system_message_str.strip()} {E_SYS}"
+
+    for i in range(0, len(messages), 2):
+        # first message should always be a user
+        user_message = messages[i]
+        assert user_message.role == MessageRole.USER
+
+        if i == 0:
+            # make sure system prompt is included at the start
+            str_message = f"{BOS} {B_INST} {system_message_str} "
+        else:
+            # end previous user-assistant interaction
+            string_messages[-1] += f" {EOS}"
+            # no need to include system prompt
+            str_message = f"{BOS} {B_INST} "
+
+        # include user message content
+        str_message += f"{user_message.content} {E_INST}"
+
+        if len(messages) > (i + 1):
+            # if assistant message exists, add to str_message
+            assistant_message = messages[i + 1]
+            assert assistant_message.role == MessageRole.ASSISTANT
+            str_message += f" {assistant_message.content}"
+
+        string_messages.append(str_message)
+
+    return "".join(string_messages)
+
+
 def _sanitize_kwargs(kwargs: dict) -> list[str]:
     arr = []
     for key, value in kwargs.items():
@@ -87,17 +141,43 @@ def _sanitize_kwargs(kwargs: dict) -> list[str]:
 class LLAMA_CPP:
     def __init__(
         self,
-        model_url: str,  # url to download from
-        model_path: str,  # file path
-        model_name: str,  # friendly name
-        mode: str,
+        model_url: str,  # Provide a url to download a model from
+        model_path: str,  # Or, you can set the path to a pre-downloaded model file instead of model_url
+        model_name: str,  # Friendly name
+        mode: str,  # CHAT_MODES (instruct, etc)
         prompt_format: Optional[str] = None,
         verbose=False,
-        debug=False,
-        model_init_kwargs: dict = None,
-        generate_kwargs: dict = None,
-        priority: int = 0,  # set process priority (0=default, 1, 2, 3)
+        debug=False,  # Show logs
+        model_init_kwargs: LoadTextInferenceInit = None,  # kwargs to pass when loading the model
+        generate_kwargs: LoadTextInferenceCall = None,  # kwargs to pass when generating text
     ):
+        # Set args
+        n_ctx = model_init_kwargs.n_ctx or DEFAULT_CONTEXT_WINDOW
+        if n_ctx <= 0:
+            n_ctx = DEFAULT_CONTEXT_WINDOW
+        n_threads = model_init_kwargs.n_threads  # None means auto calc
+        n_gpu_layers = model_init_kwargs.n_gpu_layers
+        if model_init_kwargs.n_gpu_layers == -1:
+            n_gpu_layers = 100  # all
+
+        init_kwargs = {
+            # "--device": "CUDA0",
+            "--n_gpu_layers": n_gpu_layers,
+            "--no_mmap": not model_init_kwargs.use_mmap,
+            "--mlock": model_init_kwargs.use_mlock,
+            # "--cache-type-k": init_settings.cache_type_k, # @TODO implement this
+            # "--cache-type-v": init_settings.cache_type_v, # @TODO implement this
+            # "f16_kv": init_settings.f16_kv, # @TODO deprecate this
+            "--seed": model_init_kwargs.seed,
+            "--ctx-size": n_ctx,  # 0=loaded from model
+            "--batch-size": model_init_kwargs.n_batch,
+            "--no-kv-offload": not model_init_kwargs.offload_kqv,
+            # "torch_dtype": "auto",  # if using CUDA (reduces memory usage) # @TODO deprecate
+        }
+        if n_threads != None:
+            init_kwargs["--threads"] = n_threads
+            init_kwargs["--threads-batch"] = n_threads
+        # Assign vars
         self.process = None
         self.task_logging = None
         self.promptTemplate = None
@@ -110,9 +190,8 @@ class LLAMA_CPP:
         self.model_name = model_name or "chatbot"  # human friendly name for display
         self.verbose = verbose
         self.debug = debug
-        self.priority = priority
         self.model_path = model_path  # text-models/your-model.gguf
-        self.model_init_kwargs = model_init_kwargs
+        self.model_init_kwargs = init_kwargs
         self._generate_kwargs = generate_kwargs  # proxy
         BINARY_BASE_PATH = "servers"
         BINARY_FOLDER = "llama.cpp"
@@ -133,7 +212,6 @@ class LLAMA_CPP:
         self.messageFormat = settings.messageFormat
         # Create args to pass to .exe
         kwargs = {
-            # "stream": settings.stream, # @TODO Should implement for non-stream on route level
             "--ctx-size": self.model_init_kwargs.get("--ctx-size"),
             "--reverse-prompt": settings.stop,  # !Never use an empty string like [""]
             "--model": settings.model,
@@ -238,6 +316,7 @@ class LLAMA_CPP:
             )
 
             self.process = await asyncio.create_subprocess_exec(
+                # @TODO Incorporate with model_init_kwargs
                 *cmd_args,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
@@ -261,7 +340,6 @@ class LLAMA_CPP:
     ):
         try:
             # Format command for llama-cli
-            # @TODO Incorporate with model_init_kwargs
             # kwargs = " ".join(f"{k} {v}" for k, v in self.generate_kwargs.items())
 
             # Format prompt for chat
@@ -369,6 +447,7 @@ class LLAMA_CPP:
             )
 
             # Send command to llama-cli
+            # @TODO Incorporate with model_init_kwargs
             self.process = await asyncio.create_subprocess_exec(
                 *cmd_args,
                 stdin=asyncio.subprocess.PIPE,
@@ -413,111 +492,3 @@ class LLAMA_CPP:
             raise Exception(f"Error querying the llama.cpp: {e}")
         except e:
             print(f"{common.PRNT_LLAMA} Some error occurred: {e}")
-
-
-# Convert structured chat conversation to prompt (str)
-# @TODO Could also use: from llama_index.llms.llama_cpp.llama_utils import messages_to_prompt
-def _messages_to_prompt(
-    messages: Sequence[ChatMessage],
-    system_prompt: Optional[str] = DEFAULT_SYSTEM_MESSAGE,
-    template: Optional[dict] = {},  # Model specific template
-) -> str:
-    # (end tokens, structure, etc)
-    # @TODO Pass these in from UI model_configs.json (values found in config.json of HF model card)
-    BOS = template["BOS"] or ""  # begin string
-    EOS = template["EOS"] or ""  # end of string
-    B_INST = template["B_INST"] or ""  # begin instruction (user prompt)
-    E_INST = template["E_INST"] or ""  # end instruction (user prompt)
-    B_SYS = template["B_SYS"] or ""  # begin system instruction
-    E_SYS = template["E_SYS"] or ""  # end system instruction
-
-    string_messages: List[str] = []
-    if messages[0].role == MessageRole.SYSTEM:
-        # pull out the system message (if it exists in messages)
-        system_message_str = messages[0].content or ""
-        messages = messages[1:]
-    else:
-        system_message_str = system_prompt
-
-    system_message_str = f"{B_SYS} {system_message_str.strip()} {E_SYS}"
-
-    for i in range(0, len(messages), 2):
-        # first message should always be a user
-        user_message = messages[i]
-        assert user_message.role == MessageRole.USER
-
-        if i == 0:
-            # make sure system prompt is included at the start
-            str_message = f"{BOS} {B_INST} {system_message_str} "
-        else:
-            # end previous user-assistant interaction
-            string_messages[-1] += f" {EOS}"
-            # no need to include system prompt
-            str_message = f"{BOS} {B_INST} "
-
-        # include user message content
-        str_message += f"{user_message.content} {E_INST}"
-
-        if len(messages) > (i + 1):
-            # if assistant message exists, add to str_message
-            assistant_message = messages[i + 1]
-            assert assistant_message.role == MessageRole.ASSISTANT
-            str_message += f" {assistant_message.content}"
-
-        string_messages.append(str_message)
-
-    return "".join(string_messages)
-
-
-# Load a local model and return an OpenAI api compatible class
-def create(
-    path_to_model: str,
-    model_name: str,
-    mode: str,
-    init_settings: LoadTextInferenceInit,  # init settings
-    generate_settings: LoadTextInferenceCall,  # generation settings
-) -> LLAMA_CPP:
-    n_ctx = init_settings.n_ctx or DEFAULT_CONTEXT_WINDOW
-    if n_ctx <= 0:
-        n_ctx = DEFAULT_CONTEXT_WINDOW
-    n_threads = init_settings.n_threads  # None means auto calc
-    n_gpu_layers = init_settings.n_gpu_layers
-    if init_settings.n_gpu_layers == -1:
-        n_gpu_layers = 100  # all
-
-    model_init_kwargs = {
-        # "--device": "CUDA0",
-        "--n_gpu_layers": n_gpu_layers,
-        "--no_mmap": not init_settings.use_mmap,
-        "--mlock": init_settings.use_mlock,
-        # "--cache-type-k": init_settings.cache_type_k, # @TODO implement this
-        # "--cache-type-v": init_settings.cache_type_v, # @TODO implement this
-        # "f16_kv": init_settings.f16_kv, # @TODO deprecate this
-        "--seed": init_settings.seed,
-        "--ctx-size": n_ctx,  # 0=loaded from model
-        "--batch-size": init_settings.n_batch,
-        "--no-kv-offload": not init_settings.offload_kqv,
-        # "torch_dtype": "auto",  # if using CUDA (reduces memory usage) # @TODO deprecate
-    }
-    if n_threads != None:
-        model_init_kwargs["--threads"] = n_threads
-        model_init_kwargs["--threads-batch"] = n_threads
-
-    # @TODO Cant we do this instead of calling create() ?
-    llm = LLAMA_CPP(
-        # Provide a url to download a model from
-        model_url=None,
-        # Or, you can set the path to a pre-downloaded model instead of model_url
-        model_path=path_to_model,
-        # Friendly name
-        model_name=model_name,
-        # kwargs to pass when generating text
-        generate_kwargs=generate_settings,
-        # kwargs to pass when loading the model
-        model_init_kwargs=model_init_kwargs,
-        # Show logs
-        debug=True,
-        # CHAT_MODES (instruct, etc)
-        mode=mode,
-    )
-    return llm

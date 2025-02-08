@@ -11,7 +11,7 @@ from inference.classes import (
 from sse_starlette.sse import EventSourceResponse
 
 # from embeddings import main
-from . import llama_cpp
+from .llama_cpp import LLAMA_CPP
 from core import classes, common
 from huggingface_hub import (
     hf_hub_download,
@@ -123,14 +123,14 @@ async def load_text_inference(
             unload_text_inference(request)
         # Load the specified Ai model
         if app.state.llm is None:
-            model_settings = data.init
-            generate_settings = data.call
-            app.state.llm = llama_cpp.create(
-                path_to_model=modelPath,
+            app.state.llm = LLAMA_CPP(
+                model_url=None,
+                model_path=modelPath,
                 model_name=model_id,
+                debug=True,  # @TODO For testing, remove when done
                 mode=mode,
-                init_settings=model_settings,
-                generate_settings=generate_settings,
+                generate_kwargs=data.call,
+                model_init_kwargs=data.init,
             )
             await app.state.llm.load_model(
                 # message_format_type="llama2",
