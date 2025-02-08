@@ -79,23 +79,17 @@ class ApiServer:
     ### Methods ###
     ###############
 
-    def _create_app(self) -> FastAPI:
+    def _create_app(self) -> classes.FastAPIApp:
         @asynccontextmanager
-        async def lifespan(app: FastAPI):
+        async def lifespan(app: classes.FastAPIApp):
             print(f"{common.PRNT_API} Lifespan startup", flush=True)
             # https://www.python-httpx.org/quickstart/
-            app.requests_client = httpx.Client()
+            app.state.requests_client = httpx.Client()
             # Initialize global data here
             app.state.PORT_HOMEBREW_API = self.SERVER_PORT
             app.state.db_client = None
             app.state.llm = None  # Set each time user loads a model
-            app.state.path_to_model = ""  # Set each time user loads a model
-            app.state.model_id = ""
             app.state.embed_model = None
-            app.state.loaded_text_model_data = {}
-            app.state.is_prod = self.is_prod
-            app.state.is_dev = self.is_dev
-            app.state.is_debug = self.is_debug
 
             # Tell front-end to go to webui
             if self.on_startup_callback:

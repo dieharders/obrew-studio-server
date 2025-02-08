@@ -6,14 +6,13 @@ import glob
 import httpx
 import subprocess
 from typing import Any, List, Optional, Tuple
+from core import classes
 from core.classes import (
-    CHAT_MODES,
     InstalledTextModelMetadata,
     InstalledTextModel,
     ModelConfig,
-    DEFAULT_CHAT_MODE,
-    DEFAULT_MIN_CONTEXT_WINDOW,
 )
+from inference.classes import DEFAULT_MIN_CONTEXT_WINDOW, DEFAULT_CHAT_MODE, CHAT_MODES
 from huggingface_hub import (
     scan_cache_dir,
     try_to_load_from_cache,
@@ -139,9 +138,9 @@ def file_explore(path: str):
         subprocess.run([FILEBROWSER_PATH, "/select,", path])
 
 
-async def get_file_from_url(url: str, pathname: str, app):
+async def get_file_from_url(url: str, pathname: str, app: classes.FastAPIApp):
     # example url: https://raw.githubusercontent.com/dieharders/ai-text-server/master/README.md
-    client: httpx.Client = app.requests_client
+    client = app.state.requests_client
     CHUNK_SIZE = 1024 * 1024  # 1mb
     TOO_LONG = 751619276  # about 700mb limit in "bytes"
     headers = {

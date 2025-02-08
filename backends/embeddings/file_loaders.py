@@ -407,7 +407,7 @@ async def llama_parse_loader(
 # Free, no api key required
 # https://jina.ai/reader/#apiform
 def jina_reader_loader(
-    app: dict,
+    app: classes.FastAPIApp,
     sources: List[str],
     source_id: str,
     source_metadata: dict,
@@ -421,7 +421,7 @@ def jina_reader_loader(
             "Accept": "text/event-stream",
             "Content-Type": "application/octet-stream",
         }
-        client: httpx.Client = app.requests_client
+        client = app.state.requests_client
         text = ""
         with client.stream(method="GET", url=req_url, headers=headers) as res:
             res.raise_for_status()

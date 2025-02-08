@@ -1,8 +1,14 @@
 import os
 from fastapi import APIRouter, Request, HTTPException, Depends
 from .classes import RetrievalTypes
+from inference.classes import (
+    InferenceRequest,
+    LoadedTextModelResponse,
+    LoadInferenceResponse,
+    LoadInferenceRequest,
+    CHAT_MODES,
+)
 from sse_starlette.sse import EventSourceResponse
-from .llama_cpp import LLAMA_CPP
 
 # from embeddings import main
 from . import llama_cpp
@@ -49,19 +55,23 @@ def get_installed_models() -> classes.TextModelInstallMetadataResponse:
 
 # Gets the currently loaded model and its installation/config metadata
 @router.get("/model")
-def get_text_model(request: Request) -> classes.LoadedTextModelResponse | dict:
-    app = request.app
+def get_text_model(request: Request) -> LoadedTextModelResponse | dict:
+    app: classes.FastAPIApp = request.app
 
     try:
         llm = app.state.llm
-        model_id = app.state.model_id
+        model_id = llm.model_name
 
         if llm:
-            metadata = app.state.loaded_text_model_data
             return {
                 "success": True,
                 "message": f"Model {model_id} is currently loaded.",
-                "data": metadata,
+                "data": {
+                    "modelId": model_id,
+                    "mode": llm.mode,
+                    "modelSettings": llm.model_init_kwargs,
+                    "generateSettings": llm.generate_kwargs,
+                },
             }
         else:
             return {
@@ -80,15 +90,11 @@ def get_text_model(request: Request) -> classes.LoadedTextModelResponse | dict:
 # Eject the currently loaded Text Inference model
 @router.post("/unload")
 def unload_text_inference(request: Request):
-    app = request.app
+    app: classes.FastAPIApp = request.app
     if app.state.llm:
         app.state.llm.unload()
-    app.state.loaded_text_model_data = {}  # deprecate this in favor of app.state.llm
     del app.state.llm
     app.state.llm = None
-    app.state.path_to_model = ""
-    app.state.model_id = ""
-
     return {
         "success": True,
         "message": "Model was ejected",
@@ -100,18 +106,15 @@ def unload_text_inference(request: Request):
 @router.post("/load")
 async def load_text_inference(
     request: Request,
-    data: classes.LoadInferenceRequest,
-) -> classes.LoadInferenceResponse:
-    app = request.app
+    data: LoadInferenceRequest,
+) -> LoadInferenceResponse:
+    app: classes.FastAPIApp = request.app
 
     try:
         model_id = data.modelId
         mode = data.mode
         message_format = data.message_format  # @TODO UI must pass this in
         modelPath = data.modelPath
-        # Record model's save path
-        app.state.model_id = model_id
-        app.state.path_to_model = modelPath
         # Unload the model if one exists
         if app.state.llm:
             print(
@@ -128,21 +131,12 @@ async def load_text_inference(
                 mode=mode,
                 init_settings=model_settings,
                 generate_settings=generate_settings,
-                # callback_manager=callback_manager,
             )
             await app.state.llm.load_model(
                 # message_format_type="llama2",
                 mode=mode,
                 # system_message=None, # @TODO Pass from ui
             )
-            # Record the currently loaded model
-            # @TODO Cant we get this from llm? Lets remove.
-            app.state.loaded_text_model_data = {
-                "modelId": model_id,
-                "mode": mode,
-                "modelSettings": model_settings,
-                "generateSettings": generate_settings,
-            }
             print(f"{common.PRNT_API} Model {model_id} loaded from: {modelPath}")
         return {
             "message": f"AI model [{model_id}] loaded.",
@@ -341,9 +335,9 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
 @router.post("/inference")
 async def text_inference(
     request: Request,
-    payload: classes.InferenceRequest,
+    payload: InferenceRequest,
 ):
-    app = request.app
+    app: classes.FastAPIApp = request.app
     QUERY_INPUT = "{query_str}"
     TOOL_ARGUMENTS = "{tool_arguments_str}"
     TOOL_EXAMPLE_ARGUMENTS = "{tool_example_str}"
@@ -364,7 +358,7 @@ async def text_inference(
         system_message = payload.systemMessage
         streaming = payload.stream
 
-        if not app.state.path_to_model:
+        if not app.state.llm.model_path:
             msg = "No path to model provided."
             print(f"{common.PRNT_API} Error: {msg}", flush=True)
             raise Exception(msg)
@@ -372,12 +366,12 @@ async def text_inference(
             msg = "No LLM loaded."
             print(f"{common.PRNT_API} Error: {msg}", flush=True)
             raise Exception(msg)
-        llm: LLAMA_CPP = app.state.llm
+        llm = app.state.llm
 
         # Update llm props, @TODO Do this automatically inside class?
         llm.generate_kwargs = payload
         # Instruct is for Question/Answer (good for tool use, RAG)
-        if mode == classes.CHAT_MODES.INSTRUCT.value:
+        if mode == CHAT_MODES.INSTRUCT.value:
             # Handles requests sequentially and streams responses using SSE
             # @TODO maybe implement this for all inference endpoints? Dont want multiple cli isntances created during a response eval.
             if llm.request_queue.qsize() > 0:
@@ -396,7 +390,7 @@ async def text_inference(
                 return EventSourceResponse(response)
             # @TODO Need to implement non-streaming response
             return response
-        elif mode == classes.CHAT_MODES.CHAT.value:
+        elif mode == CHAT_MODES.CHAT.value:
             # Get response
             response = llm.text_chat(
                 prompt=query_prompt,

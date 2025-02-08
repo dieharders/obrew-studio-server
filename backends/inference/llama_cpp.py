@@ -3,7 +3,14 @@ import asyncio
 import json
 from typing import List, Optional, Sequence
 from llama_index.core.base.llms.types import ChatMessage, MessageRole
-from core import common, classes
+from core import common
+from inference.classes import (
+    InferenceRequest,
+    LoadTextInferenceCall,
+    LoadTextInferenceInit,
+    CHAT_MODES,
+    DEFAULT_CONTEXT_WINDOW,
+)
 
 # More templates found here: https://github.com/run-llama/llama_index/blob/main/llama_index/prompts/default_prompts.py
 DEFAULT_SYSTEM_MESSAGE = """You are an AI assistant that answers questions in a friendly manner. Here are some rules you always follow:
@@ -27,9 +34,12 @@ def _apply_prompt_template(
 ):
     if template_str:
         txt = input_message.strip()
-        # @TODO Maybe we should: template_str.replace("{{system_message}}", txt) instead ?
+        # @TODO Do this for /completions: template_str.replace("{{system_message}}", txt) instead ?
+        # ...maybe make sep func for this
+
+        # @TODO Do this instead for chat since system_message is sent seperatly
         if system_message:
-            txt = f"{system_message.strip()}\n{input_message.strip()}"
+            txt = f"{system_message.strip()}\n\n{input_message.strip()}"
         # Format to specified template
         return template_str.replace("{{prompt}}", txt)
     else:
@@ -103,7 +113,7 @@ class LLAMA_CPP:
         self.priority = priority
         self.model_path = model_path  # text-models/your-model.gguf
         self.model_init_kwargs = model_init_kwargs
-        self._generate_kwargs = generate_kwargs
+        self._generate_kwargs = generate_kwargs  # proxy
         BINARY_BASE_PATH = "servers"
         BINARY_FOLDER = "llama.cpp"
         self.BINARY_PATH: str = os.path.join(
@@ -117,7 +127,7 @@ class LLAMA_CPP:
 
     # Translate settings from UI to what inference server expects
     @generate_kwargs.setter
-    def generate_kwargs(self, settings: classes.InferenceRequest):
+    def generate_kwargs(self, settings: InferenceRequest):
         grammar = settings.grammar
         self.promptTemplate = settings.promptTemplate
         self.messageFormat = settings.messageFormat
@@ -173,7 +183,7 @@ class LLAMA_CPP:
     # @TODO This should save all necessary values to the class object for subsequent requests to use during generation.
     async def load_model(
         self,
-        mode: classes.CHAT_MODES = classes.CHAT_MODES.CHAT.value,
+        mode: CHAT_MODES = CHAT_MODES.CHAT.value,
         message_format_type=None,  # "llama2"
         system_message=None,
     ):
@@ -192,7 +202,7 @@ class LLAMA_CPP:
                 "--simple-io",
                 "--multiline-input",  # dont have to type "/" to add a new line
             ]
-            if mode == classes.CHAT_MODES.CHAT.value:
+            if mode == CHAT_MODES.CHAT.value:
                 cmd_args.append("-cnv")  # conversation mode (chat)
                 if message_format_type:
                     # if not used then gotten from model (or manually format)
@@ -208,7 +218,7 @@ class LLAMA_CPP:
                     # Changes system message when using "-cnv" mode
                     cmd_args.append("--prompt")
                     cmd_args.append(system_message)  # @TODO Get from system_message
-            elif mode == classes.CHAT_MODES.COLLAB.value:
+            elif mode == CHAT_MODES.COLLAB.value:
                 # User can pause Ai and add more input, keeps conn open.
                 cmd_args.append("--interactive")
                 # "--ignore-eos -n -1",  # infinite response
@@ -464,12 +474,12 @@ def create(
     path_to_model: str,
     model_name: str,
     mode: str,
-    init_settings: classes.LoadTextInferenceInit,  # init settings
-    generate_settings: classes.LoadTextInferenceCall,  # generation settings
+    init_settings: LoadTextInferenceInit,  # init settings
+    generate_settings: LoadTextInferenceCall,  # generation settings
 ) -> LLAMA_CPP:
-    n_ctx = init_settings.n_ctx or classes.DEFAULT_CONTEXT_WINDOW
+    n_ctx = init_settings.n_ctx or DEFAULT_CONTEXT_WINDOW
     if n_ctx <= 0:
-        n_ctx = classes.DEFAULT_CONTEXT_WINDOW
+        n_ctx = DEFAULT_CONTEXT_WINDOW
     n_threads = init_settings.n_threads  # None means auto calc
     n_gpu_layers = init_settings.n_gpu_layers
     if init_settings.n_gpu_layers == -1:
