@@ -374,25 +374,35 @@ async def text_inference(
         await llm.request_queue.put(request)
         # Instruct is for Question/Answer (good for tool use, RAG)
         if mode == CHAT_MODES.INSTRUCT.value:
-            # Get response
+            # Get streaming response
             response = llm.text_completion(
                 prompt=query_prompt,
                 system_message=system_message,
+                stream=streaming,
             )
             if streaming:
                 return EventSourceResponse(response)
-            # @TODO Need to implement non-streaming response
-            return response
-        elif mode == CHAT_MODES.CHAT.value:
             # Get response
+            content = [item async for item in response]
+            return {
+                "success": True,
+                "data": content[0].get("data"),
+            }
+        elif mode == CHAT_MODES.CHAT.value:
             response = llm.text_chat(
                 prompt=query_prompt,
                 system_message=system_message,
+                stream=streaming,
             )
+            # Get streaming response
             if streaming:
                 return EventSourceResponse(response)
-            # @TODO Need to implement non-streaming response
-            return response
+            # Get response
+            content = [item async for item in response]
+            return {
+                "success": True,
+                "data": content[0].get("data"),
+            }
         elif mode == CHAT_MODES.COLLAB.value:
             # @TODO Add a mode for collaborate
             raise Exception("Mode 'collab' is not implemented.")

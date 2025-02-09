@@ -152,6 +152,7 @@ class LLAMA_CPP:
         self,
         prompt: str,
         system_message: str = None,
+        stream: bool = False,
     ):
         try:
             # If format type provided pass input unchanged, llama.cpp will handle it?
@@ -224,25 +225,37 @@ class LLAMA_CPP:
             self.process.stdin.write(command.encode("utf-8") + b"\n")
             await self.process.stdin.drain()
 
-            # Stream response as SSE
-            index = 0
-            while True:
-                line = await self.process.stdout.read(4)
-                line = line.decode("utf-8")
+            if stream:
+                # Stream response as SSE
+                index = 0
+                while True:
+                    line = await self.process.stdout.read(4)
+                    line = line.decode("utf-8")
 
-                if line.strip() == ">":
-                    if index == 0:
-                        continue
-                    else:
-                        break
+                    if line.strip() == ">":
+                        if index == 0:
+                            continue
+                        else:
+                            break
 
-                # print(f"line:{line}", flush=True)
-                index += 1
+                    # print(f"line:{line}", flush=True)
+                    index += 1
+                    payload = {
+                        "event": "GENERATING_TOKENS",
+                        "data": line,
+                    }
+                    yield json.dumps(payload)  # SSE format
+            else:
+                # Return entire result in one response
+                line = await self.process.stdout.read()
+                line = line.decode("utf-8").strip()
                 payload = {
                     "event": "GENERATING_TOKENS",
-                    "data": line,
+                    "data": {
+                        "text": line,
+                    },
                 }
-                yield json.dumps(payload)  # SSE format
+                yield payload  # normal format
 
             # Finished - cleanup
             self.task_logging.cancel()
@@ -263,6 +276,7 @@ class LLAMA_CPP:
         self,
         prompt: str,
         system_message: str = None,
+        stream: bool = False,
     ):
         try:
             # If format type provided pass input unchanged, llama.cpp will handle it?
@@ -321,22 +335,36 @@ class LLAMA_CPP:
             await self.process.stdin.drain()
 
             # Stream response as SSE
-            while True:
-                line = await self.process.stdout.read(14)
-                line = line.decode("utf-8")
-                eos_token = "[end of text]"  # @TODO Do we need to figure this out for each model?
-                eos_index = line.find(eos_token)
+            eos_token = (
+                "[end of text]"  # @TODO Do we need to figure this out for each model?
+            )
+            if stream:
+                while True:
+                    line = await self.process.stdout.read(14)
+                    line = line.decode("utf-8")
+                    eos_index = line.find(eos_token)
 
-                # print(f"line:{line}", flush=True)
+                    # print(f"line:{line}", flush=True)
 
-                if eos_index != -1:
-                    break
+                    if eos_index != -1:
+                        break
 
+                    payload = {
+                        "event": "GENERATING_TOKENS",
+                        "data": line,
+                    }
+                    yield json.dumps(payload)  # SSE format
+            else:
+                # Return entire result in one response
+                line = await self.process.stdout.read()
+                line = line.decode("utf-8").strip().rstrip(eos_token)
                 payload = {
                     "event": "GENERATING_TOKENS",
-                    "data": line,
+                    "data": {
+                        "text": line,
+                    },
                 }
-                yield json.dumps(payload)  # SSE format
+                yield payload  # normal format
 
             # Finished - cleanup
             self.task_logging.cancel()
