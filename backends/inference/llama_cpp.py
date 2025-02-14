@@ -29,8 +29,7 @@ class LLAMA_CPP:
         model_id: str,  #  id of model in config
         mode: Literal[CHAT_MODES.CHAT, CHAT_MODES.COLLAB, CHAT_MODES.INSTRUCT],
         raw: bool,  # user can send manually formatted messages
-        prompt_format: Optional[str] = None,
-        message_format: Optional[dict] = None,  # template object
+        message_format: Optional[dict] = None,  # template converts messages to prompts
         verbose=False,
         debug=False,  # Show logs
         model_init_kwargs: LoadTextInferenceInit = None,  # kwargs to pass when loading the model
@@ -66,10 +65,9 @@ class LLAMA_CPP:
         self.chat_history = None
         self.process = None
         self.task_logging = None
-        self.prompt_template = None
+        self.prompt_template = None  # structures the llm thoughts (thinking)
         self.message_format = message_format
         self.request_queue = asyncio.Queue()
-        self.prompt_format = prompt_format
         self.mode = mode
         self.raw = raw
         self.model_url = model_url
@@ -116,6 +114,7 @@ class LLAMA_CPP:
         self._generate_kwargs = kwargs
 
     # Create a cli instance and load a previous conversation (only needed for chat convo)
+    # @TODO This is yet to be implemented
     async def load_chat(
         self,
         # contain at minimum the system_message
@@ -138,6 +137,8 @@ class LLAMA_CPP:
     def unload(self):
         try:
             # Cleanup any ongoing processes
+            if self.task_logging:
+                self.task_logging.cancel()
             if self.process:
                 print(
                     f"{common.PRNT_LLAMA} Shutting down llama.cpp cli process.",
@@ -160,6 +161,7 @@ class LLAMA_CPP:
             )  # Print logs in real-time
 
     # User can pause Ai and add more input, keeps conn open.
+    # @TODO Yet to be implemented
     async def text_collab(self):
         # Create arguments for starting server
         cmd_args = [
@@ -173,7 +175,7 @@ class LLAMA_CPP:
             "--interactive",
             "--ignore-eos -n -1",  # infinite response
         ]
-        # @TODO launch binary and pass args
+        return
 
     # Send multi-turn messages by role. Message does not require formatting.
     # Cannot reload chat history from cache.

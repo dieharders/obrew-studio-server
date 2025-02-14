@@ -24,16 +24,16 @@
     "user": "{{prompt}} [/INST]"
   },
   "llama-2-13b-chat": {
-    "system": "[INST]<<SYS>>\n{{system_message}}\n<</SYS>>\n",
-    "user": "{{prompt}}[/INST]"
+    "system": "[INST] <<SYS>>\n{{system_message}}\n<</SYS>>\n",
+    "user": "{{prompt}} [/INST]"
   },
   "llama-2-7b-chat": {
     "system": "",
     "user": "### HUMAN:\n{{prompt}}\n\n### RESPONSE:"
   },
   "llama-2-7b-instruct": {
-    "system": "[INST]\n{{system_message}}\n\n",
-    "user": "{{prompt}}\n[/INST]"
+    "system": "",
+    "user": "[INST] {{prompt}} [/INST]"
   },
   "code-llama": {
     "system": "",

@@ -21,6 +21,40 @@ from huggingface_hub import (
     HfApi,
 )
 
+
+def get_model_install_config(model_id: str = None) -> dict:
+    try:
+
+        # Get the config for the model
+        config_path = common.dep_path(os.path.join("public", "text_model_configs.json"))
+        with open(config_path, "r") as file:
+            text_models = json.load(file)
+            if not model_id:
+                return dict(models=text_models)
+            config = text_models[model_id]
+            message_format = config["messageFormat"]
+            model_name = config["name"]
+            return dict(
+                message_format=message_format, model_name=model_name, models=text_models
+            )
+    except Exception as err:
+        raise Exception(f"Error finding models list: {err}")
+
+
+def get_prompt_formats(message_format: str) -> dict:
+    try:
+        # Get the file for the templates
+        prompt_formats_path = common.dep_path(
+            os.path.join("public", "prompt_formats.json")
+        )
+        with open(prompt_formats_path, "r") as file:
+            templates = json.load(file)
+            message_template = templates[message_format]
+            return message_template
+    except Exception as err:
+        raise Exception(f"Error finding prompt format templates: {err}")
+
+
 router = APIRouter()
 
 
@@ -69,6 +103,7 @@ def get_text_model(request: Request) -> LoadedTextModelResponse | dict:
                 "message": f"Model {model_id} is currently loaded.",
                 "data": {
                     "modelId": model_id,
+                    "modelName": llm.model_name,
                     "mode": llm.mode,
                     "modelSettings": llm.model_init_kwargs,
                     "generateSettings": llm.generate_kwargs,
@@ -88,19 +123,49 @@ def get_text_model(request: Request) -> LoadedTextModelResponse | dict:
         }
 
 
+# Returns the curated list of models available for installation from json file
+@router.get("/models")
+def get_model_list():
+    try:
+        #  Get data from file
+        file = get_model_install_config()
+        models_list = file["models"]
+
+        return {
+            "success": True,
+            "message": "This is the curated list of models for download.",
+            "data": models_list,
+        }
+    except Exception as err:
+        print(f"{common.PRNT_API} Error: {err}", flush=True)
+        return {
+            "success": False,
+            "message": f"Something went wrong. Reason: {err}",
+            "data": None,
+        }
+
+
 # Eject the currently loaded Text Inference model
 @router.post("/unload")
 def unload_text_inference(request: Request):
-    app: classes.FastAPIApp = request.app
-    if app.state.llm:
-        app.state.llm.unload()
-    del app.state.llm
-    app.state.llm = None
-    return {
-        "success": True,
-        "message": "Model was ejected",
-        "data": None,
-    }
+    try:
+        app: classes.FastAPIApp = request.app
+        if app.state.llm:
+            app.state.llm.unload()
+        del app.state.llm
+        app.state.llm = None
+        return {
+            "success": True,
+            "message": "Model was ejected",
+            "data": None,
+        }
+    except Exception as err:
+        print(f"{common.PRNT_API} Error: {err}", flush=True)
+        return {
+            "success": False,
+            "message": f"Error ejecting model. Reason: {err}",
+            "data": None,
+        }
 
 
 # Start Text Inference service
@@ -120,19 +185,12 @@ async def load_text_inference(
                 f"{common.PRNT_API} Ejecting current model {model_id} from: {modelPath}"
             )
             unload_text_inference(request)
-        # Get the config for the model
-        config_path = common.dep_path(os.path.join("public", "text_model_configs.json"))
-        prompt_formats_path = common.dep_path(
-            os.path.join("public", "prompt_formats.json")
-        )
-        with open(config_path, "r") as file:
-            text_models = json.load(file)
-            config = text_models[model_id]
-            message_format = config["messageFormat"]
-            model_name = config["name"]
-        with open(prompt_formats_path, "r") as file:
-            templates = json.load(file)
-            message_template = templates[message_format]
+        # Load the config for the model
+        model_config = get_model_install_config(model_id)
+        message_format = model_config["message_format"]
+        model_name = model_config["model_name"]
+        # Load the prompt formats
+        message_template = get_prompt_formats(message_format)
         # Load the specified Ai model
         app.state.llm = LLAMA_CPP(
             model_url=None,

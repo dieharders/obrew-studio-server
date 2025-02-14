@@ -139,7 +139,7 @@ class Api:
     def shutdown_server(self, *args):
         try:
             if self.api_server:
-                # Does not exist in GUI mode since api not set in this class?
+                # Does not exist in GUI mode since api not set in this class
                 self.api_server.shutdown()
             print(f"{common.PRNT_APP} Shutting down server.", flush=True)
             return
