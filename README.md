@@ -1,7 +1,7 @@
 # 🍺 Obrew Studio: Server - Your Personal Ai Engine
 
 <p align="center">
-    <img src="assets/images/banner.png" height="320" />
+    <img src="assets/images/banner.png" height="360" />
     <br>
     <br>
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" />
@@ -34,7 +34,8 @@ The goal of this project is to be an all-in-one solution for running local Ai th
 Obrew Studio is a native app with a GUI that can be configured to allow access from other apps you write or third party services, making it an ideal engine for Ai workloads built on your own tech stack.
 
 <p align="center">
-    <img src="assets/images/chat-history.png" height="250" />
+    <img src="assets/images/chat-history.png" height="300" />
+    <img src="assets/images/model-explorer.png" height="300" />
 </p>
 
 ## How It Works
@@ -42,10 +43,8 @@ Obrew Studio is a native app with a GUI that can be configured to allow access f
 This backend runs a web server that acts as the main gateway to the suite of tools. A WebUI is provided called [Obrew Studio: WebUI](https://studio.openbrewai.com/) to access this server. You can also run in headless mode to access it programmatically via the API.
 
 <p align="center">
-    <img src="assets/images/knowledge.png" height="250" />
-    <img src="assets/images/tools.png" height="250" />
-    <img src="assets/images/embed-file.png" height="250" />
-    <img src="assets/images/model-explorer.png" height="250" />
+    <img src="assets/images/tools.png" height="300" />
+    <img src="assets/images/embed-file.png" height="300" />
 </p>
 
 To use Ai locally with your private data for free:
@@ -55,7 +54,8 @@ To use Ai locally with your private data for free:
 - or connect with a service provider or custom stack that supports the api
 
 <p align="center">
-    <img src="assets/images/app-entry.png" height="250" />
+    <img src="assets/images/app-entry.png" height="300" />
+    <img src="assets/images/knowledge.png" height="300" />
 </p>
 
 ## App Features Roadmap
