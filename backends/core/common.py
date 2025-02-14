@@ -405,7 +405,7 @@ def dedupe_substrings(input_string):
     return " ".join(result)
 
 
-def get_settings_file(folderpath: str, filepath: str):
+def get_settings_file(folderpath: str, filepath: str) -> classes.InstalledTextModel:
     loaded_data = None
 
     try:

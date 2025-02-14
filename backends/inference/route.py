@@ -1,4 +1,5 @@
 import os
+import json
 from fastapi import APIRouter, Request, HTTPException, Depends
 from .classes import RetrievalTypes
 from inference.classes import (
@@ -29,7 +30,7 @@ def get_installed_models() -> classes.TextModelInstallMetadataResponse:
     try:
         data = []
         # Get installed models file
-        metadatas: classes.InstalledTextModel = common.get_settings_file(
+        metadatas = common.get_settings_file(
             common.APP_SETTINGS_PATH, common.MODEL_METADATAS_FILEPATH
         )
         if not metadatas:
@@ -119,17 +120,38 @@ async def load_text_inference(
                 f"{common.PRNT_API} Ejecting current model {model_id} from: {modelPath}"
             )
             unload_text_inference(request)
+        # Get the config for the model
+        config_path = common.dep_path(os.path.join("public", "text_model_configs.json"))
+        prompt_formats_path = common.dep_path(
+            os.path.join("public", "prompt_formats.json")
+        )
+        with open(config_path, "r") as file:
+            text_models = json.load(file)
+            config = text_models[model_id]
+            message_format = config["messageFormat"]
+            model_name = config["name"]
+        with open(prompt_formats_path, "r") as file:
+            templates = json.load(file)
+            message_template = templates[message_format]
         # Load the specified Ai model
         app.state.llm = LLAMA_CPP(
             model_url=None,
             model_path=modelPath,
-            model_name=model_id,
+            model_name=model_name,
+            model_id=model_id,
             debug=True,  # @TODO For testing, remove when done
             mode=data.mode,
-            message_format=data.message_format,  # @TODO UI must pass this in
+            raw=data.raw,
+            message_format=message_template,
             generate_kwargs=data.call,
             model_init_kwargs=data.init,
         )
+        # Init the chat conversation
+        if data.mode == CHAT_MODES.CHAT.value:
+            # @TODO webui needs to pass messages with a system_message as first item
+            # @TODO Need chat_to_completions(chat_history) to convert conversation to string
+            await app.state.llm.load_chat(chat_history=data.messages)
+        # Return result
         print(f"{common.PRNT_API} Model {model_id} loaded from: {modelPath}")
         return {
             "message": f"AI model [{model_id}] loaded.",
@@ -139,6 +161,12 @@ async def load_text_inference(
     except (Exception, KeyError) as error:
         return {
             "message": f"Unable to load AI model [{model_id}]\nMake sure you have available system memory.\n{error}",
+            "success": False,
+            "data": None,
+        }
+    except (FileNotFoundError, json.JSONDecodeError) as error:
+        return {
+            "message": f"Unable to load AI model [{model_id}]\nError: Invalid JSON format or file not found.\n{error}",
             "success": False,
             "data": None,
         }

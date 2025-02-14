@@ -428,7 +428,7 @@ class AppSettingsInitData(BaseModel):
     n_batch: Optional[int] = None
     offload_kqv: Optional[bool] = None
     n_gpu_layers: Optional[int] = None
-    f16_kv: Optional[bool] = None
+    cache_type_k: Optional[str] = None
     use_mlock: Optional[bool] = None
     use_mmap: Optional[bool] = None
     verbose: Optional[bool] = None
@@ -447,7 +447,7 @@ class PerformanceSettings(BaseModel):
     n_threads: int = None
     offload_kqv: bool = None
     chat_format: str = None
-    f16_kv: bool = None
+    cache_type_k: str = None
 
 
 class ToolsSettings(BaseModel):

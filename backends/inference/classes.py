@@ -4,6 +4,27 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 
+class MessageRole(str, Enum):
+    """Message role."""
+
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+    FUNCTION = "function"
+    TOOL = "tool"
+
+
+class ChatMessage(BaseModel):
+    """Chat message."""
+
+    role: MessageRole = MessageRole.USER
+    content: Optional[str] = ""
+
+
+class ChatHistory(BaseModel):
+    messages: List[ChatMessage]
+
+
 class RetrievalTypes(Enum):
     BASE = "base"
     AUGMENTED = "augmented"
@@ -60,7 +81,9 @@ class LoadTextInferenceInit(BaseModel):
     n_gpu_layers: Optional[int] = 0  # 32 for our purposes
     use_mmap: Optional[bool] = True
     use_mlock: Optional[bool] = False
-    f16_kv: Optional[bool] = True
+    # optimal choice depends on balancing memory constraints and performance requirements
+    # Allowed: f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1
+    cache_type_k: Optional[str] = "f16"
     seed: Optional[int] = DEFAULT_SEED
     n_ctx: Optional[int] = DEFAULT_CONTEXT_WINDOW  # load from model
     n_batch: Optional[int] = 2048
@@ -73,12 +96,11 @@ class LoadTextInferenceInit(BaseModel):
 class LoadInferenceRequest(BaseModel):
     modelPath: str
     modelId: str
-    message_format: Optional[str] = ""
+    raw: Optional[bool] = False  # user can send manually formatted messages
     mode: Optional[str] = DEFAULT_CHAT_MODE
-    # __init__ args - https://llama-cpp-python.readthedocs.io/en/latest/api-reference/
     init: LoadTextInferenceInit
-    # __call__ args
     call: LoadTextInferenceCall
+    messages: Optional[List[ChatMessage]] = None
 
 
 class LoadedTextModelResData(BaseModel):

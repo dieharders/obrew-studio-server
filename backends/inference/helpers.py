@@ -1,31 +1,46 @@
 from typing import Optional
+from typing_extensions import TypedDict
 from typing import List, Optional, Sequence
-from inference.classes import DEFAULT_SYSTEM_MESSAGE
-from llama_index.core.base.llms.types import ChatMessage, MessageRole
+from core import common
+from inference.classes import DEFAULT_SYSTEM_MESSAGE, ChatMessage, MessageRole
+
+# These are the supported template keys
+KEY_SYS_MESSAGE = "{{system_message}}"
+KEY_USER_MESSAGE = "{{prompt}}"
 
 
-# Convert input to the target prompt format for a given model.
-# Note completions dont utilize system message (b/c neither do Instruct type models) so we combine it with input msg if present.
-def apply_prompt_template(
-    input_message: Optional[str] = "",
+class Message_Template(TypedDict):
+    system: str
+    user: str
+
+
+# This assumes one turn convo (question/answer) so system msg is included. Feed result to /completion.
+def completion_to_prompt(
+    user_message: str,
     system_message: Optional[str] = None,
-    template_str: Optional[str] = None,  # Model specific template
+    template: Optional[Message_Template] = None,
 ):
-    if template_str:
-        txt = input_message.strip()
-        # @TODO Do this for /completions: template_str.replace("{{system_message}}", txt) instead ?
-        # ...maybe make sep func for this
+    """Convert user message to prompt by applying the model's template."""
 
-        # @TODO Do this instead for chat since system_message is sent seperatly
-        if system_message:
-            txt = f"{system_message.strip()}\n\n{input_message.strip()}"
-        # Format to specified template
-        return template_str.replace("{{prompt}}", txt)
-    else:
-        # Dont format if no template supplied
-        if system_message:
-            return f"{system_message.strip()}\n{input_message.strip()}"
-        return f"{input_message.strip()}"
+    try:
+        sys_msg = system_message or DEFAULT_SYSTEM_MESSAGE
+        prompt = ""
+
+        if template:
+            # Check if template includes a system message token and assign system message
+            if template["system"] and template["system"].find(KEY_SYS_MESSAGE) != -1:
+                prompt = template["system"].replace(KEY_SYS_MESSAGE, sys_msg.strip())
+            # Check if template includes a user message
+            if template["user"] and template["user"].find(KEY_USER_MESSAGE) != -1:
+                prompt += template["user"].replace(
+                    KEY_USER_MESSAGE, f"{sys_msg.strip()}\n\n{user_message.strip()}"
+                )
+            return prompt
+        else:
+            # No template, combine sys and user messages
+            return f"{sys_msg.strip()}\n\n{user_message.strip()}"
+    except Exception as e:
+        print(f"{common.PRNT_LLAMA} Error: {e}")
 
 
 def sanitize_kwargs(kwargs: dict) -> list[str]:
@@ -41,35 +56,14 @@ def sanitize_kwargs(kwargs: dict) -> list[str]:
     return arr
 
 
-# Not currently used
-#
-# https://github.com/ggerganov/llama.cpp/wiki/Templates-supported-by-llama_chat_apply_template
-def format_chat_to_prompt(
-    user_message, chat_history=[], system_message=DEFAULT_SYSTEM_MESSAGE
-):
-    """Manually formats a chat conversation like `--chat-template`."""
-
-    # @TODO Use if chat_history is provided
-    formatted_history = "\n".join(
-        f"User: {msg['user']}\nAssistant: {msg['assistant']}" for msg in chat_history
-    )
-
-    return f"""
-        <|im_start|>system
-        {system_message}<|im_end|>
-        <|im_start|>user
-        {user_message}<|im_end|>
-        <|im_start|>assistant
-        """
-
-
-# Convert structured chat conversation to prompt (str)
-# @TODO Could also use: from llama_index.llms.llama_cpp.llama_utils import messages_to_prompt
-def messages_to_prompt(
+# Convert structured chat conversation to prompt (str). Result would be fed to a /completion after loading its kv cache.
+def _messages_to_prompt(
     messages: Sequence[ChatMessage],
     system_prompt: Optional[str] = DEFAULT_SYSTEM_MESSAGE,
     template: Optional[dict] = {},  # Model specific template
 ) -> str:
+    """Convert an array message history into a prompt by applying the model's template."""
+
     # (end tokens, structure, etc)
     # @TODO Pass these in from UI model_configs.json (values found in config.json of HF model card)
     BOS = template["BOS"] or ""  # begin string
