@@ -1,12 +1,14 @@
 # 🍺 Obrew Studio: Server - Your Personal Ai Engine
 
-![banner](assets/images/banner.png)
-
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-<br>
-![Python](https://img.shields.io/badge/-Python-000?&logo=Python)
-![Javascript](https://img.shields.io/badge/-JavaScript-000?&logo=JavaScript)
-![FastAPI](https://img.shields.io/badge/-FastAPI-000?&logo=fastapi)
+<p align="center">
+    <img src="assets/images/banner.png" height="320" />
+    <br>
+    <br>
+    <img src="https://img.shields.io/badge/license-MIT-blue.svg" />
+    <img src="https://img.shields.io/badge/-Python-000?&logo=Python" />
+    <img src="https://img.shields.io/badge/-JavaScript-000?&logo=JavaScript" />
+    <img src="https://img.shields.io/badge/-FastAPI-000?&logo=fastapi" />
+</p>
 
 ## Table of Contents
 
@@ -21,25 +23,40 @@
 
 ## Introduction
 
-![obrew](assets/images/app-entry.png)
-
 The goal of this project is to be an all-in-one solution for running local Ai that is easy to install, setup and use. It handles all basic building blocks of Ai: inference, memory retrieval (RAG) and storage (vector DB), model file management, and agent/workflow building.
+
+<p align="center">
+    <img src="assets/images/obrew-demo.gif" height="300" />
+</p>
 
 ## Description
 
 Obrew Studio is a native app with a GUI that can be configured to allow access from other apps you write or third party services, making it an ideal engine for Ai workloads built on your own tech stack.
 
+<p align="center">
+    <img src="assets/images/chat-history.png" height="250" />
+</p>
+
 ## How It Works
 
-![obrew](assets/images/doc-poster.png)
-
 This backend runs a web server that acts as the main gateway to the suite of tools. A WebUI is provided called [Obrew Studio: WebUI](https://studio.openbrewai.com/) to access this server. You can also run in headless mode to access it programmatically via the API.
+
+<p align="center">
+    <img src="assets/images/knowledge.png" height="250" />
+    <img src="assets/images/tools.png" height="250" />
+    <img src="assets/images/embed-file.png" height="250" />
+    <img src="assets/images/model-explorer.png" height="250" />
+</p>
 
 To use Ai locally with your private data for free:
 
 - Launch the desktop app and use the GUI to start building
 - or navigate your browser to any web app that supports the api
 - or connect with a service provider or custom stack that supports the api
+
+<p align="center">
+    <img src="assets/images/app-entry.png" height="250" />
+</p>
 
 ## App Features Roadmap
 
@@ -49,8 +66,8 @@ To use Ai locally with your private data for free:
 - ✅ CPU & GPU support
 - ✅ Windows OS installer
 - ❌ MacOS/Linux installer
-- ❌ Docker config for cloud/server deployment
-- ❌ Production ready: This project is currently under active development
+- ❌ Docker config for cloud deployment
+- ❌ Production ready: This project is under active development
 
 ## Ai Features Roadmap
 
