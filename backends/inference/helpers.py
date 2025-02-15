@@ -57,7 +57,8 @@ def sanitize_kwargs(kwargs: dict) -> list[str]:
 
 
 # Convert structured chat conversation to prompt (str). Result would be fed to a /completion after loading its kv cache.
-def _messages_to_prompt(
+# @TODO Yet to be implemented.
+def messages_to_prompt(
     messages: Sequence[ChatMessage],
     system_prompt: Optional[str] = DEFAULT_SYSTEM_MESSAGE,
     template: Optional[dict] = {},  # Model specific template
