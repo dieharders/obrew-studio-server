@@ -620,23 +620,6 @@ class InstalledTextModel(BaseModel):
     }
 
 
-class ModelConfig(BaseModel):
-    id: str
-    name: Optional[str] = None
-    type: Optional[str] = None
-    provider: Optional[str] = None
-    licenses: Optional[List[str]] = None
-    description: Optional[str] = None
-    fileSize: Optional[float] = None
-    fileName: str
-    modelType: Optional[str] = None
-    modelUrl: Optional[str] = None
-    context_window: Optional[int] = None
-    quantTypes: Optional[List[str]] = None
-    downloadUrl: str
-    sha256: Optional[str] = None
-
-
 class TextModelInstallMetadataResponse(BaseModel):
     success: bool
     message: str

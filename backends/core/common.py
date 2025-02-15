@@ -7,11 +7,7 @@ import httpx
 import subprocess
 from typing import Any, List, Optional, Tuple
 from core import classes
-from core.classes import (
-    InstalledTextModelMetadata,
-    InstalledTextModel,
-    ModelConfig,
-)
+from core.classes import InstalledTextModelMetadata, InstalledTextModel
 from inference.classes import DEFAULT_MIN_CONTEXT_WINDOW, DEFAULT_CHAT_MODE, CHAT_MODES
 from huggingface_hub import (
     scan_cache_dir,
@@ -546,13 +542,6 @@ def get_model_metadata(
             metadata = item
             break
     return metadata
-
-
-# Gets the llm model configuration data
-def get_model_config(id: str, folderpath, filepath) -> ModelConfig:
-    configs = get_settings_file(folderpath, filepath)
-    config = configs[id]
-    return config
 
 
 def get_file_extension_from_path(path: str):
