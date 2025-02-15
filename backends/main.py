@@ -118,10 +118,19 @@ def main():
                 IS_WEBVIEW_SSL=False,  # always run app FE as http
                 webui_url=webui_url,
             )
-            start_ui = view_instance.get("callback")
+            view_instance.create_window()
+
+            # Handle window closing
+            def on_window_closing():
+                if view_instance.api_server:
+                    view_instance.api_server.shutdown()
+
+            window_handle = view_instance.webview_window
+            window_handle.events.closing += on_window_closing
+            # Start window
+            start_ui = view_instance.callback
             start_ui()
-            # Close app when user closes window
-            _close_app(api=window_api)
+
     except Exception as e:
         print(f"{common.PRNT_APP} Main process error: {e}", flush=True)
 

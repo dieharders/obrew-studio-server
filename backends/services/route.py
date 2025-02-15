@@ -16,14 +16,14 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
     # Return text inference services
     text_inference_api = {
         "name": "textInference",
-        "port": app.state.PORT_HOMEBREW_API,  # @TODO Remove this as we will be using static port
+        "port": app.state.PORT_HOMEBREW_API,
         "configs": {
             "ragResponseModes": rag_response_modes,
         },
         "endpoints": [
             # Generate a text response from Ai engine
             {
-                "name": "inference",  # @TODO Change to "generate" ?
+                "name": "inference",
                 "urlPath": "/v1/text/inference",
                 "method": "POST",
             },
@@ -55,6 +55,12 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
             {
                 "name": "modelExplore",
                 "urlPath": "/v1/text/modelExplore",
+                "method": "GET",
+            },
+            # Get model install configs
+            {
+                "name": "getModelConfigs",
+                "urlPath": "/v1/text/models",
                 "method": "GET",
             },
             # Get model info

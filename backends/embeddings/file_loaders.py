@@ -407,7 +407,7 @@ async def llama_parse_loader(
 # Free, no api key required
 # https://jina.ai/reader/#apiform
 def jina_reader_loader(
-    app: dict,
+    app: classes.FastAPIApp,
     sources: List[str],
     source_id: str,
     source_metadata: dict,
@@ -421,7 +421,7 @@ def jina_reader_loader(
             "Accept": "text/event-stream",
             "Content-Type": "application/octet-stream",
         }
-        client: httpx.Client = app.requests_client
+        client = app.state.requests_client
         text = ""
         with client.stream(method="GET", url=req_url, headers=headers) as res:
             res.raise_for_status()
@@ -454,7 +454,6 @@ def jina_reader_loader(
 
 # Read in source file(s) and build a document node with metadata.
 # We will use this to base our chunks on.
-# @TODO This may need to be async? since some loaders are api calls
 async def documents_from_sources(
     app: dict,
     sources: List[str],

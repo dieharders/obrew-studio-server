@@ -6,14 +6,9 @@ import glob
 import httpx
 import subprocess
 from typing import Any, List, Optional, Tuple
-from core.classes import (
-    CHAT_MODES,
-    InstalledTextModelMetadata,
-    InstalledTextModel,
-    ModelConfig,
-    DEFAULT_CHAT_MODE,
-    DEFAULT_MIN_CONTEXT_WINDOW,
-)
+from core import classes
+from core.classes import InstalledTextModelMetadata, InstalledTextModel
+from inference.classes import DEFAULT_MIN_CONTEXT_WINDOW, DEFAULT_CHAT_MODE, CHAT_MODES
 from huggingface_hub import (
     scan_cache_dir,
     try_to_load_from_cache,
@@ -73,6 +68,7 @@ class bcolors:
 PRNT_APP = f"{bcolors.HEADER}[OBREW]{bcolors.ENDC}"
 PRNT_API = f"{bcolors.HEADER}[API]{bcolors.ENDC}"
 PRNT_LLAMA = f"{bcolors.HEADER}[LLAMA]{bcolors.ENDC}"
+PRNT_LLAMA_LOG = f"{bcolors.HEADER}[LLAMA_LOG]{bcolors.ENDC}"
 PRNT_EMBED = f"{bcolors.OKCYAN}[EMBEDDING]{bcolors.ENDC}"
 
 
@@ -138,9 +134,9 @@ def file_explore(path: str):
         subprocess.run([FILEBROWSER_PATH, "/select,", path])
 
 
-async def get_file_from_url(url: str, pathname: str, app):
+async def get_file_from_url(url: str, pathname: str, app: classes.FastAPIApp):
     # example url: https://raw.githubusercontent.com/dieharders/ai-text-server/master/README.md
-    client: httpx.Client = app.requests_client
+    client = app.state.requests_client
     CHUNK_SIZE = 1024 * 1024  # 1mb
     TOO_LONG = 751619276  # about 700mb limit in "bytes"
     headers = {
@@ -405,7 +401,7 @@ def dedupe_substrings(input_string):
     return " ".join(result)
 
 
-def get_settings_file(folderpath: str, filepath: str):
+def get_settings_file(folderpath: str, filepath: str) -> classes.InstalledTextModel:
     loaded_data = None
 
     try:
@@ -546,13 +542,6 @@ def get_model_metadata(
             metadata = item
             break
     return metadata
-
-
-# Gets the llm model configuration data
-def get_model_config(id: str, folderpath, filepath) -> ModelConfig:
-    configs = get_settings_file(folderpath, filepath)
-    config = configs[id]
-    return config
 
 
 def get_file_extension_from_path(path: str):

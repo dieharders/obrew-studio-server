@@ -1,6 +1,7 @@
 import os
 import signal
 import sys
+import json
 import uvicorn
 import httpx
 from collections.abc import Callable
@@ -34,68 +35,70 @@ class ApiServer:
         SSL_ENABLED: bool | None = None,
         on_startup_callback: Callable | None = None,
     ):
-        # Init logic here
-        self.remote_url = remote_url
-        self.SERVER_HOST = SERVER_HOST or "0.0.0.0"
-        self.SERVER_PORT = SERVER_PORT or 8008
-        self.SSL_ENABLED = SSL_ENABLED or common.get_ssl_env()
-        if self.SSL_ENABLED:
-            self.XHR_PROTOCOL = "https"
-        else:
-            self.XHR_PROTOCOL = "http"
-        self.is_prod = is_prod
-        self.is_dev = is_dev
-        self.is_debug = is_debug
-        self.api_version = "0.7.2"
-        self.hosted_webui_url = hosted_webui_url
-        self.selected_webui_url = selected_webui_url
-        self.on_startup_callback = on_startup_callback
-        # Comment out if you want to debug on prod build
-        if self.is_prod:
-            # Remove prints in prod when deploying in window mode
-            sys.stdout = open(os.devnull, "w")
-            sys.stderr = open(os.devnull, "w")
+        try:
+            # Init logic here
+            self.remote_url = remote_url
+            self.SERVER_HOST = SERVER_HOST or "0.0.0.0"
+            self.SERVER_PORT = SERVER_PORT or 8008
+            self.SSL_ENABLED = SSL_ENABLED or common.get_ssl_env()
+            if self.SSL_ENABLED:
+                self.XHR_PROTOCOL = "https"
+            else:
+                self.XHR_PROTOCOL = "http"
+            self.is_prod = is_prod
+            self.is_dev = is_dev
+            self.is_debug = is_debug
+            self.hosted_webui_url = hosted_webui_url
+            self.selected_webui_url = selected_webui_url
+            self.on_startup_callback = on_startup_callback
+            # Get version
+            file_path = "package.json"
+            with open(file_path, "r") as f:
+                package_json = json.load(f)
+            self.api_version = package_json.get("version")
+            # Comment out if you want to debug on prod build
+            if self.is_prod:
+                # Remove prints in prod when deploying in window mode
+                sys.stdout = open(os.devnull, "w")
+                sys.stderr = open(os.devnull, "w")
 
-        # Get paths for SSL certificate
-        self.SSL_KEY: str = common.dep_path(os.path.join("public", "key.pem"))
-        self.SSL_CERT: str = common.dep_path(os.path.join("public", "cert.pem"))
-        # Configure CORS settings
-        self.CUSTOM_ORIGINS_ENV: str = os.getenv("CUSTOM_ORIGINS")
-        CUSTOM_ORIGINS = (
-            self.CUSTOM_ORIGINS_ENV.split(",") if self.CUSTOM_ORIGINS_ENV else []
-        )
-        self.origins = [
-            "http://localhost:3000",  # (optional) for testing client apps
-            # "https://hoppscotch.io",  # (optional) for testing endpoints
-            # "https://brain-dump-dieharders.vercel.app",  # (optional) client app origin (preview)
-            # "https://homebrew-ai-discover.vercel.app",  # (optional) client app origin (production/alias)
-            self.hosted_webui_url,  # (required, default selected) client app origin (hosted production/domain)
-            self.selected_webui_url,  # (required) client app origin (user selected from menu)
-            *CUSTOM_ORIGINS,
-        ]
-        self.app = self._create_app()
+            # Get paths for SSL certificate
+            self.SSL_KEY: str = common.dep_path(os.path.join("public", "key.pem"))
+            self.SSL_CERT: str = common.dep_path(os.path.join("public", "cert.pem"))
+            # Configure CORS settings
+            self.CUSTOM_ORIGINS_ENV: str = os.getenv("CUSTOM_ORIGINS")
+            CUSTOM_ORIGINS = (
+                self.CUSTOM_ORIGINS_ENV.split(",") if self.CUSTOM_ORIGINS_ENV else []
+            )
+            self.origins = [
+                "http://localhost:3000",  # (optional) for testing client apps
+                # "https://hoppscotch.io",  # (optional) for testing endpoints
+                # "https://brain-dump-dieharders.vercel.app",  # (optional) client app origin (preview)
+                # "https://homebrew-ai-discover.vercel.app",  # (optional) client app origin (production/alias)
+                self.hosted_webui_url,  # (required, default selected) client app origin (hosted production/domain)
+                self.selected_webui_url,  # (required) client app origin (user selected from menu)
+                *CUSTOM_ORIGINS,
+            ]
+            # Start server
+            self.app = self._create_app()
+        except (Exception, FileNotFoundError, json.JSONDecodeError, KeyError) as e:
+            print(f"{common.PRNT_API} An unexpected error occurred: {e}")
 
     ###############
     ### Methods ###
     ###############
 
-    def _create_app(self) -> FastAPI:
+    def _create_app(self) -> classes.FastAPIApp:
         @asynccontextmanager
-        async def lifespan(app: FastAPI):
+        async def lifespan(app: classes.FastAPIApp):
             print(f"{common.PRNT_API} Lifespan startup", flush=True)
             # https://www.python-httpx.org/quickstart/
-            app.requests_client = httpx.Client()
+            app.state.requests_client = httpx.Client()
             # Initialize global data here
             app.state.PORT_HOMEBREW_API = self.SERVER_PORT
             app.state.db_client = None
             app.state.llm = None  # Set each time user loads a model
-            app.state.path_to_model = ""  # Set each time user loads a model
-            app.state.model_id = ""
             app.state.embed_model = None
-            app.state.loaded_text_model_data = {}
-            app.state.is_prod = self.is_prod
-            app.state.is_dev = self.is_dev
-            app.state.is_debug = self.is_debug
 
             # Tell front-end to go to webui
             if self.on_startup_callback:
@@ -123,8 +126,10 @@ class ApiServer:
         self._add_routes(app_inst)
         return app_inst
 
-    def shutdown(*args):
+    def shutdown(self, *args):
         print(f"{common.PRNT_API} Server forced to shutdown.", flush=True)
+        if self.app.state.llm:
+            self.app.state.llm.unload()
         os.kill(os.getpid(), signal.SIGTERM)  # or SIGINT
 
     def startup(self):

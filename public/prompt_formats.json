@@ -1,0 +1,78 @@
+{
+  "deepseek-r1": {
+    "system": "",
+    "user": "<｜User｜>{{prompt}}\n<｜Assistant｜>"
+  },
+  "deepseek-coder": {
+    "system": "{{system_message}}\n",
+    "user": "### Instruction:\n{{prompt}}\n### Response:"
+  },
+  "llama-3.2-instruct": {
+    "system": "<|start_header_id|>system<|end_header_id|>\n{{system_message}}\n<|eot_id|>",
+    "user": "<|start_header_id|>user<|end_header_id|>\n\n{{prompt}}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+  },
+  "phi-4-instruct": {
+    "system": "<|im_start|>system<|im_sep|>\n{{system_message}}<|im_end|>\n",
+    "user": "<|im_start|>user<|im_sep|>\n{{prompt}}<|im_end|>\n<|im_start|>assistant<|im_sep|>"
+  },
+  "mistral-0.1": {
+    "system": "{{system_message}}\n\n",
+    "user": "{{prompt}}"
+  },
+  "mistral-0.2-instruct": {
+    "system": "<s>[INST] {{system_message}}\n\n",
+    "user": "{{prompt}} [/INST]"
+  },
+  "llama-2-13b-chat": {
+    "system": "[INST] <<SYS>>\n{{system_message}}\n<</SYS>>\n",
+    "user": "{{prompt}} [/INST]"
+  },
+  "llama-2-7b-chat": {
+    "system": "",
+    "user": "### HUMAN:\n{{prompt}}\n\n### RESPONSE:"
+  },
+  "llama-2-7b-instruct": {
+    "system": "",
+    "user": "[INST] {{prompt}} [/INST]"
+  },
+  "code-llama": {
+    "system": "",
+    "user": "{{prompt}}"
+  },
+  "dolphin-2.6-mistral": {
+    "system": "<|im_start|>system\n{{system_message}}<|im_end|>\n",
+    "user": "<|im_start|>user\n{{prompt}}<|im_end|>\n<|im_start|>assistant"
+  },
+  "mixtral-8x7b-instruct": {
+    "system": "[INST] {{system_message}} ",
+    "user": "{{prompt}} [/INST]"
+  },
+  "wizardcoder-python": {
+    "system": "{{system_message}}\n\n",
+    "user": "### Instruction:\n{{prompt}}\n\n### Response:\n"
+  },
+  "luna-ai-llama2": {
+    "system": "",
+    "user": "USER: {{prompt}}\nASSISTANT:"
+  },
+  "openbuddy-openllama": {
+    "system": "You can speak fluently in many languages, for example: English, Chinese.\nYour vast knowledge is cutoff: 2021-09.{{system_message}}\n\n",
+    "user": "User: {{prompt}}\nAssistant:"
+  },
+  "wizard-vicuna": {
+    "system": "{{system_message}} ",
+    "user": "USER: {{prompt}} ASSISTANT:"
+  },
+  "orca-mini-v3": {
+    "system": "### System:\n{{system_message}}\n\n",
+    "user": "### User:\n{{prompt}}\n\n### Assistant:"
+  },
+  "zephyr": {
+    "system": "<|system|>\n{{system_message}}</s>\n",
+    "user": "<|user|>\n{{prompt}}</s>\n<|assistant|>\n"
+  },
+  "bling-sheared-llama-0.1": {
+    "system": "",
+    "user": "<human>: {{prompt}}\n<bot>:"
+  }
+}

@@ -1,18 +1,12 @@
 import os
-import json
+from typing import List
 from fastapi import APIRouter, Request, HTTPException, Depends
-from .classes import RetrievalTypes
-from inference.classes import (
-    InferenceRequest,
-    LoadedTextModelResponse,
-    LoadInferenceResponse,
-    LoadInferenceRequest,
-    CHAT_MODES,
-)
 from sse_starlette.sse import EventSourceResponse
-
-# from embeddings import main
-from .llama_cpp import LLAMA_CPP
+from inference.classes import RetrievalTypes
+from inference import agent
+from storage import route as storage_route
+from embeddings import main, query
+from inference import text_llama_index
 from core import classes, common
 from huggingface_hub import (
     hf_hub_download,
@@ -20,40 +14,6 @@ from huggingface_hub import (
     hf_hub_url,
     HfApi,
 )
-
-
-def get_model_install_config(model_id: str = None) -> dict:
-    try:
-
-        # Get the config for the model
-        config_path = common.dep_path(os.path.join("public", "text_model_configs.json"))
-        with open(config_path, "r") as file:
-            text_models = json.load(file)
-            if not model_id:
-                return dict(models=text_models)
-            config = text_models[model_id]
-            message_format = config["messageFormat"]
-            model_name = config["name"]
-            return dict(
-                message_format=message_format, model_name=model_name, models=text_models
-            )
-    except Exception as err:
-        raise Exception(f"Error finding models list: {err}")
-
-
-def get_prompt_formats(message_format: str) -> dict:
-    try:
-        # Get the file for the templates
-        prompt_formats_path = common.dep_path(
-            os.path.join("public", "prompt_formats.json")
-        )
-        with open(prompt_formats_path, "r") as file:
-            templates = json.load(file)
-            message_template = templates[message_format]
-            return message_template
-    except Exception as err:
-        raise Exception(f"Error finding prompt format templates: {err}")
-
 
 router = APIRouter()
 
@@ -64,7 +24,7 @@ def get_installed_models() -> classes.TextModelInstallMetadataResponse:
     try:
         data = []
         # Get installed models file
-        metadatas = common.get_settings_file(
+        metadatas: classes.InstalledTextModel = common.get_settings_file(
             common.APP_SETTINGS_PATH, common.MODEL_METADATAS_FILEPATH
         )
         if not metadatas:
@@ -90,24 +50,19 @@ def get_installed_models() -> classes.TextModelInstallMetadataResponse:
 
 # Gets the currently loaded model and its installation/config metadata
 @router.get("/model")
-def get_text_model(request: Request) -> LoadedTextModelResponse | dict:
-    app: classes.FastAPIApp = request.app
+def get_text_model(request: Request) -> classes.LoadedTextModelResponse | dict:
+    app = request.app
 
     try:
         llm = app.state.llm
-        model_id = llm.model_id
+        model_id = app.state.model_id
 
         if llm:
+            metadata = app.state.loaded_text_model_data
             return {
                 "success": True,
                 "message": f"Model {model_id} is currently loaded.",
-                "data": {
-                    "modelId": model_id,
-                    "modelName": llm.model_name,
-                    "mode": llm.mode,
-                    "modelSettings": llm.model_init_kwargs,
-                    "generateSettings": llm.generate_kwargs,
-                },
+                "data": metadata,
             }
         else:
             return {
@@ -123,94 +78,64 @@ def get_text_model(request: Request) -> LoadedTextModelResponse | dict:
         }
 
 
-# Returns the curated list of models available for installation from json file
-@router.get("/models")
-def get_model_list():
-    try:
-        #  Get data from file
-        file = get_model_install_config()
-        models_list = file["models"]
-
-        return {
-            "success": True,
-            "message": "This is the curated list of models for download.",
-            "data": models_list,
-        }
-    except Exception as err:
-        print(f"{common.PRNT_API} Error: {err}", flush=True)
-        return {
-            "success": False,
-            "message": f"Something went wrong. Reason: {err}",
-            "data": None,
-        }
-
-
 # Eject the currently loaded Text Inference model
 @router.post("/unload")
 def unload_text_inference(request: Request):
-    try:
-        app: classes.FastAPIApp = request.app
-        if app.state.llm:
-            app.state.llm.unload()
-        del app.state.llm
-        app.state.llm = None
-        return {
-            "success": True,
-            "message": "Model was ejected",
-            "data": None,
-        }
-    except Exception as err:
-        print(f"{common.PRNT_API} Error: {err}", flush=True)
-        return {
-            "success": False,
-            "message": f"Error ejecting model. Reason: {err}",
-            "data": None,
-        }
+    app = request.app
+    text_llama_index.unload_text_model(app.state.llm)
+    app.state.loaded_text_model_data = {}
+    app.state.llm = None
+    app.state.path_to_model = ""
+    app.state.model_id = ""
+
+    return {
+        "success": True,
+        "message": "Model was ejected",
+        "data": None,
+    }
 
 
 # Start Text Inference service
 @router.post("/load")
-async def load_text_inference(
+def load_text_inference(
     request: Request,
-    data: LoadInferenceRequest,
-) -> LoadInferenceResponse:
-    app: classes.FastAPIApp = request.app
+    data: classes.LoadInferenceRequest,
+) -> classes.LoadInferenceResponse:
+    app = request.app
 
     try:
         model_id = data.modelId
+        mode = data.mode
         modelPath = data.modelPath
-        # Unload the model if it exists
+        callback_manager = main.create_index_callback_manager()
+        # Record model's save path
+        app.state.model_id = model_id
+        app.state.path_to_model = modelPath
+        # Unload the model if one exists
         if app.state.llm:
             print(
-                f"{common.PRNT_API} Ejecting current model {model_id} from: {modelPath}"
+                f"{common.PRNT_API} Ejecting model {model_id} currently loaded from: {modelPath}"
             )
-            unload_text_inference(request)
-        # Load the config for the model
-        model_config = get_model_install_config(model_id)
-        message_format = model_config["message_format"]
-        model_name = model_config["model_name"]
-        # Load the prompt formats
-        message_template = get_prompt_formats(message_format)
+            unload_text_inference()
         # Load the specified Ai model
-        app.state.llm = LLAMA_CPP(
-            model_url=None,
-            model_path=modelPath,
-            model_name=model_name,
-            model_id=model_id,
-            # debug=True,  # For testing
-            mode=data.mode,
-            raw=data.raw,
-            message_format=message_template,
-            generate_kwargs=data.call,
-            model_init_kwargs=data.init,
-        )
-        # Init the chat conversation
-        if data.mode == CHAT_MODES.CHAT.value:
-            # @TODO webui needs to pass messages with a system_message as first item
-            # @TODO Need chat_to_completions(chat_history) to convert conversation to string
-            await app.state.llm.load_chat(chat_history=data.messages)
-        # Return result
-        print(f"{common.PRNT_API} Model {model_id} loaded from: {modelPath}")
+        if app.state.llm is None:
+            model_settings = data.init
+            generate_settings = data.call
+            app.state.llm = text_llama_index.load_text_model(
+                modelPath,
+                mode,
+                model_settings,
+                generate_settings,
+                callback_manager=callback_manager,
+            )
+            # Record the currently loaded model
+            app.state.loaded_text_model_data = {
+                "modelId": model_id,
+                "mode": mode,
+                "modelSettings": model_settings,
+                "generateSettings": generate_settings,
+            }
+            print(f"{common.PRNT_API} Model {model_id} loaded from: {modelPath}")
         return {
             "message": f"AI model [{model_id}] loaded.",
             "success": True,
@@ -219,12 +144,6 @@ async def load_text_inference(
     except (Exception, KeyError) as error:
         return {
             "message": f"Unable to load AI model [{model_id}]\nMake sure you have available system memory.\n{error}",
-            "success": False,
-            "data": None,
-        }
-    except (FileNotFoundError, json.JSONDecodeError) as error:
-        return {
-            "message": f"Unable to load AI model [{model_id}]\nError: Invalid JSON format or file not found.\n{error}",
             "success": False,
             "data": None,
         }
@@ -239,7 +158,6 @@ def explore_text_model_dir() -> classes.FileExploreResponse:
         return {
             "success": False,
             "message": "No file path exists",
-            "data": None,
         }
 
     # Open a new os window
@@ -248,7 +166,6 @@ def explore_text_model_dir() -> classes.FileExploreResponse:
     return {
         "success": True,
         "message": "Opened file explorer",
-        "data": None,
     }
 
 
@@ -360,10 +277,9 @@ def download_text_model(payload: classes.DownloadTextModelRequest):
         return {
             "success": True,
             "message": f"Saved model file to {file_path}.",
-            "data": None,
         }
     except (KeyError, Exception, EnvironmentError, OSError, ValueError) as err:
-        print(f"{common.PRNT_API} Error: {err}", flush=True)
+        print(f"Error: {err}", flush=True)
         raise HTTPException(
             status_code=400, detail=f"Something went wrong. Reason: {err}"
         )
@@ -396,7 +312,7 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
         delete_strategy = model_cache_info.delete_revisions(*repo_commit_hash)
         delete_strategy.execute()
         freed_size = delete_strategy.expected_freed_size_str
-        print(f"{common.PRNT_API} Freed {freed_size} space.", flush=True)
+        print(f"Freed {freed_size} space.", flush=True)
 
         # Delete install record from json file
         if freed_size != "0.0":
@@ -405,10 +321,9 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
         return {
             "success": True,
             "message": f"Deleted model file from {filename}. Freed {freed_size} of space.",
-            "data": None,
         }
     except (KeyError, Exception) as err:
-        print(f"{common.PRNT_API} Error: {err}", flush=True)
+        print(f"Error: {err}", flush=True)
         raise HTTPException(
             status_code=400, detail=f"Something went wrong. Reason: {err}"
         )
@@ -418,10 +333,9 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
 @router.post("/inference")
 async def text_inference(
     request: Request,
-    payload: InferenceRequest,
+    payload: classes.InferenceRequest,
 ):
-    app: classes.FastAPIApp = request.app
-    # @TODO Re-implement this for tool use
+    app = request.app
     QUERY_INPUT = "{query_str}"
     TOOL_ARGUMENTS = "{tool_arguments_str}"
     TOOL_EXAMPLE_ARGUMENTS = "{tool_example_str}"
@@ -440,71 +354,190 @@ async def text_inference(
         prompt_template = payload.promptTemplate
         rag_prompt_template = payload.ragPromptTemplate
         system_message = payload.systemMessage
+        message_format = payload.messageFormat  # format wrapper for full prompt
+        m_tokens = payload.max_tokens
+        n_ctx = payload.n_ctx
         streaming = payload.stream
+        max_tokens = common.calc_max_tokens(m_tokens, n_ctx, mode)
+        options = dict(
+            stream=streaming,
+            temperature=payload.temperature,
+            max_tokens=max_tokens,
+            stop=payload.stop,
+            echo=payload.echo,
+            model=payload.model,
+            grammar=payload.grammar,
+            mirostat_tau=payload.mirostat_tau,
+            tfs_z=payload.tfs_z,
+            top_k=payload.top_k,
+            top_p=payload.top_p,
+            min_p=payload.min_p,
+            seed=payload.seed,
+            repeat_penalty=payload.repeat_penalty,
+            presence_penalty=payload.presence_penalty,
+            frequency_penalty=payload.frequency_penalty,
+        )
 
-        if not app.state.llm.model_path:
+        if not app.state.path_to_model:
             msg = "No path to model provided."
-            print(f"{common.PRNT_API} Error: {msg}", flush=True)
+            print(f"Error: {msg}", flush=True)
             raise Exception(msg)
         if not app.state.llm:
             msg = "No LLM loaded."
-            print(f"{common.PRNT_API} Error: {msg}", flush=True)
+            print(f"Error: {msg}", flush=True)
             raise Exception(msg)
-        llm = app.state.llm
 
-        # Update llm props
-        llm.generate_kwargs = payload
-        # Handles requests sequentially and streams responses using SSE
-        if llm.request_queue.qsize() > 0:
-            print(f"{common.PRNT_API} Too many requests, please wait.")
-            return HTTPException(
-                status_code=429, detail="Too many requests, please wait."
+        # Handle Agent prompt (low temperature works best)
+        is_agent = (
+            retrieval_type == RetrievalTypes.AGENT
+            and assigned_tool_names
+            and len(assigned_tool_names) > 0
+        )
+        assigned_tool: classes.ToolDefinition = None
+        if is_agent:
+            all_installed_tool_defs: List[classes.ToolDefinition] = (
+                storage_route.get_all_tool_definitions().get("data")
             )
-        # Add request to queue
-        await llm.request_queue.put(request)
-        # Instruct is for Question/Answer (good for tool use, RAG)
-        if mode == CHAT_MODES.INSTRUCT.value:
-            # Get streaming response
-            response = llm.text_completion(
-                prompt=query_prompt,
-                system_message=system_message,
-                stream=streaming,
+            # @TODO Add tool_choice setting ? Right now we are hard-coding to first one
+            chosen_tool_name = assigned_tool_names[0]
+            assigned_tool_defs = [
+                item
+                for item in all_installed_tool_defs
+                if item["name"] in assigned_tool_names
+            ]
+            tool_def = next(
+                (
+                    item
+                    for item in assigned_tool_defs
+                    if item["name"] == chosen_tool_name
+                ),
+                None,
             )
+            assigned_tool = tool_def
+            # Construct system msg
+            tool_attrs = agent.get_tool_props(tool_def=tool_def)
+            name_str = tool_attrs["name"]
+            description_str = tool_attrs["description"]
+            args_str = tool_attrs["arguments"]
+            example_str = tool_attrs["example_arguments"]
+            assigned_tools_defs_str = agent.dict_list_to_markdown(assigned_tool_defs)
+            # Inject template args into prompt
+            query_prompt = prompt_template.replace(QUERY_INPUT, prompt)
+            query_prompt = query_prompt.replace(TOOL_ARGUMENTS, args_str)
+            query_prompt = query_prompt.replace(TOOL_EXAMPLE_ARGUMENTS, example_str)
+            query_prompt = query_prompt.replace(TOOL_NAME, name_str)
+            query_prompt = query_prompt.replace(TOOL_DESCRIPTION, description_str)
+            query_prompt = query_prompt.replace(ASSIGNED_TOOLS, assigned_tools_defs_str)
+            print(f"Agent prompt::\n\n{query_prompt}")
+            # Inject template args into system msg
+            if system_message:
+                system_message = system_message.replace(TOOL_ARGUMENTS, args_str)
+                system_message = system_message.replace(
+                    TOOL_EXAMPLE_ARGUMENTS, example_str
+                )
+                system_message = system_message.replace(TOOL_NAME, name_str)
+                system_message = system_message.replace(
+                    TOOL_DESCRIPTION, description_str
+                )
+                system_message = system_message.replace(
+                    ASSIGNED_TOOLS, assigned_tools_defs_str
+                )
+                print(f"Agent system message::\n\n{system_message}")
+
+        # Normal prompt
+        elif prompt_template:
+            query_prompt = prompt_template.replace(QUERY_INPUT, prompt)
+
+        # RAG - Call LLM with context loaded via llama-index/vector store
+        # Agent flow explicitly not supported for RAG due to context complexities.
+        # @TODO RAG should also support chat mode
+        is_RAG = (
+            retrieval_type == RetrievalTypes.AUGMENTED
+            and collection_names is not None
+            and len(collection_names) > 0
+        )
+        if is_RAG:
+            # Only take the first collection for now
+            collection_name = collection_names[0]
+            # Set LLM settings
+            retrieval_options = dict(
+                similarity_top_k=payload.similarity_top_k,
+                response_mode=payload.response_mode,
+            )
+            # Update LLM generation options
+            # app.state.llm.generate_kwargs.update(options)
+
+            # Load embedding model for context retrieval
+            main.define_embedding_model(app)
+
+            # Load the vector index. @TODO Load multiple collections
+            vector_index = main.load_embedding(app, collection_name)
+
+            # Call LLM query engine
+            res = query.query_embedding(
+                llm=app.state.llm,
+                query=query_prompt,
+                prompt_template=rag_prompt_template,
+                index=vector_index,
+                options=retrieval_options,
+                streaming=streaming,
+            )
+            # Return streaming response
             if streaming:
+                token_generator = res.response_gen
+                response = text_llama_index.token_streamer(token_generator)
                 return EventSourceResponse(response)
-            # Get response
-            content = [item async for item in response]
-            return {
-                "success": True,
-                "message": "",
-                "data": content[0].get("data"),
-            }
-        elif mode == CHAT_MODES.CHAT.value:
-            response = llm.text_chat(
-                prompt=query_prompt,
-                system_message=system_message,
-                stream=streaming,
+            # Return non-stream response
+            else:
+                return res
+        # Raw model - Call LLM in raw completion mode (uses training data)
+        elif mode == classes.CHAT_MODES.INSTRUCT.value:
+            options["n_ctx"] = n_ctx
+            # Return streaming response
+            if streaming and not is_agent:
+                return EventSourceResponse(
+                    text_llama_index.text_stream_completion(
+                        prompt=query_prompt,
+                        system_message=system_message,
+                        message_format=message_format,
+                        app=app,
+                        options=options,
+                    )
+                )
+            # Return non-stream response
+            else:
+                response = text_llama_index.text_completion(
+                    prompt=query_prompt,
+                    system_message=system_message,
+                    message_format=message_format,
+                    app=app,
+                    options=options,
+                )
+                if is_agent:
+                    # Parse out the json result using either regex or another llm call
+                    output_response = agent.parse_output(
+                        output=response.text,
+                        tool_def=assigned_tool,
+                    )
+                    response.raw = output_response.get("raw")
+                    response.text = output_response.get("text")
+                return response
+        # @TODO Stream LLM in chat mode
+        # @TODO Agent flow here
+        elif mode == classes.CHAT_MODES.CHAT.value:
+            options["n_ctx"] = n_ctx
+            # Returns a streaming response
+            return EventSourceResponse(
+                text_llama_index.text_chat(
+                    messages, system_message, message_format, app, options
+                )
             )
-            # Get streaming response
-            if streaming:
-                return EventSourceResponse(response)
-            # Get response
-            content = [item async for item in response]
-            return {
-                "success": True,
-                "message": "",
-                "data": content[0].get("data"),
-            }
-        elif mode == CHAT_MODES.COLLAB.value:
-            # @TODO Add a mode for collaborate
-            # ...
-            raise Exception("Mode 'collab' is not implemented.")
         elif mode is None:
             raise Exception("Check 'mode' is provided.")
         else:
             raise Exception("No 'mode' or 'collection_names' provided.")
     except (KeyError, Exception) as err:
-        print(f"{common.PRNT_API} Error: {err}", flush=True)
+        print(f"Error: {err}", flush=True)
         raise HTTPException(
             status_code=400, detail=f"Something went wrong. Reason: {err}"
         )

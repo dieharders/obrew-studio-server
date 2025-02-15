@@ -1,40 +1,31 @@
+import httpx
 from types import NoneType
 from pydantic import BaseModel, field_validator
 from typing import List, Optional, Union
 from enum import Enum
 from chromadb import Collection
 from chromadb.api import ClientAPI
-from llama_index.llms.llama_cpp import LlamaCPP
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from inference.classes import RetrievalTypes
-
-DEFAULT_TEMPERATURE = 0.2
-DEFAULT_MIN_CONTEXT_WINDOW = 2000
-DEFAULT_CONTEXT_WINDOW = 0
-DEFAULT_SEED = 1337
-DEFAULT_MAX_TOKENS = 0  # 0 means we should calc it
-DEFAULT_CHAT_MODE = "instruct"
+from inference.llama_cpp import LLAMA_CPP
+from fastapi import FastAPI
 
 
 class AppState(dict):
+    requests_client: httpx.Client
     PORT_HOMEBREW_API: int
     db_client: ClientAPI
-    llm: LlamaCPP | str
-    path_to_model: str
-    model_id: str
+    llm: LLAMA_CPP | None
     embed_model: HuggingFaceEmbedding | str
-    loaded_text_model_data: dict
+
+
+class FastAPIApp(FastAPI):
+    state: AppState
 
 
 class FILE_LOADER_SOLUTIONS(Enum):
     LLAMA_PARSE = "llama_parse"
     READER = "reader_api"
     DEFAULT = "default"
-
-
-class CHAT_MODES(Enum):
-    INSTRUCT = "instruct"
-    CHAT = "chat"
 
 
 class PingResponse(BaseModel):
@@ -74,66 +65,6 @@ class ConnectResponse(BaseModel):
     }
 
 
-class LoadTextInferenceInit(BaseModel):
-    n_gpu_layers: Optional[int] = 0  # 32 for our purposes
-    use_mmap: Optional[bool] = True
-    use_mlock: Optional[bool] = False
-    f16_kv: Optional[bool] = True
-    seed: Optional[int] = DEFAULT_SEED
-    n_ctx: Optional[int] = DEFAULT_CONTEXT_WINDOW  # load from model
-    n_batch: Optional[int] = 512
-    n_threads: Optional[int] = None
-    offload_kqv: Optional[bool] = False
-    verbose: Optional[bool] = False
-
-
-class LoadTextInferenceCall(BaseModel):
-    stream: Optional[bool] = True
-    stop: Optional[List[str]] = []
-    echo: Optional[bool] = False
-    model: Optional[str] = "local"
-    mirostat_tau: Optional[float] = 5.0
-    tfs_z: Optional[float] = 1.0
-    top_k: Optional[int] = 40
-    top_p: Optional[float] = 0.95
-    min_p: Optional[float] = 0.05
-    repeat_penalty: Optional[float] = 1.1
-    presence_penalty: Optional[float] = 0.0
-    frequency_penalty: Optional[float] = 0.0
-    temperature: Optional[float] = DEFAULT_TEMPERATURE
-    grammar: Optional[dict] = None
-    max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
-
-
-# Load in the ai model to be used for inference
-class LoadInferenceRequest(BaseModel):
-    modelPath: str
-    modelId: str
-    mode: Optional[str] = DEFAULT_CHAT_MODE
-    # __init__ args - https://llama-cpp-python.readthedocs.io/en/latest/api-reference/
-    init: LoadTextInferenceInit
-    # __call__ args
-    call: LoadTextInferenceCall
-
-
-class LoadInferenceResponse(BaseModel):
-    message: str
-    success: bool
-    data: NoneType
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "message": "AI model [llama-2-13b-chat-ggml] loaded.",
-                    "success": True,
-                    "data": None,
-                }
-            ]
-        }
-    }
-
-
 class ServicesApiResponse(BaseModel):
     success: bool
     message: str
@@ -164,13 +95,6 @@ class ServicesApiResponse(BaseModel):
     }
 
 
-class RagTemplateData(BaseModel):
-    id: str
-    name: str
-    text: str
-    type: Optional[str] = None
-
-
 class GetModelInfoRequest(BaseModel):
     repoId: str
 
@@ -183,116 +107,6 @@ class DownloadTextModelRequest(BaseModel):
 class DeleteTextModelRequest(BaseModel):
     filename: str
     repoId: str
-
-
-class InferenceRequest(BaseModel):
-    # __init__ args
-    n_ctx: Optional[int] = DEFAULT_CONTEXT_WINDOW
-    seed: Optional[int] = DEFAULT_SEED
-    # homebrew server specific args
-    collectionNames: Optional[List[str]] = []
-    tools: Optional[List[str]] = []
-    retrievalType: Optional[RetrievalTypes | None] = None
-    mode: Optional[str] = DEFAULT_CHAT_MODE
-    systemMessage: Optional[str] = None
-    messageFormat: Optional[str] = None
-    promptTemplate: Optional[str] = None
-    ragPromptTemplate: Optional[RagTemplateData] = None
-    # __call__ args
-    prompt: str
-    messages: Optional[List[str]] = []
-    stream: Optional[bool] = True
-    # suffix: Optional[str] = ""
-    temperature: Optional[float] = 0.0  # precise
-    max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
-    stop: Optional[List[str]] = (
-        []
-    )  # A list of strings to stop generation when encountered
-    echo: Optional[bool] = False
-    model: Optional[str] = (
-        "local"  # The name to use for the model in the completion object
-    )
-    grammar: Optional[dict] = None  # A grammar to use for constrained sampling
-    mirostat_tau: Optional[float] = (
-        5.0  # A higher value corresponds to more surprising or less predictable text, while a lower value corresponds to less surprising or more predictable text.
-    )
-    tfs_z: Optional[float] = (
-        1.0  # Tail Free Sampling - https://www.trentonbricken.com/Tail-Free-Sampling/
-    )
-    top_k: Optional[int] = 40
-    top_p: Optional[float] = 0.95
-    min_p: Optional[float] = 0.05
-    repeat_penalty: Optional[float] = 1.1
-    presence_penalty: Optional[float] = (
-        0.0  # The penalty to apply to tokens based on their presence in the prompt
-    )
-    frequency_penalty: Optional[float] = (
-        0.0  # The penalty to apply to tokens based on their frequency in the prompt
-    )
-    similarity_top_k: Optional[int] = None
-    response_mode: Optional[str] = None
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "prompt": "Why does mass conservation break down?",
-                    "collectionNames": ["science"],
-                    "tools": ["calculator"],
-                    "mode": DEFAULT_CHAT_MODE,
-                    "systemMessage": "You are a helpful Ai assistant.",
-                    "messageFormat": "<system> {system_message}\n<user> {prompt}",
-                    "promptTemplate": "Answer this question: {query_str}",
-                    "ragPromptTemplate": {
-                        "id": "summary",
-                        "name": "Summary",
-                        "text": "This is a template: {query_str}",
-                    },
-                    "messages": [
-                        {"role": "user", "content": "What is meaning of life?"}
-                    ],
-                    # Settings
-                    "stream": True,
-                    "temperature": 0.2,
-                    "max_tokens": 1024,
-                    "n_ctx": 2000,
-                    "stop": ["###", "[DONE]"],
-                    "echo": False,
-                    "model": "llama2",
-                    "grammar": None,
-                    "mirostat_tau": 5.0,
-                    "tfs_z": 1.0,
-                    "top_k": 40,
-                    "top_p": 0.95,
-                    "min_p": 0.05,
-                    "seed": 1337,
-                    "repeat_penalty": 1.1,
-                    "presence_penalty": 0.0,
-                    "frequency_penalty": 0.0,
-                    "similarity_top_k": 1,
-                    "response_mode": "compact",
-                }
-            ]
-        }
-    }
-
-
-class InferenceResponse(BaseModel):
-    success: bool
-    message: str
-    data: str
-
-    model_config = {
-        "json_schema_extra": {
-            "examples": [
-                {
-                    "message": "Successfull text inference",
-                    "success": True,
-                    "data": "This is a response.",
-                }
-            ]
-        }
-    }
 
 
 class PreProcessRequest(BaseModel):
@@ -606,6 +420,7 @@ class WipeMemoriesResponse(BaseModel):
 
 
 # @TODO Extend from LoadTextInferenceInit
+# Not used yet
 class AppSettingsInitData(BaseModel):
     preset: Optional[str] = None
     n_ctx: Optional[int] = None
@@ -614,35 +429,11 @@ class AppSettingsInitData(BaseModel):
     n_batch: Optional[int] = None
     offload_kqv: Optional[bool] = None
     n_gpu_layers: Optional[int] = None
-    f16_kv: Optional[bool] = None
+    cache_type_k: Optional[str] = None
+    cache_type_v: Optional[str] = None
     use_mlock: Optional[bool] = None
     use_mmap: Optional[bool] = None
     verbose: Optional[bool] = None
-
-
-class AppSettingsCallData(BaseModel):
-    preset: Optional[float] = None
-    systemMessage: Optional[str] = None
-    promptTemplate: Optional[str] = None
-    ragPromptTemplate: Optional[RagTemplateData] = None
-    temperature: Optional[float] = None
-    top_k: Optional[int] = None
-    top_p: Optional[float] = None
-    stop: Optional[List[str]] = []
-    max_tokens: Optional[int] = None
-    repeat_penalty: Optional[float] = None
-    stream: Optional[bool] = None
-    echo: Optional[bool] = None
-    similarity_top_k: Optional[int] = None
-    response_mode: Optional[str] = None
-    # Yet to be used params
-    # model: str = None
-    # mirostat_tau: float = None
-    # tfs_z: float = None
-    # min_p: float = None
-    # presence_penalty: float = None
-    # frequency_penalty: float = None
-    # grammar: dict = None
 
 
 class AttentionSettings(BaseModel):
@@ -658,7 +449,8 @@ class PerformanceSettings(BaseModel):
     n_threads: int = None
     offload_kqv: bool = None
     chat_format: str = None
-    f16_kv: bool = None
+    cache_type_k: str = None
+    cache_type_v: str = None
 
 
 class ToolsSettings(BaseModel):
@@ -828,23 +620,6 @@ class InstalledTextModel(BaseModel):
     }
 
 
-class ModelConfig(BaseModel):
-    id: str
-    name: Optional[str] = None
-    type: Optional[str] = None
-    provider: Optional[str] = None
-    licenses: Optional[List[str]] = None
-    description: Optional[str] = None
-    fileSize: Optional[float] = None
-    fileName: str
-    modelType: Optional[str] = None
-    modelUrl: Optional[str] = None
-    context_window: Optional[int] = None
-    quantTypes: Optional[List[str]] = None
-    downloadUrl: str
-    sha256: Optional[str] = None
-
-
 class TextModelInstallMetadataResponse(BaseModel):
     success: bool
     message: str
@@ -895,19 +670,6 @@ class InstalledTextModelResponse(BaseModel):
             ]
         }
     }
-
-
-class LoadedTextModelResData(BaseModel):
-    modelId: str
-    mode: str = None
-    modelSettings: LoadTextInferenceInit
-    generateSettings: LoadTextInferenceCall
-
-
-class LoadedTextModelResponse(BaseModel):
-    success: bool
-    message: str
-    data: LoadedTextModelResData
 
 
 class ContextRetrievalOptions(BaseModel):
