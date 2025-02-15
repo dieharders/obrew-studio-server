@@ -197,7 +197,7 @@ async def load_text_inference(
             model_path=modelPath,
             model_name=model_name,
             model_id=model_id,
-            debug=True,  # @TODO For testing, remove when done
+            # debug=True,  # For testing
             mode=data.mode,
             raw=data.raw,
             message_format=message_template,
@@ -491,6 +491,7 @@ async def text_inference(
             }
         elif mode == CHAT_MODES.COLLAB.value:
             # @TODO Add a mode for collaborate
+            # ...
             raise Exception("Mode 'collab' is not implemented.")
         elif mode is None:
             raise Exception("Check 'mode' is provided.")

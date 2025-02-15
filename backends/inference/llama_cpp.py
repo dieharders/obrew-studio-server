@@ -115,7 +115,7 @@ class LLAMA_CPP:
 
     # Create a cli instance and load a previous conversation (only needed for chat convo)
     # @TODO This is yet to be implemented
-    async def load_chat(
+    async def load_cached_chat(
         self,
         # contain at minimum the system_message
         chat_history: Optional[ChatHistory] = None,

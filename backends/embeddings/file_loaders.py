@@ -454,7 +454,6 @@ def jina_reader_loader(
 
 # Read in source file(s) and build a document node with metadata.
 # We will use this to base our chunks on.
-# @TODO This may need to be async? since some loaders are api calls
 async def documents_from_sources(
     app: dict,
     sources: List[str],
