@@ -95,7 +95,7 @@ def get_text_model(request: Request) -> LoadedTextModelResponse | dict:
 
     try:
         llm = app.state.llm
-        model_id = llm.model_name
+        model_id = llm.model_id
 
         if llm:
             return {
