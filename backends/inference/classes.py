@@ -37,7 +37,7 @@ class CHAT_MODES(Enum):
     COLLAB = "collab"
 
 
-DEFAULT_TEMPERATURE = 0.2
+DEFAULT_TEMPERATURE = 0.8
 DEFAULT_CHAT_MODE = CHAT_MODES.INSTRUCT
 DEFAULT_MAX_TOKENS = -2  # until end of context window
 DEFAULT_SEED = 1337
@@ -80,7 +80,7 @@ class LoadTextInferenceCall(BaseModel):
 class LoadTextInferenceInit(BaseModel):
     n_gpu_layers: Optional[int] = 0  # 32 for our purposes
     use_mmap: Optional[bool] = True
-    use_mlock: Optional[bool] = False
+    use_mlock: Optional[bool] = True
     # optimal choice depends on balancing memory constraints and performance requirements
     # Allowed: f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1
     cache_type_k: Optional[str] = "f16"
@@ -88,7 +88,7 @@ class LoadTextInferenceInit(BaseModel):
     seed: Optional[int] = DEFAULT_SEED
     n_ctx: Optional[int] = DEFAULT_CONTEXT_WINDOW  # load from model
     n_batch: Optional[int] = 2048
-    n_threads: Optional[int] = None
+    n_threads: Optional[int] = -1  # -1 all available
     offload_kqv: Optional[bool] = True
     verbose: Optional[bool] = False
 

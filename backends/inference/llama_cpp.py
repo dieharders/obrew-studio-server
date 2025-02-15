@@ -41,7 +41,7 @@ class LLAMA_CPP:
         n_ctx = model_init_kwargs.n_ctx or DEFAULT_CONTEXT_WINDOW
         if n_ctx <= 0:
             n_ctx = DEFAULT_CONTEXT_WINDOW
-        n_threads = model_init_kwargs.n_threads  # None means auto calc
+        n_threads = model_init_kwargs.n_threads
         n_gpu_layers = model_init_kwargs.n_gpu_layers
         if model_init_kwargs.n_gpu_layers == -1:
             n_gpu_layers = 100  # all
@@ -57,7 +57,6 @@ class LLAMA_CPP:
             # "--device": "CUDA0", # optional, target a specific device
             "--cache-type-k": model_init_kwargs.cache_type_k,
             "--cache-type-v": model_init_kwargs.cache_type_v,
-            # "--cache-type-v": init_settings.cache_type_v, # @TODO implement this
         }
         if n_threads != None:
             init_kwargs["--threads"] = n_threads
