@@ -56,6 +56,7 @@ class LLAMA_CPP:
             "--no-kv-offload": not model_init_kwargs.offload_kqv,
             # "--device": "CUDA0", # optional, target a specific device
             "--cache-type-k": model_init_kwargs.cache_type_k,
+            "--cache-type-v": model_init_kwargs.cache_type_v,
             # "--cache-type-v": init_settings.cache_type_v, # @TODO implement this
         }
         if n_threads != None:

@@ -420,6 +420,7 @@ class WipeMemoriesResponse(BaseModel):
 
 
 # @TODO Extend from LoadTextInferenceInit
+# Not used yet
 class AppSettingsInitData(BaseModel):
     preset: Optional[str] = None
     n_ctx: Optional[int] = None
@@ -429,6 +430,7 @@ class AppSettingsInitData(BaseModel):
     offload_kqv: Optional[bool] = None
     n_gpu_layers: Optional[int] = None
     cache_type_k: Optional[str] = None
+    cache_type_v: Optional[str] = None
     use_mlock: Optional[bool] = None
     use_mmap: Optional[bool] = None
     verbose: Optional[bool] = None
@@ -448,6 +450,7 @@ class PerformanceSettings(BaseModel):
     offload_kqv: bool = None
     chat_format: str = None
     cache_type_k: str = None
+    cache_type_v: str = None
 
 
 class ToolsSettings(BaseModel):

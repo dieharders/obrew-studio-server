@@ -84,6 +84,7 @@ class LoadTextInferenceInit(BaseModel):
     # optimal choice depends on balancing memory constraints and performance requirements
     # Allowed: f32, f16, bf16, q8_0, q4_0, q4_1, iq4_nl, q5_0, q5_1
     cache_type_k: Optional[str] = "f16"
+    cache_type_v: Optional[str] = "f16"
     seed: Optional[int] = DEFAULT_SEED
     n_ctx: Optional[int] = DEFAULT_CONTEXT_WINDOW  # load from model
     n_batch: Optional[int] = 2048

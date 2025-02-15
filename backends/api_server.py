@@ -46,7 +46,7 @@ class ApiServer:
         self.is_prod = is_prod
         self.is_dev = is_dev
         self.is_debug = is_debug
-        self.api_version = "0.7.2"
+        self.api_version = "0.8.2"
         self.hosted_webui_url = hosted_webui_url
         self.selected_webui_url = selected_webui_url
         self.on_startup_callback = on_startup_callback
