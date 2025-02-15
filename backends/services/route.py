@@ -57,6 +57,12 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
                 "urlPath": "/v1/text/modelExplore",
                 "method": "GET",
             },
+            # Get model install configs
+            {
+                "name": "getModelConfigs",
+                "urlPath": "/v1/text/models",
+                "method": "GET",
+            },
             # Get model info
             {
                 "name": "getModelInfo",
