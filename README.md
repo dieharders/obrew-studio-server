@@ -1,4 +1,4 @@
-# 🍺 Obrew Studio: Server - Your Personal Ai Engine
+# Obrew Studio: Server - Your Personal Ai Engine
 
 <p align="center">
     <img src="assets/images/banner.png" width="320" />
@@ -26,7 +26,7 @@
 The goal of this project is to be an all-in-one solution for running local Ai that is easy to install, setup and use. It handles all basic building blocks of Ai: inference, memory retrieval (RAG) and storage (vector DB), model file management, and agent/workflow building.
 
 <p align="center">
-    <img src="assets/images/obrew-demo.gif" width="320" />
+    <img src="assets/images/obrew-demo.gif" width="360" height="auto" />
 </p>
 
 ## Description
