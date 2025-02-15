@@ -274,7 +274,8 @@ class LLAMA_CPP:
                 yield payload  # normal format
 
             # Finished - cleanup
-            self.task_logging.cancel()
+            if self.task_logging:
+                self.task_logging.cancel()
             # Cleanup queue
             self.request_queue.get_nowait()
             self.request_queue.task_done()  # Signal the end of requests
@@ -394,7 +395,8 @@ class LLAMA_CPP:
                 yield payload  # normal format
 
             # Finished - cleanup
-            self.task_logging.cancel()
+            if self.task_logging:
+                self.task_logging.cancel()
             self.request_queue.get_nowait()
             self.request_queue.task_done()  # Signal the end of requests
             await self.request_queue.join()  # Wait for all tasks to complete

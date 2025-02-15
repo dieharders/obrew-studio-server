@@ -239,6 +239,7 @@ def explore_text_model_dir() -> classes.FileExploreResponse:
         return {
             "success": False,
             "message": "No file path exists",
+            "data": None,
         }
 
     # Open a new os window
@@ -247,6 +248,7 @@ def explore_text_model_dir() -> classes.FileExploreResponse:
     return {
         "success": True,
         "message": "Opened file explorer",
+        "data": None,
     }
 
 
@@ -358,6 +360,7 @@ def download_text_model(payload: classes.DownloadTextModelRequest):
         return {
             "success": True,
             "message": f"Saved model file to {file_path}.",
+            "data": None,
         }
     except (KeyError, Exception, EnvironmentError, OSError, ValueError) as err:
         print(f"{common.PRNT_API} Error: {err}", flush=True)
@@ -402,6 +405,7 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
         return {
             "success": True,
             "message": f"Deleted model file from {filename}. Freed {freed_size} of space.",
+            "data": None,
         }
     except (KeyError, Exception) as err:
         print(f"{common.PRNT_API} Error: {err}", flush=True)
@@ -472,6 +476,7 @@ async def text_inference(
             content = [item async for item in response]
             return {
                 "success": True,
+                "message": "",
                 "data": content[0].get("data"),
             }
         elif mode == CHAT_MODES.CHAT.value:
@@ -487,6 +492,7 @@ async def text_inference(
             content = [item async for item in response]
             return {
                 "success": True,
+                "message": "",
                 "data": content[0].get("data"),
             }
         elif mode == CHAT_MODES.COLLAB.value:
