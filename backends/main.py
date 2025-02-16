@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 # Custom
 from ui.view import Webview
-from ui.api_ui import Api
+from ui.api_ui import ApiUI
 from core import common
 from updater import Updater
 
@@ -78,13 +78,12 @@ def _close_app(api=None):
 def main():
     try:
         # Webview api
-        window_api = Api(
+        window_api = ApiUI(
             port=port,
             host=host,
             is_prod=is_prod,
             is_dev=is_dev,
             is_debug=is_debug,
-            webui_url=webui_url,
             get_server_info=_get_server_info,
             updater=Updater(),  # downloads deps and signals user to updates
         )
@@ -116,7 +115,6 @@ def main():
                 is_debug=is_debug,
                 remote_ip=remote_ip,
                 IS_WEBVIEW_SSL=False,  # always run app FE as http
-                webui_url=webui_url,
             )
             view_instance.create_window()
 
@@ -153,7 +151,6 @@ if __name__ == "__main__":
     is_debug = hasattr(sys, "gettrace") and sys.gettrace() is not None
     is_dev = build_env["mode"] == "dev" or is_debug
     is_prod = build_env["mode"] == "prod" or not is_dev
-    webui_url = "https://studio.openbrewai.com"
 
     # Comment out if you want to debug on prod build (or set --mode=prod flag in command)
     if is_prod:

@@ -556,3 +556,16 @@ def get_ssl_env():
     if val is None:
         return False
     return val
+
+
+# Get package file
+def get_package_json() -> dict:
+    try:
+        base_path = sys._MEIPASS
+        file_path = os.path.join(base_path, "public", "package.json")
+    except Exception:
+        file_path = "package.json"
+    finally:
+        with open(file_path, "r") as f:
+            package_json: dict = json.load(f)
+        return package_json

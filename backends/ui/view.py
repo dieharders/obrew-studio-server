@@ -7,7 +7,7 @@ from typing import Type
 import webview
 from webview.errors import JavascriptException
 from api_server import ApiServer
-from ui.api_ui import Api
+from ui.api_ui import ApiUI
 from core import common
 
 
@@ -57,12 +57,11 @@ from core import common
 class Webview:
     def __init__(
         self,
-        js_api: Type[Api],
+        js_api: Type[ApiUI],
         is_prod: bool,
         is_dev: bool,
         is_debug: bool,
         remote_ip: str,
-        webui_url: str,
         IS_WEBVIEW_SSL: bool,
     ):
         self.webview_window = None
@@ -73,7 +72,6 @@ class Webview:
         self.is_dev = is_dev
         self.is_debug = is_debug
         self.remote_ip = remote_ip
-        self.webui_url = webui_url
         self.IS_WEBVIEW_SSL = IS_WEBVIEW_SSL
 
     # WebView window
@@ -133,7 +131,7 @@ class Webview:
                 print(f"{common.PRNT_APP} Failed to callback launch WebUI: {e}")
 
         # Start the API server. Only used for window mode.
-        def start_server(config):
+        def start_server(config: dict):
             try:
                 print(f"{common.PRNT_APP} Starting API server...", flush=True)
                 self.api_server = ApiServer(
@@ -141,10 +139,9 @@ class Webview:
                     is_dev=self.is_dev,
                     is_debug=self.is_debug,
                     remote_url=self.remote_ip,
-                    SERVER_HOST=config["host"],
-                    SERVER_PORT=int(config["port"]),
+                    SERVER_HOST=config.get("host"),
+                    SERVER_PORT=int(config.get("port")),
                     selected_webui_url=config.get("webui"),
-                    hosted_webui_url=self.webui_url,
                     on_startup_callback=launch_webui,
                 )
                 self.api_server.startup()

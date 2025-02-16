@@ -1,11 +1,13 @@
 import os
 import pyqrcode
 from core import common
+from typing import Type
 from api_server import ApiServer
+from updater import Updater
 
 
 # Inject these Python funcs into javascript context. Funcs must be sync.
-class Api:
+class ApiUI:
     def __init__(
         self,
         port,
@@ -13,9 +15,8 @@ class Api:
         is_prod,
         is_dev,
         is_debug,
-        webui_url,
         get_server_info,
-        updater,
+        updater: Type[Updater],
     ):
         self.api_server = None
         self.is_prod = is_prod
@@ -23,7 +24,7 @@ class Api:
         self.is_debug = is_debug
         self.port = port
         self.host = host
-        self.webui_url = webui_url
+        self.webui_url = common.get_package_json().get("hosted_webui_url")
         self.get_server_info = get_server_info
         self.updater = updater
 
@@ -63,7 +64,7 @@ class Api:
     def update_entry_page(self):
         try:
             # Download deps on UI startup
-            if self.updater.health == "idle":
+            if self.updater.status == "idle":
                 self.updater.download()
             page_data = dict()
             return page_data
@@ -108,7 +109,7 @@ class Api:
     def start_headless_server(self, config):
         try:
             # Download deps on server startup
-            if self.updater.health == "idle":
+            if self.updater.status == "idle":
                 self.updater.download()
 
             server_info = self.get_server_info()

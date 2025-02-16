@@ -6,6 +6,7 @@
   "productName": "Obrew Studio Server",
   "description": "Your personal Ai engine.",
   "private": false,
+  "hosted_webui_url": "https://studio.openbrewai.com",
   "scripts": {
     "server:dev": "python ./backends/main.py --mode=dev --headless=False",
     "server:prod": "python ./backends/main.py --mode=prod --headless=False",
