@@ -30,7 +30,6 @@ class ApiServer:
         remote_url: str,
         SERVER_HOST: str,
         SERVER_PORT: int,
-        hosted_webui_url: str = "",
         selected_webui_url: str = "",
         SSL_ENABLED: bool | None = None,
         on_startup_callback: Callable | None = None,
@@ -48,13 +47,10 @@ class ApiServer:
             self.is_prod = is_prod
             self.is_dev = is_dev
             self.is_debug = is_debug
-            self.hosted_webui_url = hosted_webui_url
             self.selected_webui_url = selected_webui_url
             self.on_startup_callback = on_startup_callback
-            # Get version
-            file_path = "package.json"
-            with open(file_path, "r") as f:
-                package_json = json.load(f)
+            # Get version from package file
+            package_json = common.get_package_json()
             self.api_version = package_json.get("version")
             # Comment out if you want to debug on prod build
             if self.is_prod:
@@ -71,11 +67,7 @@ class ApiServer:
                 self.CUSTOM_ORIGINS_ENV.split(",") if self.CUSTOM_ORIGINS_ENV else []
             )
             self.origins = [
-                "http://localhost:3000",  # (optional) for testing client apps
                 # "https://hoppscotch.io",  # (optional) for testing endpoints
-                # "https://brain-dump-dieharders.vercel.app",  # (optional) client app origin (preview)
-                # "https://homebrew-ai-discover.vercel.app",  # (optional) client app origin (production/alias)
-                self.hosted_webui_url,  # (required, default selected) client app origin (hosted production/domain)
                 self.selected_webui_url,  # (required) client app origin (user selected from menu)
                 *CUSTOM_ORIGINS,
             ]

@@ -150,7 +150,7 @@ def get_deps_path():
 
 class Updater:
     def __init__(self):
-        self.health = "idle"
+        self.status = "idle"
         print("Starting updater...", flush=True)
 
     def check_updates(self):
@@ -161,7 +161,7 @@ class Updater:
     def download(self):
         print("Evaluating hardware dependencies...", flush=True)
 
-        self.health = "progress"
+        self.status = "progress"
 
         # Evaluate hardware
         gpus = get_gpu_details()
@@ -176,5 +176,5 @@ class Updater:
             print("Download complete.", flush=True)
 
         # Finished
-        self.health = "complete"
+        self.status = "complete"
         print("Done.", flush=True)
