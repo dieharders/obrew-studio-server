@@ -123,6 +123,7 @@ jobs:
             --hidden-import "tiktoken_ext.openai_public" \
             --hidden-import "tiktoken_ext" \
             --add-data "${{ github.workspace }}/public:public/" \
+            --add-data "${{ github.workspace }}/package.json:public/" \
             --add-data "${{ github.workspace }}/backends/ui/public:public/" \
             --add-data .venv/lib/site-packages/posthog:posthog/ \
             --add-data .venv/lib/site-packages/chromadb:chromadb/ \
