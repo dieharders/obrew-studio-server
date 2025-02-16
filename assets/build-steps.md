@@ -1,35 +1,34 @@
-# Building locally
+# Build Locally
 
 Take all dependencies, dlls, source code and bundle with an executable. Be sure to generate self-signed certs for easy SSL setup in local environment.
 
 ## Build binary with PyInstaller:
 
-This is handled automatically by npm scripts so you do not need to execute these manually. The -F flag bundles everything into one .exe file.
-
-To install the pyinstaller tool:
+Install the pyinstaller tool:
 
 ```bash
 pip install -U pyinstaller
 ```
 
-Then use it to bundle a python script:
+It can be used to bundle a python script for example:
 
 ```bash
+# The -F flag bundles everything into one .exe file.
 pyinstaller -c -F your_program.py
 ```
 
-## Build binary with auto-py-to-exe (recommended)
+This is handled automatically by the build script:
 
-This is a GUI tool that greatly simplifies the process. You can also save and load configs. It uses PyInstaller under the hood and requires it to be installed. Please note if using a conda or virtual environment, be sure to install both PyInstaller and auto-py-to-exe in your virtual environment and also run them from there, otherwise one or both will build from incorrect deps.
+```bash
+# You may need to edit the python virtual env path to match yours
+yarn build:app
+```
 
-\*_Note_, you will need to edit paths for the following in `auto-py-to-exe` to point to your base project directory:
+## Build binary with auto-py-to-exe (optional)
 
-- Settings -> Output directory
-- Additional Files
-- Script Location
-- Icon Location
+This is a GUI tool that greatly simplifies the process. You can also save and load configs. It uses PyInstaller under the hood and requires it to be installed. Please note if using a conda or virtual environment, be sure to install both pyInstaller and auto-py-to-exe in your virtual environment and also run them from there, otherwise one or both will build from incorrect deps.
 
-To run:
+Run:
 
 ```bash
 auto-py-to-exe
@@ -50,5 +49,7 @@ Initiate the Workflow Manually:
    - release_name: The title of the release.
    - release_notes (optional): Notes or changelog for the release.
    - release_type: ("draft", "public", "private")
+
+<br>
 
 [Back to main README](../README.md)
