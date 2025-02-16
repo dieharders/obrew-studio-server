@@ -20,7 +20,8 @@ pyinstaller -c -F your_program.py
 This is handled automatically by the build script:
 
 ```bash
-# You may need to edit the python virtual env path to match yours
+# You may need to edit the python virtual env path (in package.json under build:app) to match yours
+# This will export files to the `dist/[app_name]` dir
 yarn build:app
 ```
 
