@@ -2,6 +2,7 @@ import re
 import sys
 import os
 import json
+import socket
 import glob
 import httpx
 import subprocess
@@ -569,3 +570,17 @@ def get_package_json() -> dict:
         with open(file_path, "r") as f:
             package_json: dict = json.load(f)
         return package_json
+
+
+# Find and return the specified port if currently open
+def check_open_port(p: int) -> int:
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # s.bind(("",0)) # Let OS choose open port
+        s.bind(("", p))
+        s.listen(1)
+        port = s.getsockname()[1]
+        s.close()
+        return port
+    except:
+        return 0

@@ -1,6 +1,10 @@
 <link rel="stylesheet" href="main.css" />
 <script type="text/javascript" src="main.js"></script>
 <div class="content">
+  <!-- Message banner -->
+  <div class="messageBanner">
+    <p id="messageBannerContent"></p>
+  </div>
   <!-- Logo -->
   <div class="bg-image"></div>
   <!-- Title -->
@@ -53,7 +57,7 @@
   <div class="menuContainer">
     <ul class="menu">
       <button id="startBtn" class="btn" onclick="startServer()">Start</button>
-      <a class="btn" href="/settings.html" draggable="false" data-link>Settings</a>
+      <a id="settingsBtn" class="btn" href="/settings.html" draggable="false" data-link>Settings</a>
     </ul>
   </div>
 </div>

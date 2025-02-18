@@ -1,21 +1,45 @@
+import json
 import httpx
-from types import NoneType
-from pydantic import BaseModel, field_validator
-from typing import List, Optional, Union
 from enum import Enum
+from types import NoneType
+from fastapi import FastAPI
+from typing import List, Optional, Union, Type
+from pydantic import BaseModel, field_validator
 from chromadb import Collection
 from chromadb.api import ClientAPI
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from inference.llama_cpp import LLAMA_CPP
-from fastapi import FastAPI
+from collections.abc import Callable
+
+
+class ApiServerClass(dict):
+    remote_url: str
+    SERVER_HOST: str
+    SERVER_PORT: int
+    SSL_ENABLED: bool
+    XHR_PROTOCOL: str
+    is_prod: bool
+    is_dev: bool
+    is_debug: bool
+    selected_webui_url: str
+    on_startup_callback: Callable
+    package_json: json
+    api_version: str
+    is_prod: bool
+    SSL_KEY: str
+    SSL_CERT: str
+    CUSTOM_ORIGINS_ENV: str
+    CUSTOM_ORIGINS = List[str]
+    origins: List[str]
+    app: FastAPI
 
 
 class AppState(dict):
-    requests_client: httpx.Client
-    PORT_HOMEBREW_API: int
-    db_client: ClientAPI
-    llm: LLAMA_CPP | None
-    embed_model: HuggingFaceEmbedding | str
+    requests_client: Type[httpx.Client]
+    db_client: Type[ClientAPI] | None
+    api: Type[ApiServerClass] | None
+    llm: Type[LLAMA_CPP] | None
+    embed_model: Type[HuggingFaceEmbedding] | str | None
 
 
 class FastAPIApp(FastAPI):

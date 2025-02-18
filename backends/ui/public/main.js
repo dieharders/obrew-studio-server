@@ -1,9 +1,20 @@
 // Backend funcs
-async function launchWebUIFailed() {
+async function launchWebUIFailed(err) {
+  console.error('Failed to start API server')
   // Reset state if server start fails
   const btnEl = document.getElementById('startBtn')
+  const settingsEl = document.getElementById('settingsBtn')
   if (btnEl) btnEl.disabled = false
-  console.error('Failed to start API server')
+  if (settingsEl) settingsEl.removeAttribute('disabled')
+  // Display error message
+  const toastEl = document.getElementById('messageBannerContent')
+  if (toastEl) {
+    toastEl.innerHTML = err
+    // Set timeout to hide message
+    setTimeout(() => {
+      toastEl.innerHTML = ''
+    }, 10000)
+  }
   return '' // always return something
 }
 async function launchWebUI() {
@@ -15,11 +26,17 @@ async function launchWebUI() {
 }
 async function startServer() {
   const btnEl = document.getElementById('startBtn')
+  const settingsEl = document.getElementById('settingsBtn')
+  let timerRef
   try {
     const form = document.querySelector('form')
     // Disable buttons
-    btnEl.disabled = true
-    setTimeout(() => (btnEl.disabled = false), 30000) // un-disable after 30sec
+    if (btnEl) btnEl.disabled = true
+    if (settingsEl) settingsEl.setAttribute('disabled', 'disabled')
+    timerRef = setTimeout(() => {
+      if (btnEl) btnEl.disabled = false
+      if (settingsEl) settingsEl.removeAttribute('disabled')
+    }, 30000) // un-disable after 30sec
     // Get form data
     const formData = new FormData(form)
     const config = Object.fromEntries(formData.entries())
@@ -28,7 +45,9 @@ async function startServer() {
     return
   } catch (err) {
     if (btnEl) btnEl.disabled = false
-    console.log(`Failed to start API server: ${err}`)
+    if (settingsEl) settingsEl.removeAttribute('disabled')
+    clearTimeout(timerRef)
+    console.error(`Failed to start API server: ${err}`)
   }
 }
 async function shutdownServer() {
@@ -77,7 +96,7 @@ async function mountPage() {
     webuiEl.value = window.frontend.state.webui || data.webui_url
     return
   } catch (error) {
-    console.log('Failed to mount page', error)
+    console.error('Failed to mount page', error)
   }
 }
 function updatePageData(ev) {

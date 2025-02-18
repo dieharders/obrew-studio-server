@@ -9,14 +9,14 @@ router = APIRouter()
 # Return api info for available services
 @router.get("/api")
 def get_services_api(request: Request) -> classes.ServicesApiResponse:
-    app = request.app
+    app: classes.FastAPIApp = request.app
     data = []
     rag_response_modes = list(ResponseMode.__members__.values())
 
     # Return text inference services
     text_inference_api = {
         "name": "textInference",
-        "port": app.state.PORT_HOMEBREW_API,
+        "port": app.state.api.SERVER_PORT,
         "configs": {
             "ragResponseModes": rag_response_modes,
         },
@@ -124,7 +124,7 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
     # Return persistent file storage services
     storage_api = {
         "name": "storage",
-        "port": app.state.PORT_HOMEBREW_API,
+        "port": app.state.api.SERVER_PORT,
         "endpoints": [
             # Load Chat thread
             {
@@ -187,7 +187,7 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
     # Return search over local files services
     memory_api = {
         "name": "memory",
-        "port": app.state.PORT_HOMEBREW_API,
+        "port": app.state.api.SERVER_PORT,
         "configs": {
             "chunkingStrategies": list(CHUNKING_STRATEGIES.keys()),
         },
