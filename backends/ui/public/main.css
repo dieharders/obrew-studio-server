@@ -40,6 +40,10 @@
 .messageBanner:has(> #messageBannerContent:empty) {
   padding: 0;
 }
+#updateMessage {
+  /* display: none; */
+  margin-bottom: 2rem;
+}
 .menu {
   max-width: 30rem;
   width: 100%;
