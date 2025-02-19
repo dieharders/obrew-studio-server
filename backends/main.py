@@ -104,7 +104,7 @@ def main():
             config = dict(host=host, port=port)
             window_api.start_headless_server(config)
 
-        # Show a window (non-headless mode)
+        # Show a window (GUI mode)
         if not is_headless:
             server_info = _get_server_info()
             remote_ip = server_info["remote_ip"]

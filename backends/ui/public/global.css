@@ -1,3 +1,11 @@
+a[disabled] {
+  cursor: not-allowed;
+  pointer-events: none;
+  background-color: #e9ecef;
+}
+a[disabled]:hover {
+  background-color: #ced4da;
+}
 body {
   font-family: 'Roboto', sans-serif;
   display: flex;

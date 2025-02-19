@@ -84,13 +84,13 @@ class ApiServer:
         @asynccontextmanager
         async def lifespan(app: classes.FastAPIApp):
             print(f"{common.PRNT_API} Lifespan startup", flush=True)
-            # https://www.python-httpx.org/quickstart/
-            app.state.requests_client = httpx.Client()
             # Initialize global data here
-            app.state.PORT_HOMEBREW_API = self.SERVER_PORT
+            app.state.api = self
             app.state.db_client = None
             app.state.llm = None  # Set each time user loads a model
             app.state.embed_model = None
+            # https://www.python-httpx.org/quickstart/
+            app.state.requests_client = httpx.Client()
 
             # Tell front-end to go to webui
             if self.on_startup_callback:
@@ -119,10 +119,15 @@ class ApiServer:
         return app_inst
 
     def shutdown(self, *args):
-        print(f"{common.PRNT_API} Server forced to shutdown.", flush=True)
-        if self.app.state.llm:
+        try:
+            print(f"{common.PRNT_API} Server forced to shutdown.", flush=True)
             self.app.state.llm.unload()
-        os.kill(os.getpid(), signal.SIGTERM)  # or SIGINT
+            os.kill(os.getpid(), signal.SIGTERM)  # or SIGINT
+        except Exception as e:
+            print(
+                f"{common.PRNT_API} Failed to shutdown API server. Error: {e}",
+                flush=True,
+            )
 
     def startup(self):
         try:
@@ -130,34 +135,44 @@ class ApiServer:
                 f"{common.PRNT_API} Refer to API docs:\n-> {self.XHR_PROTOCOL}://localhost:{self.SERVER_PORT}/docs \nOR\n-> {self.remote_url}:{self.SERVER_PORT}/docs",
                 flush=True,
             )
+            errMsg = "Server is already running on specified port. Please choose an available free port or close the duplicate app."
             # Start the ASGI server (https)
             if self.SSL_ENABLED:
                 print(f"{common.PRNT_API} API server starting with SSL...", flush=True)
-                uvicorn.run(
-                    self.app,
-                    host=self.SERVER_HOST,
-                    port=self.SERVER_PORT,
-                    log_level="info",
-                    # Include these to host over https. If server fails to start make sure the .pem files are generated in _deps/public dir
-                    ssl_keyfile=self.SSL_KEY,
-                    ssl_certfile=self.SSL_CERT,
-                )
+                if common.check_open_port(self.SERVER_PORT) != 0:
+                    uvicorn.run(
+                        self.app,
+                        host=self.SERVER_HOST,
+                        port=self.SERVER_PORT,
+                        log_level="info",
+                        # Include these to host over https. If server fails to start make sure the .pem files are generated in _deps/public dir
+                        ssl_keyfile=self.SSL_KEY,
+                        ssl_certfile=self.SSL_CERT,
+                    )
+                else:
+                    print(f"{common.PRNT_API} {errMsg}", flush=True)
+                    raise Exception(errMsg)
             # Start the ASGI server (http)
             else:
                 print(f"{common.PRNT_API} API server starting...", flush=True)
-                uvicorn.run(
-                    self.app,
-                    host=self.SERVER_HOST,
-                    port=self.SERVER_PORT,
-                    log_level="info",
-                )
+                if common.check_open_port(self.SERVER_PORT) != 0:
+                    uvicorn.run(
+                        self.app,
+                        host=self.SERVER_HOST,
+                        port=self.SERVER_PORT,
+                        log_level="info",
+                    )
+                else:
+                    print(f"{common.PRNT_API} {errMsg}", flush=True)
+                    raise Exception(errMsg)
         except KeyboardInterrupt as e:
             print(
                 f"{common.PRNT_API} API server ended by Keyboard interrupt. {e}",
                 flush=True,
             )
         except Exception as e:
-            print(f"{common.PRNT_API} API server shutdown. {e}", flush=True)
+            print(f"{common.PRNT_API} API server shutdown. Error: {e}", flush=True)
+            raise Exception(f"Error: {e}")
 
     # Expose the FastAPI instance
     def get_app(self) -> FastAPI:

@@ -1,8 +1,20 @@
 <link rel="stylesheet" href="main.css" />
 <script type="text/javascript" src="main.js"></script>
 <div class="content">
+  <!-- Message banner -->
+  <div class="messageBanner">
+    <p id="messageBannerContent"></p>
+  </div>
   <!-- Logo -->
   <div class="bg-image"></div>
+  <!-- Update notification -->
+  <div id="updateMessage">
+    <p>
+      <!-- There is a new update available! -->
+      Check here for updates -->
+      <a href="https://www.openbrewai.com" target="_blank">Download here</a>.
+    </p>
+  </div>
   <!-- Title -->
   <h1>Welcome to Obrew Studio!</h1>
   <p>Startup the server to begin.</p>
@@ -53,7 +65,7 @@
   <div class="menuContainer">
     <ul class="menu">
       <button id="startBtn" class="btn" onclick="startServer()">Start</button>
-      <a class="btn" href="/settings.html" draggable="false" data-link>Settings</a>
+      <a id="settingsBtn" class="btn" href="/settings.html" draggable="false" data-link>Settings</a>
     </ul>
   </div>
 </div>

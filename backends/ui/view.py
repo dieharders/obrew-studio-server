@@ -66,7 +66,7 @@ class Webview:
     ):
         self.webview_window = None
         self.callback = None
-        self.api_server = None
+        self.api_server: ApiServer | None = None
         self.js_api = js_api
         self.is_prod = is_prod
         self.is_dev = is_dev
@@ -121,11 +121,12 @@ class Webview:
             except Exception as e:
                 print(f"{common.PRNT_APP} Failed to launch WebUI: {e}")
 
-        def launch_webui_failed():
+        def launch_webui_failed(e: str):
             try:
                 if not self.webview_window:
                     raise Exception("Window is not initialized yet.")
-                self.webview_window.evaluate_js("launchWebUIFailed()")
+                msg = repr(e)
+                self.webview_window.evaluate_js(f"launchWebUIFailed({msg})")
                 return ""
             except Exception as e:
                 print(f"{common.PRNT_APP} Failed to callback launch WebUI: {e}")
@@ -147,7 +148,7 @@ class Webview:
                 self.api_server.startup()
             except Exception as e:
                 print(f"{common.PRNT_APP} Failed to start API server. {e}", flush=True)
-                launch_webui_failed()
+                launch_webui_failed(str(e))
 
         # Expose an inline func before runtime
         self.webview_window.expose(launch_webui)
