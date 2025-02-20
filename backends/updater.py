@@ -80,6 +80,7 @@ def download_and_extract(repo: str, tag: str, asset_name: str, target_path: str)
             # Create the extraction directory if it doesn't exist
             os.makedirs(target_path, exist_ok=True)
             with zipfile.ZipFile(BytesIO(response.content)) as zip_file:
+                # @TODO Only extract the binary you need and delete the rest.
                 zip_file.extractall(target_path)
             print(f"[UPDATER] Extracted {asset_name} to the current directory.")
         else:
