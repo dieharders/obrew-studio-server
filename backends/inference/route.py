@@ -100,7 +100,7 @@ def get_text_model(request: Request) -> LoadedTextModelResponse | dict:
         if llm:
             return {
                 "success": True,
-                "message": f"Model {model_id} is currently loaded.",
+                "message": f"{model_id} is loaded.",
                 "data": {
                     "modelId": model_id,
                     "modelName": llm.model_name,

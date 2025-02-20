@@ -1,3 +1,4 @@
+import json
 from typing import Dict, List
 import requests
 import zipfile
@@ -8,7 +9,7 @@ from io import BytesIO
 import platform
 import GPUtil
 
-# @TODO Maybe make a script wrapped in binary that runs before the main.py?
+# @TODO Perhaps make a small installer app with Tauri that has a GUI that can launch headless/non etc of app and install/notify of updates. We wouldn't need multiple app shortcuts and the download link can always point to one file for all platforms.
 
 
 def get_gpu_details() -> List[Dict]:
@@ -70,7 +71,7 @@ def download_and_extract(repo: str, tag: str, asset_name: str, target_path: str)
     url = f"https://github.com/{repo}/releases/download/{tag}/{asset_name}"
 
     try:
-        print(f"Downloading {asset_name} from {url}...to {target_path}")
+        print(f"[UPDATER] Downloading {asset_name} from {url}...to {target_path}")
 
         response = requests.get(url, stream=True)
         response.raise_for_status()  # Raise an exception for bad status codes
@@ -80,18 +81,20 @@ def download_and_extract(repo: str, tag: str, asset_name: str, target_path: str)
             os.makedirs(target_path, exist_ok=True)
             with zipfile.ZipFile(BytesIO(response.content)) as zip_file:
                 zip_file.extractall(target_path)
-            print(f"Extracted {asset_name} to the current directory.")
+            print(f"[UPDATER] Extracted {asset_name} to the current directory.")
         else:
-            print(f"Failed to download file. Status code: {response.status_code}")
+            print(
+                f"[UPDATER] Failed to download file. Status code: {response.status_code}"
+            )
 
         # Debug: Check results
         # for dirpath, dirnames, filenames in os.walk(target_path):
         #     print(filenames)
         #     break
     except requests.exceptions.RequestException as e:
-        print(f"Error downloading file: {e}")
+        print(f"[UPDATER] Error downloading file: {e}")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"[UPDATER] An error occurred: {e}")
 
 
 # Install NLTK and download stopwords (req by llama-index)
@@ -102,16 +105,16 @@ def download_and_extract(repo: str, tag: str, asset_name: str, target_path: str)
 #         nltk.download("stopwords")
 
 
-def llama_server_exists(file_path):
+def check_llama_cpp_exists(file_path):
     try:
         # Construct the absolute path to the file
         return os.path.isfile(file_path)
     except Exception as e:
-        print(f"Error checking file existence: {e}")
+        print(f"[UPDATER] Error checking file existence: {e}")
         return False
 
 
-def install_llama_server(gpu: dict, tag: str, target_path: str):
+def install_llama_cpp(gpu: dict, tag: str, target_path: str):
     is_nvidia_gpu = "NVIDIA" in gpu.get("gpu_name") or "NVIDIA" in gpu.get(
         "manufacturer"
     )
@@ -138,20 +141,31 @@ def install_llama_server(gpu: dict, tag: str, target_path: str):
     # ...
 
 
-def get_deps_path():
+# Define the application's path so we can find files
+def get_path(target_dir: str):
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         is_compiled = sys._MEIPASS
-        base_path = os.path.join(os.getcwd(), "_deps")
+        base_path = os.path.join(os.getcwd(), target_dir)
     except Exception:
         base_path = os.getcwd()
     return base_path
 
 
+# Read package file
+def read_package_json(file_path: str) -> dict:
+    try:
+        with open(file_path, "r") as f:
+            package_json: dict = json.load(f)
+        return package_json
+    except Exception:
+        print("[UPDATER] Failed to read package.")
+
+
 class Updater:
     def __init__(self):
         self.status = "idle"
-        print("Starting updater...", flush=True)
+        print("[UPDATER] Starting updater...", flush=True)
 
     def check_updates(self):
         # @TODO Check for updated launcher, ask user for download.
@@ -159,7 +173,7 @@ class Updater:
         return False
 
     def download(self):
-        print("Evaluating hardware dependencies...", flush=True)
+        print("[UPDATER] Evaluating hardware dependencies...", flush=True)
 
         self.status = "progress"
 
@@ -167,14 +181,18 @@ class Updater:
         gpus = get_gpu_details()
 
         # Download llama.cpp binaries
-        deps_path = get_deps_path()
+        deps_path = get_path("_deps")
         file_path = os.path.join(deps_path, "servers", "llama.cpp", "llama-cli.exe")
         target_path = os.path.join(deps_path, "servers", "llama.cpp")
-        if not llama_server_exists(file_path):
-            print("Downloading inference binaries ...", flush=True)
-            install_llama_server(gpu=gpus[0], tag="b4589", target_path=target_path)
-            print("Download complete.", flush=True)
+        public_path = get_path("public")
+        package_path = os.path.join(public_path, "package.json")
+        llamacpp_tag = read_package_json(package_path).get("llamacpp_tag")
+        print("[UPDATER] Checking for deps...", flush=True)
+        if not check_llama_cpp_exists(file_path):
+            print("[UPDATER] Downloading inference binaries ...", flush=True)
+            install_llama_cpp(gpu=gpus[0], tag=llamacpp_tag, target_path=target_path)
+            print("[UPDATER] Download complete.", flush=True)
 
         # Finished
         self.status = "complete"
-        print("Done.", flush=True)
+        print("[UPDATER] Finished.", flush=True)

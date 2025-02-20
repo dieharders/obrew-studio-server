@@ -7,6 +7,7 @@
   "description": "Your personal Ai engine.",
   "private": false,
   "hosted_webui_url": "https://studio.openbrewai.com",
+  "llamacpp_tag": "b4589",
   "scripts": {
     "server:dev": "python ./backends/main.py --mode=dev --headless=False",
     "server:prod": "python ./backends/main.py --mode=prod --headless=False",
@@ -17,14 +18,5 @@
     "makecert": "openssl req -x509 -newkey rsa:4096 -nodes -out public/cert.pem -keyout public/key.pem -days 36500"
   },
   "dependencies": {},
-  "devDependencies": {
-    "autoprefixer": "10.4.14",
-    "concurrently": "^8.0.1",
-    "eslint": "8.41.0",
-    "eslint-config-prettier": "^8.3.0",
-    "eslint-plugin-prettier": "^5.0.0",
-    "postcss": "8.4.23",
-    "postcss-cli": "^11.0.0",
-    "prettier": "^3.0.2"
-  }
+  "devDependencies": {}
 }
