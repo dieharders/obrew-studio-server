@@ -20,6 +20,7 @@
 - [Build Steps](assets/build-steps.md)
 - [Bundling for Release](assets/bundling-for-release.md)
 - [Deploy](assets/deploy.md)
+- [FAQ](assets/faq.md)
 
 ## Introduction
 
