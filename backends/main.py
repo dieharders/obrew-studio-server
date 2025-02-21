@@ -2,7 +2,9 @@ import os
 import sys
 import socket
 import signal
+from typing import Tuple
 from dotenv import load_dotenv
+import ctypes
 
 # Custom
 from ui.view import Webview
@@ -67,7 +69,22 @@ def _close_app(api=None):
             api.api_server.shutdown()
         print(f"{common.PRNT_APP} Closing app.", flush=True)
     except:
-        print("Failed to close App.", flush=True)
+        print(f"{common.PRNT_APP} Failed to close App.", flush=True)
+
+
+# @TODO Need to accomodate macos and linux
+def _get_screen_res() -> Tuple:
+    try:
+        # Check screen resolution
+        user32 = ctypes.windll.user32
+        screen_size = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+        return screen_size
+    except:
+        print(
+            f"{common.PRNT_APP} Failed to get the current screen resolution.",
+            flush=True,
+        )
+        return None
 
 
 #############
@@ -106,6 +123,7 @@ def main():
 
         # Show a window (GUI mode)
         if not is_headless:
+            screen_res = _get_screen_res()
             server_info = _get_server_info()
             remote_ip = server_info["remote_ip"]
             view_instance = Webview(
@@ -115,6 +133,7 @@ def main():
                 is_debug=is_debug,
                 remote_ip=remote_ip,
                 IS_WEBVIEW_SSL=False,  # always run app FE as http
+                screen_size=screen_res,
             )
             view_instance.create_window()
 
