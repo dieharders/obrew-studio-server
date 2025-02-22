@@ -17,7 +17,7 @@ class MessageRole(str, Enum):
 class ChatMessage(BaseModel):
     """Chat message."""
 
-    role: MessageRole = MessageRole.USER
+    role: str = MessageRole.USER.value
     content: Optional[str] = ""
 
 
@@ -25,21 +25,30 @@ class ChatHistory(BaseModel):
     messages: List[ChatMessage]
 
 
-class RetrievalTypes(Enum):
+# @TODO Remove after we delete _llama_index_inference
+class RetrievalTypes(str, Enum):
     BASE = "base"
     AUGMENTED = "augmented"
     AGENT = "agent"
 
 
-class CHAT_MODES(Enum):
+class CHAT_MODES(str, Enum):
     INSTRUCT = "instruct"
     CHAT = "chat"
     COLLAB = "collab"
 
 
+class ACTIVE_ROLES(str, Enum):
+    WORKER = "worker"
+    AGENT = "agent"
+
+
 DEFAULT_TEMPERATURE = 0.8
-DEFAULT_CHAT_MODE = CHAT_MODES.INSTRUCT
-DEFAULT_MAX_TOKENS = -2  # until end of context window
+DEFAULT_CHAT_MODE = CHAT_MODES.INSTRUCT.value
+DEFAULT_ACTIVE_ROLE = ACTIVE_ROLES.WORKER.value
+DEFAULT_MAX_TOKENS = (
+    -2
+)  # until end of context window @TODO may not be good for chat mode?
 DEFAULT_SEED = 1337
 DEFAULT_CONTEXT_WINDOW = 0
 DEFAULT_MIN_CONTEXT_WINDOW = 2000
@@ -98,7 +107,8 @@ class LoadInferenceRequest(BaseModel):
     modelPath: str
     modelId: str
     raw: Optional[bool] = False  # user can send manually formatted messages
-    mode: Optional[str] = DEFAULT_CHAT_MODE
+    responseMode: Optional[str] = DEFAULT_CHAT_MODE
+    activeRole: Optional[str] = DEFAULT_ACTIVE_ROLE
     init: LoadTextInferenceInit
     call: LoadTextInferenceCall
     messages: Optional[List[ChatMessage]] = None
@@ -106,7 +116,7 @@ class LoadInferenceRequest(BaseModel):
 
 class LoadedTextModelResData(BaseModel):
     modelId: str
-    mode: str = None
+    responseMode: str = None
     modelSettings: LoadTextInferenceInit
     generateSettings: LoadTextInferenceCall
 
@@ -142,15 +152,14 @@ class InferenceRequest(BaseModel):
     # homebrew server specific args
     collectionNames: Optional[List[str]] = []
     tools: Optional[List[str]] = []
-    retrievalType: Optional[RetrievalTypes | None] = None
-    mode: Optional[str] = DEFAULT_CHAT_MODE
+    responseMode: Optional[str] = DEFAULT_CHAT_MODE
     systemMessage: Optional[str] = None
     messageFormat: Optional[str] = None
     promptTemplate: Optional[str] = None
     ragPromptTemplate: Optional[RagTemplateData] = None
     # __call__ args
     prompt: str
-    messages: Optional[List[str]] = []
+    messages: Optional[List[ChatMessage]] = []
     stream: Optional[bool] = True
     # suffix: Optional[str] = ""
     temperature: Optional[float] = 0.0  # precise
@@ -188,7 +197,7 @@ class InferenceRequest(BaseModel):
                     "prompt": "Why does mass conservation break down?",
                     "collectionNames": ["science"],
                     "tools": ["calculator"],
-                    "mode": DEFAULT_CHAT_MODE,
+                    "responseMode": DEFAULT_CHAT_MODE,
                     "systemMessage": "You are a helpful Ai assistant.",
                     "messageFormat": "<system> {system_message}\n<user> {prompt}",
                     "promptTemplate": "Answer this question: {query_str}",
