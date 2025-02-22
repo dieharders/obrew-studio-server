@@ -2,7 +2,12 @@ import os
 from typing import List
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sse_starlette.sse import EventSourceResponse
-from inference.classes import RetrievalTypes
+from inference.classes import (
+    InferenceRequest,
+    LoadInferenceRequest,
+    LoadInferenceResponse,
+    RetrievalTypes,
+)
 from inference import agent
 from storage import route as storage_route
 from embeddings import main, query
@@ -99,13 +104,13 @@ def unload_text_inference(request: Request):
 @router.post("/load")
 def load_text_inference(
     request: Request,
-    data: classes.LoadInferenceRequest,
-) -> classes.LoadInferenceResponse:
+    data: LoadInferenceRequest,
+) -> LoadInferenceResponse:
     app = request.app
 
     try:
         model_id = data.modelId
-        mode = data.mode
+        responseMode = data.responseMode
         modelPath = data.modelPath
         callback_manager = main.create_index_callback_manager()
         # Record model's save path
@@ -123,7 +128,7 @@ def load_text_inference(
             generate_settings = data.call
             app.state.llm = text_llama_index.load_text_model(
                 modelPath,
-                mode,
+                responseMode,
                 model_settings,
                 generate_settings,
                 callback_manager=callback_manager,
@@ -131,7 +136,7 @@ def load_text_inference(
             # Record the currently loaded model
             app.state.loaded_text_model_data = {
                 "modelId": model_id,
-                "mode": mode,
+                "responseMode": responseMode,
                 "modelSettings": model_settings,
                 "generateSettings": generate_settings,
             }
@@ -333,7 +338,7 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
 @router.post("/inference")
 async def text_inference(
     request: Request,
-    payload: classes.InferenceRequest,
+    payload: InferenceRequest,
 ):
     app = request.app
     QUERY_INPUT = "{query_str}"
@@ -349,8 +354,8 @@ async def text_inference(
         query_prompt = prompt
         messages = payload.messages
         collection_names = payload.collectionNames
-        mode = payload.mode  # conversation type
-        retrieval_type = payload.retrievalType or RetrievalTypes.BASE
+        mode = payload.responseMode  # conversation type
+        retrieval_type = payload.retrievalType or RetrievalTypes.BASE.value
         prompt_template = payload.promptTemplate
         rag_prompt_template = payload.ragPromptTemplate
         system_message = payload.systemMessage
@@ -389,7 +394,7 @@ async def text_inference(
 
         # Handle Agent prompt (low temperature works best)
         is_agent = (
-            retrieval_type == RetrievalTypes.AGENT
+            retrieval_type == RetrievalTypes.AGENT.value
             and assigned_tool_names
             and len(assigned_tool_names) > 0
         )
@@ -452,7 +457,7 @@ async def text_inference(
         # Agent flow explicitly not supported for RAG due to context complexities.
         # @TODO RAG should also support chat mode
         is_RAG = (
-            retrieval_type == RetrievalTypes.AUGMENTED
+            retrieval_type == RetrievalTypes.AUGMENTED.value
             and collection_names is not None
             and len(collection_names) > 0
         )

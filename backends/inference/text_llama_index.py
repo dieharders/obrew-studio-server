@@ -8,6 +8,7 @@ from typing import List, Optional, Sequence
 from llama_index.llms.llama_cpp import LlamaCPP
 from llama_index.core.base.llms.types import ChatMessage, MessageRole
 from llama_index.core.callbacks import CallbackManager
+from inference.classes import CHAT_MODES
 from core import common, classes
 
 # These generic helper funcs wont add End_of_seq tokens etc but construct the Prompt/Message
@@ -67,7 +68,7 @@ def messages_to_prompt(
     E_SYS = template["E_SYS"] or ""
 
     string_messages: List[str] = []
-    if messages[0].role == MessageRole.SYSTEM:
+    if messages[0].role == MessageRole.SYSTEM.value:
         # pull out the system message (if it exists in messages)
         system_message_str = messages[0].content or ""
         messages = messages[1:]
@@ -79,7 +80,7 @@ def messages_to_prompt(
     for i in range(0, len(messages), 2):
         # first message should always be a user
         user_message = messages[i]
-        assert user_message.role == MessageRole.USER
+        assert user_message.role == MessageRole.USER.value
 
         if i == 0:
             # make sure system prompt is included at the start
@@ -96,7 +97,7 @@ def messages_to_prompt(
         if len(messages) > (i + 1):
             # if assistant message exists, add to str_message
             assistant_message = messages[i + 1]
-            assert assistant_message.role == MessageRole.ASSISTANT
+            assert assistant_message.role == MessageRole.ASSISTANT.value
             str_message += f" {assistant_message.content}"
 
         string_messages.append(str_message)
@@ -148,7 +149,7 @@ def load_text_retrieval_model(
 # https://docs.llamaindex.ai/en/stable/examples/llm/llama_2_llama_cpp/?h=llamacpp
 def load_text_model(
     path_to_model: str,
-    mode: str,
+    responseMode: CHAT_MODES,
     init_settings: classes.LoadTextInferenceInit,  # init settings
     gen_settings: classes.LoadTextInferenceCall,  # generation settings
     callback_manager: CallbackManager = None,  # Optional, debugging
@@ -159,7 +160,7 @@ def load_text_model(
     seed = init_settings.seed
     temperature = gen_settings.temperature
     m_tokens = gen_settings.max_tokens
-    max_tokens = common.calc_max_tokens(m_tokens, n_ctx, mode)
+    max_tokens = common.calc_max_tokens(m_tokens, n_ctx, mode=responseMode)
     n_threads = init_settings.n_threads  # None means auto calc
     if n_threads == -1:
         n_threads = None

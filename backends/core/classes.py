@@ -46,7 +46,7 @@ class FastAPIApp(FastAPI):
     state: AppState
 
 
-class FILE_LOADER_SOLUTIONS(Enum):
+class FILE_LOADER_SOLUTIONS(str, Enum):
     LLAMA_PARSE = "llama_parse"
     READER = "reader_api"
     DEFAULT = "default"
@@ -461,7 +461,8 @@ class AppSettingsInitData(BaseModel):
 
 
 class AttentionSettings(BaseModel):
-    mode: str = None
+    response_mode: str = None
+    active_role: str = None
 
 
 class PerformanceSettings(BaseModel):
@@ -472,7 +473,6 @@ class PerformanceSettings(BaseModel):
     n_batch: int = None
     n_threads: int = None
     offload_kqv: bool = None
-    chat_format: str = None
     cache_type_k: str = None
     cache_type_v: str = None
 

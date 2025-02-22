@@ -75,7 +75,7 @@ def messages_to_prompt(
     E_SYS = template["E_SYS"] or ""  # end system instruction
 
     string_messages: List[str] = []
-    if messages[0].role == MessageRole.SYSTEM:
+    if messages[0].role == MessageRole.SYSTEM.value:
         # pull out the system message (if it exists in messages)
         system_message_str = messages[0].content or ""
         messages = messages[1:]
@@ -87,7 +87,7 @@ def messages_to_prompt(
     for i in range(0, len(messages), 2):
         # first message should always be a user
         user_message = messages[i]
-        assert user_message.role == MessageRole.USER
+        assert user_message.role == MessageRole.USER.value
 
         if i == 0:
             # make sure system prompt is included at the start
@@ -104,7 +104,7 @@ def messages_to_prompt(
         if len(messages) > (i + 1):
             # if assistant message exists, add to str_message
             assistant_message = messages[i + 1]
-            assert assistant_message.role == MessageRole.ASSISTANT
+            assert assistant_message.role == MessageRole.ASSISTANT.value
             str_message += f" {assistant_message.content}"
 
         string_messages.append(str_message)

@@ -1,17 +1,17 @@
 import os
 import asyncio
 import json
-from typing import Literal, Optional
+from typing import List, Optional
 from inference.helpers import (
     completion_to_prompt,
     sanitize_kwargs,
 )
 from core import common
 from inference.classes import (
+    ChatMessage,
     InferenceRequest,
     LoadTextInferenceCall,
     LoadTextInferenceInit,
-    CHAT_MODES,
     ChatHistory,
     DEFAULT_CONTEXT_WINDOW,
 )
@@ -27,7 +27,8 @@ class LLAMA_CPP:
         model_path: str,  # Or, you can set the path to a pre-downloaded model file instead of model_url
         model_name: str,  # Friendly name
         model_id: str,  #  id of model in config
-        mode: Literal[CHAT_MODES.CHAT, CHAT_MODES.COLLAB, CHAT_MODES.INSTRUCT],
+        active_role: str,  # ACTIVE_ROLES
+        response_mode: str,  # CHAT_MODES
         raw: bool,  # user can send manually formatted messages
         message_format: Optional[dict] = None,  # template converts messages to prompts
         verbose=False,
@@ -68,7 +69,8 @@ class LLAMA_CPP:
         self.prompt_template = None  # structures the llm thoughts (thinking)
         self.message_format = message_format
         self.request_queue = asyncio.Queue()
-        self.mode = mode
+        self.response_mode = response_mode
+        self.active_role = active_role
         self.raw = raw
         self.model_url = model_url
         self.model_name = model_name or "chatbot"  # human friendly name for display
@@ -159,6 +161,13 @@ class LLAMA_CPP:
             print(
                 f"{common.PRNT_LLAMA_LOG}", line.decode("utf-8").strip()
             )  # Print logs in real-time
+
+    # Load a previous chat conversation
+    # @TODO Need chat_to_completions(chat_history) to convert conversation to string
+    async def load_chat(self, chat_history: List[ChatMessage] | None):
+        if not chat_history:
+            return
+        return
 
     # User can pause Ai and add more input, keeps conn open.
     # @TODO Yet to be implemented

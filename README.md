@@ -1,14 +1,19 @@
-# Obrew Studio: Server - Your Personal Ai Engine
+<h3 align="center">
+    Obrew Studio - Your Personal Ai Engine
+</h3>
 
-<p align="center">
+<h3 align="center">
     <img src="assets/images/banner.png" width="360" height="auto" />
+    <br>
+    <br>
+    A general purpose tool for building private Ai desktop apps.
     <br>
     <br>
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" />
     <img src="https://img.shields.io/badge/-Python-000?&logo=Python" />
     <img src="https://img.shields.io/badge/-JavaScript-000?&logo=JavaScript" />
     <img src="https://img.shields.io/badge/-FastAPI-000?&logo=fastapi" />
-</p>
+</h3>
 
 ## Table of Contents
 
@@ -20,6 +25,7 @@
 - [Build Steps](assets/build-steps.md)
 - [Bundling for Release](assets/bundling-for-release.md)
 - [Deploy](assets/deploy.md)
+- [FAQ](assets/faq.md)
 
 ## Introduction
 
@@ -60,39 +66,39 @@ To use Ai locally with your private data for free:
 
 ## App Features Roadmap
 
-- ✅ Run locally
-- ✅ Desktop installers
-- ✅ Save chat history
-- ✅ CPU & GPU support
-- ✅ Windows OS installer
-- ❌ MacOS/Linux installer
-- ❌ Docker config for cloud deployment
-- ❌ Production ready: This project is under active development
+✅ Run locally<br>
+✅ Desktop installers<br>
+✅ Save chat history<br>
+✅ CPU & GPU support<br>
+✅ Windows OS installer<br>
+❌ MacOS/Linux installer<br>
+❌ Docker config for cloud deployment<br>
+❌ Production ready: This project is under active development<br>
 
 ## Ai Features Roadmap
 
-- ✅ Inference: Run open-source LLM models locally
-- ✅ Embeddings: Create vector embeddings from a file/website/media to augment memory
-- ✅ Knowledge Base: Search a vector database with Llama Index to retrieve information
-- ✅ Agents: Customized LLM, can choose or specify tool use
-- ✅ Tool Use: Choose from pre-made or write your own
-- ❌ Workflows: Composable automation of tasks, teams of agents, parallel processing, conditional routing
-- ❌ Monitors: Source citations, observability, logging, time-travel, transparency
-- ❌ Support multi-modal: vision, text, audio, 3d, and beyond
-- ❌ Support multi-device memory sharing (i.e. cluster of macs running single large model)
-- ❌ Support voice-to-text and text-to-speech
-- ❌ Auto Agents: Self-prompting, autonomous agent given tools and access to a sandboxed OS env
+✅ Inference: Run open-source LLM models locally<br>
+✅ Embeddings: Create vector embeddings from a file/website/media to augment memory<br>
+✅ Knowledge Base: Search a vector database with Llama Index to retrieve information<br>
+✅ Agents: Customized LLM, can choose or specify tool use<br>
+✅ Tool Use: Choose from pre-made or write your own<br>
+❌ Workflows: Composable automation of tasks, teams of agents, parallel processing, conditional routing<br>
+❌ Monitors: Source citations, observability, logging, time-travel, transparency<br>
+❌ Support multi-modal: vision, text, audio, 3d, and beyond<br>
+❌ Support multi-device memory sharing (i.e. cluster of macs running single large model)<br>
+❌ Support voice-to-text and text-to-speech<br>
+❌ Auto Agents: Self-prompting, autonomous agent given tools and access to a sandboxed OS env<br>
 
 ## Supported Model Providers
 
 This is a local first project. The ultimate goal is to support many providers via one API.
 
-- ✅ [Open-Source](https://huggingface.co)
-- ❌ [Google Gemini](https://gemini.google.com)
-- ❌ [OpenAI](https://openai.com/chatgpt)
-- ❌ [Anthropic](https://www.anthropic.com)
-- ❌ [Mistral AI](https://mistral.ai)
-- ❌ [Groq](https://groq.com)
+✅ [Open-Source](https://huggingface.co)<br>
+❌ [Google Gemini](https://gemini.google.com)<br>
+❌ [OpenAI](https://openai.com/chatgpt)<br>
+❌ [Anthropic](https://www.anthropic.com)<br>
+❌ [Mistral AI](https://mistral.ai)<br>
+❌ [Groq](https://groq.com)<br>
 
 ## Learn More
 

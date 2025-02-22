@@ -25,13 +25,9 @@ pip install -r requirements.txt
 yarn python-deps
 ```
 
-### Install WebUI dependencies (for Front-End GUI)
+### Install yarn | npm | pnpm | etc.
 
-Not strictly required, but if you intend to work with the UI files (html/css/js) and want linting, etc. then run:
-
-```bash
-yarn install
-```
+It is not strictly required to install one of these package managers unless you require linting or webdev dependencies for any UI you may build. All the terminal examples in this readme use it as conveniance to call specific scripts from `package.json` but you may run them manually from the terminal if you wish.
 
 ### Start the backend
 
