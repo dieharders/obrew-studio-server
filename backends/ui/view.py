@@ -3,7 +3,7 @@
 # import threading
 import os
 import sys
-from typing import Type
+from typing import Tuple, Type
 import webview
 from webview.errors import JavascriptException
 from api_server import ApiServer
@@ -63,6 +63,7 @@ class Webview:
         is_debug: bool,
         remote_ip: str,
         IS_WEBVIEW_SSL: bool,
+        screen_size: Tuple | None,
     ):
         self.webview_window = None
         self.callback = None
@@ -73,6 +74,7 @@ class Webview:
         self.is_debug = is_debug
         self.remote_ip = remote_ip
         self.IS_WEBVIEW_SSL = IS_WEBVIEW_SSL
+        self.screen_size = screen_size
 
     # WebView window
     def create_window(self):
@@ -83,12 +85,19 @@ class Webview:
         except Exception:
             ui_path = "ui/public/index.html"
 
+        # Calc window size (square aspect ratio)
+        screen_x = 640
+        screen_y = 640
+        if self.screen_size and self.screen_size[1] != 0:
+            screen_x = self.screen_size[1] // 3
+            screen_y = self.screen_size[1] // 3
+
         self.webview_window = webview.create_window(
             title="Obrew Studio",
             url=ui_path,
             js_api=self.js_api,
-            width=640,
-            height=640,
+            width=screen_x,
+            height=screen_y,
             min_size=(300, 300),
             fullscreen=False,
             # http_port=3000,

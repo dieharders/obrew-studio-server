@@ -13,18 +13,18 @@ As a user you have two ways of interacting with this service:
 
 Some notes on how to create a new tool:
 
-1. File name and function name should be the same
+1. Function name must be named `main`
 2. One function per file
 3. Functions must be written in Python: `function_name.py`
 4. Each function needs a description to help the llm
 5. Each function needs a Pydantic class (named "Params") assigned to input args
 
 Where to store the function code:
-From the project's root `tools\functions`
+In the project's root `tools/functions`
 OR
-From the installation directory, create a new folder `tools\functions`
+In the installation directory, create a new folder `tools/functions`
 
-Take a look at the [calculator.py](\tools\functions\calculator.py) example for reference.
+Take a look at the [calculator.py](/backends/tools/built-in/calculator.py) example for reference.
 
 ## API Keys and .env variables
 

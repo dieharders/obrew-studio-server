@@ -15,6 +15,7 @@
   box-shadow: 0px 0px 10px 4px white;
 }
 .content {
+  padding-top: 0;
   padding-bottom: 150px;
   gap: 0.5rem;
 }
@@ -49,11 +50,26 @@
   width: 100%;
   margin: 0;
 }
+.bg-image-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  margin: auto;
+  margin-top: -3rem;
+  padding: 0;
+  border-radius: 16rem;
+}
 .bg-image {
   display: block;
   position: relative;
-  width: 100%;
-  height: 30rem;
+  width: 110vh;
+  height: 110vh;
+  max-width: 30rem;
+  max-height: 30rem;
   background-image: url('assets/logo-badge-gradient.svg');
   background-position: center;
   background-repeat: no-repeat;
@@ -73,12 +89,15 @@
 }
 #advContainer,
 #connContainer {
-  overflow: hidden;
   transition: max-height 0.25s ease;
 }
 [data-attr='closed'] {
+  height: 0;
+  overflow: hidden;
   max-height: 0;
 }
 [data-attr='open'] {
   max-height: 100%;
+  height: 100%;
+  overflow: visible;
 }

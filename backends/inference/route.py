@@ -1,7 +1,6 @@
 import os
 import json
 from fastapi import APIRouter, Request, HTTPException, Depends
-from .classes import RetrievalTypes
 from inference.classes import (
     InferenceRequest,
     LoadedTextModelResponse,
@@ -100,11 +99,11 @@ def get_text_model(request: Request) -> LoadedTextModelResponse | dict:
         if llm:
             return {
                 "success": True,
-                "message": f"Model {model_id} is currently loaded.",
+                "message": f"{model_id} is loaded.",
                 "data": {
                     "modelId": model_id,
                     "modelName": llm.model_name,
-                    "mode": llm.mode,
+                    "responseMode": llm.response_mode,
                     "modelSettings": llm.model_init_kwargs,
                     "generateSettings": llm.generate_kwargs,
                 },
@@ -198,16 +197,15 @@ async def load_text_inference(
             model_name=model_name,
             model_id=model_id,
             # debug=True,  # For testing
-            mode=data.mode,
+            response_mode=data.responseMode,
+            active_role=data.activeRole,
             raw=data.raw,
             message_format=message_template,
             generate_kwargs=data.call,
             model_init_kwargs=data.init,
         )
-        # Init the chat conversation
-        if data.mode == CHAT_MODES.CHAT.value:
-            # @TODO webui needs to pass messages with a system_message as first item
-            # @TODO Need chat_to_completions(chat_history) to convert conversation to string
+        if data.responseMode == CHAT_MODES.CHAT.value:
+            # @TODO webui needs to pass messages list with a system_message as first msg
             await app.state.llm.load_chat(chat_history=data.messages)
         # Return result
         print(f"{common.PRNT_API} Model {model_id} loaded from: {modelPath}")
@@ -422,6 +420,7 @@ async def text_inference(
 ):
     app: classes.FastAPIApp = request.app
     # @TODO Re-implement this for tool use
+    # @TODO Make these an enum?
     QUERY_INPUT = "{query_str}"
     TOOL_ARGUMENTS = "{tool_arguments_str}"
     TOOL_EXAMPLE_ARGUMENTS = "{tool_example_str}"
@@ -435,8 +434,7 @@ async def text_inference(
         query_prompt = prompt
         messages = payload.messages
         collection_names = payload.collectionNames
-        mode = payload.mode  # conversation type
-        retrieval_type = payload.retrievalType or RetrievalTypes.BASE
+        mode = payload.responseMode  # conversation type
         prompt_template = payload.promptTemplate
         rag_prompt_template = payload.ragPromptTemplate
         system_message = payload.systemMessage

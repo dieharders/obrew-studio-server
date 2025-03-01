@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Request
 from core import classes
 from embeddings.main import CHUNKING_STRATEGIES
-from llama_index.core.response_synthesizers import ResponseMode
+from embeddings.response_synthesis import Response_Mode
+
+# from llama_index.core.response_synthesizers import ResponseMode
 
 router = APIRouter()
 
@@ -11,7 +13,7 @@ router = APIRouter()
 def get_services_api(request: Request) -> classes.ServicesApiResponse:
     app: classes.FastAPIApp = request.app
     data = []
-    rag_response_modes = list(ResponseMode.__members__.values())
+    rag_response_modes = list(Response_Mode.__members__.values())
 
     # Return text inference services
     text_inference_api = {
@@ -161,6 +163,18 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
                 "name": "deleteToolSettings",
                 "urlPath": "/v1/persist/tool-settings",
                 "method": "DELETE",
+            },
+            # List tool function names
+            {
+                "name": "getToolFunctions",
+                "urlPath": "/v1/persist/tool-funcs",
+                "method": "GET",
+            },
+            # Get the tool function's schema for use with GUI
+            {
+                "name": "getToolSchema",
+                "urlPath": "/v1/persist/tool-schema",
+                "method": "GET",
             },
             # Load bot settings
             {
