@@ -531,7 +531,7 @@ class ToolFunctionParameter(BaseModel):
 
 
 class ToolFunctionSchema(BaseModel):
-    description: str
+    description: Optional[str] = None
     params: List[ToolFunctionParameter]
     # Schema for params to pass for tool use
     params_schema: Optional[dict] = None

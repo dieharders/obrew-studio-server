@@ -63,7 +63,7 @@ class Webview:
         is_debug: bool,
         remote_ip: str,
         IS_WEBVIEW_SSL: bool,
-        screen_size: Tuple,
+        screen_size: Tuple | None,
     ):
         self.webview_window = None
         self.callback = None
