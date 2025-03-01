@@ -514,26 +514,58 @@ class ResponseSettings(BaseModel):
     stream: bool = None
 
 
-class ToolDefinition(BaseModel):
+class ToolFunctionParameter(BaseModel):
+    name: str
+    title: str
+    description: str
+    type: str
+    placeholder: Optional[str] = None
+    input_type: Optional[str] = None
+    default_value: Optional[str | int | float | dict | list] = None
+    value: Optional[str | int | float | dict | list] = None
+    min_value: Optional[int | float | str] = None
+    max_value: Optional[int | float | str] = None
+    options_source: Optional[str] = None
+    options: Optional[List[str]] = None
+    items: Optional[dict] = None
+
+
+class ToolFunctionSchema(BaseModel):
+    description: str
+    params: List[ToolFunctionParameter]
+    # Schema for params to pass for tool use
+    params_schema: Optional[dict] = None
+    # All required params with example values
+    params_example: Optional[dict] = None
+
+
+class ToolDefinition(ToolFunctionSchema):
     name: str
     path: str
-    arguments: Optional[dict | None] = None
-    example_arguments: Optional[dict | None] = None
     id: Optional[str] = None
-    description: Optional[str] = ""
 
 
-class ToolSaveRequest(BaseModel):
-    name: str
-    path: str
-    id: Optional[str] = None  # pass string to edit tool, leave blank to add new tool
+# class ToolSaveRequest(ToolDefinition):
+#     id: Optional[str] = None  # pass string to edit tool, leave blank to add new tool
 
-    @field_validator("id")
-    @classmethod
-    def prevent_none(cls, v):
-        assert v is not None, "id may not be None"
-        assert v != "", "id may not be empty"
-        return v
+#     @field_validator("id")
+#     @classmethod
+#     def prevent_none(cls, v):
+#         assert v is not None, "id may not be None"
+#         assert v != "", "id may not be empty"
+#         return v
+
+
+class GetToolFunctionSchemaResponse(BaseModel):
+    success: bool
+    message: str
+    data: ToolFunctionSchema | None
+
+
+class ListToolFunctionsResponse(BaseModel):
+    success: bool
+    message: str
+    data: List[str | None]
 
 
 class GetToolSettingsResponse(BaseModel):
@@ -567,7 +599,6 @@ class BotSettings(BaseModel):
     system: SystemSettings = None
     model: ModelSettings = None
     prompt: PromptSettings = None
-    knowledge: KnowledgeSettings = None
     response: ResponseSettings = None
 
 

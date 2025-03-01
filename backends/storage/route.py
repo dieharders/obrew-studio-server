@@ -2,6 +2,7 @@ import os
 import glob
 import json
 from fastapi import APIRouter, Depends
+from tools.main import load_function_file
 from core import classes, common
 from inference import agent
 from storage import classes as storage_classes
@@ -16,7 +17,7 @@ BOT_SETTINGS_FILE_NAME = "bots.json"
 # Save tool settings
 @router.post("/tool-settings")
 def save_tool_definition(
-    tool_def: classes.ToolSaveRequest,
+    tool_def: classes.ToolDefinition,
 ) -> classes.EmptyToolSettingsResponse:
     name = tool_def.name
     path = tool_def.path
@@ -55,14 +56,12 @@ def save_tool_definition(
         # For urls, make call to endpoint.json to fetch descr, args, example
         file_name = f"{id}.json"
         file_path = os.path.join(common.TOOL_DEFS_PATH, file_name)
-        # Create arguments and example response for llm prompt from pydantic model
-        tool_def = agent.create_tool_args(tool_def=tool_def)
         # Save tool to file
         common.store_tool_definition(
             operation="w",
             folderpath=common.TOOL_DEFS_PATH,
             filepath=file_path,
-            data={**tool_def, "id": id},
+            data={**tool_def.model_dump(), "id": id},
         )
     except Exception as err:
         return {
@@ -119,9 +118,78 @@ def delete_tool_definition_by_id(id: str) -> classes.EmptyToolSettingsResponse:
     }
 
 
+# Return a schema from a specified python tool function
+@router.get("/tool-schema")
+def get_tool_schema(filename: str) -> classes.GetToolFunctionSchemaResponse:
+    result = None
+
+    try:
+        result = load_function_file(filename)
+    except Exception as err:
+        return {
+            "success": False,
+            "message": f"Failed to return the schema for the specified tool function.\n{err}",
+            "data": result,
+        }
+
+    return {
+        "success": True,
+        "message": "Returned tool schema from function.",
+        "data": result,
+    }
+
+
+# Return a list of all tool function names
+@router.get("/tool-funcs")
+def get_tool_functions() -> classes.ListToolFunctionsResponse:
+    funcs = []
+    user_file_names = []
+    built_in_file_names = []
+
+    try:
+        # Check in root install path for user tools
+        user_funcs_path = common.TOOL_FUNCS_PATH
+        user_file_names = [
+            f
+            for f in os.listdir(user_funcs_path)
+            if os.path.isfile(os.path.join(user_funcs_path, f))
+        ]
+    except Exception as err:
+        print(f"{common.PRNT_API} {err}")
+
+    try:
+        # Check in _deps dir for built-in tools
+        built_in_funcs_path = common.dep_path(
+            os.path.join("backends", common.TOOL_FOLDER, common.TOOL_FUNCS_FOLDER)
+        )
+        built_in_file_names = [
+            f
+            for f in os.listdir(built_in_funcs_path)
+            if os.path.isfile(os.path.join(built_in_funcs_path, f))
+        ]
+    except Exception as err:
+        print(f"{common.PRNT_API} {err}")
+
+    # Get all tool file names
+    funcs = user_file_names + built_in_file_names
+
+    if len(funcs) == 0:
+        return {
+            "success": False,
+            "message": f"Failed to return list of tool functions.",
+            "data": [],
+        }
+
+    return {
+        "success": True,
+        "message": "Available functions to load for tool use.",
+        "data": funcs,
+    }
+
+
 # Save bot settings
 @router.post("/bot-settings")
-def save_bot_settings(settings: dict) -> classes.BotSettingsResponse:
+def save_bot_settings(settings: classes.BotSettings) -> classes.BotSettingsResponse:
     # Paths
     file_name = BOT_SETTINGS_FILE_NAME
     file_path = os.path.join(common.APP_SETTINGS_PATH, file_name)

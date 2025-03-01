@@ -1,21 +1,31 @@
 from typing import Literal, Union
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # Required - Always use "Params" as Pydantic model name
 class Params(BaseModel):
     # Required - A description is needed for prompt injection
     """Perform simple arithmetic on numbers (operands) according to the specified operation."""
-    valueA: int
-    valueB: int
-    operation: Literal["multiply", "add", "subtract", "divide"]
+    value_a: int = Field(
+        ...,
+        description="The first numerical value for the operation.",
+    )
+    value_b: int = Field(
+        ...,
+        description="The second numerical value for the operation.",
+    )
+    operation: Literal["multiply", "add", "subtract", "divide"] = Field(
+        ...,
+        description="The mathematical operation to perform.",
+        options=["multiply", "add", "subtract", "divide"],
+    )
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
-                    "valueA": 2,
-                    "valueB": 6,
+                    "value_a": 2,
+                    "value_b": 6,
                     "operation": "add",
                 }
             ]
@@ -23,9 +33,10 @@ class Params(BaseModel):
     }
 
 
-# Required - One function per file
-# Required - Put code in folder [root]/tools/functions/
-def calculator(args: Params) -> Union[int, float]:
+# Required - Put custom code in folder [root]/tools/functions/
+# Or
+# Required - Put built-in code in folder backends/tools/built-in/
+def main(args: Params) -> Union[int, float]:
     valueA = args["valueA"]
     valueB = args["valueB"]
     operation = args["operation"]
