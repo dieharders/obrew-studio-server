@@ -89,12 +89,15 @@
 }
 #advContainer,
 #connContainer {
-  overflow: hidden;
   transition: max-height 0.25s ease;
 }
 [data-attr='closed'] {
+  height: 0;
+  overflow: hidden;
   max-height: 0;
 }
 [data-attr='open'] {
   max-height: 100%;
+  height: 100%;
+  overflow: visible;
 }

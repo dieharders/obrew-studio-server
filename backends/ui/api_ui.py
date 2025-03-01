@@ -83,10 +83,12 @@ class ApiUI:
             server_info = self.get_server_info()
             remote_url = server_info["remote_ip"]
             local_url = server_info["local_ip"]
+            ui_url = selected_webui_url
             # Generate QR code to remote url
-            qr_code = pyqrcode.create(
-                f"{selected_webui_url}/?hostname={remote_url}&port={PORT}"
-            )
+            if "localhost" in selected_webui_url:
+                # Use external url if we detect localhost
+                ui_url = f"{remote_url}:3000"
+            qr_code = pyqrcode.create(f"{ui_url}/?hostname={remote_url}&port={PORT}")
             qr_data = qr_code.png_as_base64_str(scale=5)
             # qr_image = qr_code.png("image.png", scale=8) # Writes image file to disk
 
