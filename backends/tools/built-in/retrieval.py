@@ -11,7 +11,7 @@ class Params(BaseModel):
     """Ask a specialized LLM to perform an information lookup and retrieval using a list memories available."""
     prompt: str = Field(
         ...,
-        description="The query to use when asking the agent for contextual information.",
+        description="The user query that is asking the agent for contextual information.",
     )
     prompt_template: str = Field(
         ...,
@@ -69,7 +69,7 @@ class Params(BaseModel):
     }
 
 
-def main(args: Params) -> str:
+async def main(**kwargs: Params) -> str:
     # prompt = apply_template(args.prompt_template, args.prompt)
     # @TODO RAG logic here...
     # retriever = RAG(options)

@@ -1,16 +1,7 @@
 import os
 import json
 from fastapi import APIRouter, Request, HTTPException, Depends
-from inference.classes import (
-    InferenceRequest,
-    LoadedTextModelResponse,
-    LoadInferenceResponse,
-    LoadInferenceRequest,
-    CHAT_MODES,
-)
-from sse_starlette.sse import EventSourceResponse
-
-# from embeddings import main
+from inference.agent import Agent
 from .llama_cpp import LLAMA_CPP
 from core import classes, common
 from huggingface_hub import (
@@ -18,6 +9,14 @@ from huggingface_hub import (
     get_hf_file_metadata,
     hf_hub_url,
     HfApi,
+)
+from inference.classes import (
+    AgentOutput,
+    InferenceRequest,
+    LoadedTextModelResponse,
+    LoadInferenceResponse,
+    LoadInferenceRequest,
+    CHAT_MODES,
 )
 
 
@@ -186,11 +185,11 @@ async def load_text_inference(
             unload_text_inference(request)
         # Load the config for the model
         model_config = get_model_install_config(model_id)
-        message_format = model_config["message_format"]
+        message_format_id = model_config["message_format"]
         model_name = model_config["model_name"]
         # Load the prompt formats
-        message_template = get_prompt_formats(message_format)
-        # Load the specified Ai model
+        message_template = get_prompt_formats(message_format_id)
+        # Load the specified Ai model using a specific inference backend
         app.state.llm = LLAMA_CPP(
             model_url=None,
             model_path=modelPath,
@@ -412,97 +411,54 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
         )
 
 
-# Use Llama Index to run queries on vector database embeddings or run normal chat inference.
-@router.post("/inference")
-async def text_inference(
+# Run text inference
+@router.post("/generate")
+async def generate_text(
     request: Request,
     payload: InferenceRequest,
-):
+) -> AgentOutput | classes.GenericEmptyResponse:
     app: classes.FastAPIApp = request.app
-    # @TODO Re-implement this for tool use
-    # @TODO Make these an enum?
-    QUERY_INPUT = "{query_str}"
-    TOOL_ARGUMENTS = "{tool_arguments_str}"
-    TOOL_EXAMPLE_ARGUMENTS = "{tool_example_str}"
-    TOOL_NAME = "{tool_name_str}"
-    TOOL_DESCRIPTION = "{tool_description_str}"
-    ASSIGNED_TOOLS = "{assigned_tools_str}"
 
     try:
-        assigned_tool_names = payload.tools
-        prompt = payload.prompt
-        query_prompt = prompt
-        messages = payload.messages
-        collection_names = payload.collectionNames
-        mode = payload.responseMode  # conversation type
-        prompt_template = payload.promptTemplate
-        rag_prompt_template = payload.ragPromptTemplate
-        system_message = payload.systemMessage
+        response_type = payload.responseMode  # conversation type
         streaming = payload.stream
+        system_message = payload.systemMessage
+        prompt = payload.prompt
+        prompt_template = payload.promptTemplate
+        assigned_tool_names = payload.tools
+        # messages = payload.messages # @TODO Implement...
 
-        if not app.state.llm.model_path:
-            msg = "No path to model provided."
-            print(f"{common.PRNT_API} Error: {msg}", flush=True)
-            raise Exception(msg)
-        if not app.state.llm:
-            msg = "No LLM loaded."
-            print(f"{common.PRNT_API} Error: {msg}", flush=True)
-            raise Exception(msg)
+        # We can re-use llm for multi-turn conversations
         llm = app.state.llm
 
         # Update llm props
         llm.generate_kwargs = payload
-        # Handles requests sequentially and streams responses using SSE
-        if llm.request_queue.qsize() > 0:
-            print(f"{common.PRNT_API} Too many requests, please wait.")
-            return HTTPException(
-                status_code=429, detail="Too many requests, please wait."
-            )
-        # Add request to queue
-        await llm.request_queue.put(request)
-        # Instruct is for Question/Answer (good for tool use, RAG)
-        if mode == CHAT_MODES.INSTRUCT.value:
-            # Get streaming response
-            response = llm.text_completion(
-                prompt=query_prompt,
-                system_message=system_message,
-                stream=streaming,
-            )
-            if streaming:
-                return EventSourceResponse(response)
-            # Get response
-            content = [item async for item in response]
-            return {
-                "success": True,
-                "message": "",
-                "data": content[0].get("data"),
-            }
-        elif mode == CHAT_MODES.CHAT.value:
-            response = llm.text_chat(
-                prompt=query_prompt,
-                system_message=system_message,
-                stream=streaming,
-            )
-            # Get streaming response
-            if streaming:
-                return EventSourceResponse(response)
-            # Get response
-            content = [item async for item in response]
-            return {
-                "success": True,
-                "message": "",
-                "data": content[0].get("data"),
-            }
-        elif mode == CHAT_MODES.COLLAB.value:
-            # @TODO Add a mode for collaborate
-            # ...
-            raise Exception("Mode 'collab' is not implemented.")
-        elif mode is None:
-            raise Exception("Check 'mode' is provided.")
-        else:
-            raise Exception("No 'mode' or 'collection_names' provided.")
+
+        # Verify there is a model to run
+        if not llm.model_path:
+            msg = "No path to model provided."
+            print(f"{common.PRNT_API} Error: {msg}", flush=True)
+            raise Exception(msg)
+        if not llm:
+            msg = "No LLM loaded."
+            print(f"{common.PRNT_API} Error: {msg}", flush=True)
+            raise Exception(msg)
+
+        # Assign Agent
+        agent = Agent(llm=llm, tools=assigned_tool_names, active_role=llm.active_role)
+        response = await agent.call(
+            request=request,
+            system_message=system_message,
+            prompt=prompt,
+            prompt_template=prompt_template,
+            streaming=streaming,
+            response_type=response_type,
+        )
+        return response
     except (KeyError, Exception) as err:
         print(f"{common.PRNT_API} Error: {err}", flush=True)
-        raise HTTPException(
-            status_code=400, detail=f"Something went wrong. Reason: {err}"
-        )
+        return {
+            "success": False,
+            "message": f"Something went wrong. Reason: {err}",
+            "data": None,
+        }

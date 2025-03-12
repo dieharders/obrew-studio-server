@@ -2,11 +2,12 @@ import os
 import asyncio
 import json
 from typing import List, Optional
+from core import common
 from inference.helpers import (
     completion_to_prompt,
+    make_chunk_payload,
     sanitize_kwargs,
 )
-from core import common
 from inference.classes import (
     ChatMessage,
     InferenceRequest,
@@ -18,6 +19,7 @@ from inference.classes import (
 
 
 # https://github.com/ggerganov/llama.cpp/blob/master/examples/main/README.md#common-options
+# Only import and use this class
 class LLAMA_CPP:
     """Run a llama.cpp cli binary"""
 
@@ -30,7 +32,8 @@ class LLAMA_CPP:
         active_role: str,  # ACTIVE_ROLES
         response_mode: str,  # CHAT_MODES
         raw: bool,  # user can send manually formatted messages
-        message_format: Optional[dict] = None,  # template converts messages to prompts
+        # template converts messages to prompts
+        message_format: Optional[dict] = {},
         verbose=False,
         debug=False,  # Show logs
         model_init_kwargs: LoadTextInferenceInit = None,  # kwargs to pass when loading the model
@@ -96,9 +99,9 @@ class LLAMA_CPP:
     def generate_kwargs(self, settings: InferenceRequest):
         grammar = settings.grammar
         self.prompt_template = settings.promptTemplate
+        stopwords = settings.stop
         # Create args to pass to .exe
         kwargs = {
-            "--reverse-prompt": settings.stop,  # Never use an empty string like [""]
             "--mirostat-ent": settings.mirostat_tau,  # (tau) default 5.0
             "--top-k": settings.top_k,
             "--top-p": settings.top_p,
@@ -111,6 +114,9 @@ class LLAMA_CPP:
             "--seed": self.model_init_kwargs.get("--seed"),
             "--n-predict": settings.max_tokens,
         }
+        if stopwords:
+            # Never use an empty string like [""] or empty array []
+            kwargs.update({"--reverse-prompt": stopwords})
         if grammar:
             kwargs.update({"--grammar": grammar})
         self._generate_kwargs = kwargs
@@ -163,7 +169,7 @@ class LLAMA_CPP:
             )  # Print logs in real-time
 
     # Load a previous chat conversation
-    # @TODO Need chat_to_completions(chat_history) to convert conversation to string
+    # @TODO Not implemented, needs chat_to_completions(chat_history) to convert conversation to string
     async def load_chat(self, chat_history: List[ChatMessage] | None):
         if not chat_history:
             return
@@ -193,6 +199,7 @@ class LLAMA_CPP:
         prompt: str,
         system_message: str = None,
         stream: bool = False,
+        override_args: dict = None,
     ):
         try:
             # Create arguments for starting server
@@ -213,7 +220,7 @@ class LLAMA_CPP:
             cmd_args.append("")
             cmd_args.append("--in-suffix")
             cmd_args.append("")
-            # Changes system message when using "-cnv" mode
+            # Sets system message when using "-cnv" mode
             if system_message:
                 cmd_args.append("--prompt")
                 cmd_args.append(system_message)
@@ -221,10 +228,11 @@ class LLAMA_CPP:
             if self.generate_kwargs.get("--reverse-prompt"):
                 cmd_args.append("--reverse-prompt")
                 cmd_args.append(self.generate_kwargs.get("--reverse-prompt"))
-
             # Sanitize args
             merged_args = self.model_init_kwargs.copy()
             merged_args.update(self.generate_kwargs)
+            if override_args:
+                merged_args.update(override_args)  # Add overrides
             sanitized = sanitize_kwargs(kwargs=merged_args)
             cmd_args.extend(sanitized)
 
@@ -254,33 +262,50 @@ class LLAMA_CPP:
                 # Stream response as SSE
                 index = 0
                 while True:
+                    if not self.process:
+                        break
+                    # Read and parse line as string
+                    index += 1
                     line = await self.process.stdout.read(4)
                     line = line.decode("utf-8")
-
+                    # Bail/skip on empty line
                     if line.strip() == ">":
-                        if index == 0:
+                        if index == 1:
                             continue
                         else:
                             break
 
-                    # print(f"line:{line}", flush=True)
-                    index += 1
-                    payload = {
-                        "event": "GENERATING_TOKENS",
-                        "data": line,
-                    }
-                    yield json.dumps(payload)  # SSE format
+                    payload = make_chunk_payload(line)
+                    yield json.dumps(payload)  # SSE format expects json
             else:
                 # Return entire result in one response
-                line = await self.process.stdout.read()
-                line = line.decode("utf-8").strip()
-                payload = {
-                    "event": "GENERATING_TOKENS",
-                    "data": {
-                        "text": line,
-                    },
-                }
-                yield payload  # normal format
+                content = ""
+                index = 0
+                num_empty = 0
+                marker_num = 0
+                while True:
+                    if not self.process:
+                        break
+                    # Read and parse line as string
+                    index += 1
+                    line = await self.process.stdout.read(1)
+                    line = line.decode("utf-8")
+                    # Bail if second > found
+                    if line.strip().startswith(">"):
+                        if marker_num > 0:
+                            break
+                        marker_num += 1
+                    # Bail/skip on empty line
+                    if line == "" and index != 1:
+                        num_empty += 1
+                        if num_empty > 10:
+                            break
+                        continue
+
+                    content += line
+                content = content.lstrip(">").rstrip("\r\n>").strip()
+                payload = make_chunk_payload(content)
+                yield payload
 
             # Finished - cleanup
             if self.task_logging:
@@ -304,6 +329,7 @@ class LLAMA_CPP:
         prompt: str,
         system_message: str = None,
         stream: bool = False,
+        override_args: dict = None,
     ):
         try:
             # If format type provided pass input unchanged, llama.cpp will handle it?
@@ -333,10 +359,11 @@ class LLAMA_CPP:
             if self.generate_kwargs.get("--reverse-prompt"):
                 cmd_args.append("--reverse-prompt")
                 cmd_args.append(self.generate_kwargs.get("--reverse-prompt"))
-
             # Sanitize args
             merged_args = self.model_init_kwargs.copy()
             merged_args.update(self.generate_kwargs)
+            if override_args:
+                merged_args.update(override_args)  # Add overrides
             sanitized = sanitize_kwargs(kwargs=merged_args)
             cmd_args.extend(sanitized)
 
@@ -362,9 +389,7 @@ class LLAMA_CPP:
             await self.process.stdin.drain()
 
             # Stream response as SSE
-            eos_token = (
-                "[end of text]"  # @TODO Do we need to figure this out for each model?
-            )
+            eos_token = "[end of text]"
             if stream:
                 num_empty = 0
                 max_num_empty = 10
@@ -373,35 +398,49 @@ class LLAMA_CPP:
                     line = line.decode("utf-8")
                     eos_index = line.find(eos_token)
 
-                    # print(f"line:{line}", flush=True)
-
                     if eos_index != -1:
                         break
 
-                    payload = {
-                        "event": "GENERATING_TOKENS",
-                        "data": line,
-                    }
+                    payload = make_chunk_payload(line)
                     # Check if we arent receiving anything and bail
-                    if payload["data"] == "":
+                    if line == "":
                         num_empty += 1
                     else:
                         num_empty = 0
                     if num_empty > max_num_empty:
                         break
                     # Send tokens
-                    yield json.dumps(payload)  # SSE format
+                    yield json.dumps(payload)  # SSE format expects json
             else:
                 # Return entire result in one response
-                line = await self.process.stdout.read()
-                line = line.decode("utf-8").strip().rstrip(eos_token)
-                payload = {
-                    "event": "GENERATING_TOKENS",
-                    "data": {
-                        "text": line,
-                    },
-                }
-                yield payload  # normal format
+                content = ""
+                num_empty = 0
+                index = 0
+                while True:
+                    index += 1
+                    if not self.process:
+                        break
+                    # Read and parse line as string
+                    line = await self.process.stdout.readline()
+                    line = line.decode("utf-8")
+                    # Bail on EOS token
+                    if line.find(eos_token) != -1:
+                        content += line
+                        break
+                    # Bail/skip on empty line
+                    if line.strip() == "":
+                        if index == 1:
+                            continue
+                        else:
+                            num_empty += 1
+                            if num_empty > 10:
+                                break
+                            continue
+                    # Add line to text result
+                    content += line
+                content = content.strip().rstrip(eos_token)
+                payload = make_chunk_payload(content)
+                yield payload
 
             # Finished - cleanup
             if self.task_logging:

@@ -2,7 +2,15 @@ from typing import Optional
 from typing_extensions import TypedDict
 from typing import List, Optional, Sequence
 from core import common
-from inference.classes import DEFAULT_SYSTEM_MESSAGE, ChatMessage, MessageRole
+from inference.classes import (
+    DEFAULT_SYSTEM_MESSAGE,
+    ChatMessage,
+    MessageRole,
+    SSEResponse,
+)
+
+# Event names
+GENERATING_TOKENS = "GENERATING_TOKENS"
 
 # These are the supported template keys
 KEY_SYS_MESSAGE = "{{system_message}}"
@@ -110,3 +118,12 @@ def messages_to_prompt(
         string_messages.append(str_message)
 
     return "".join(string_messages)
+
+
+def make_chunk_payload(line_data: str) -> SSEResponse:
+    chunk = {"text": line_data}
+    payload = {
+        "event": GENERATING_TOKENS,
+        "data": chunk,
+    }
+    return payload
