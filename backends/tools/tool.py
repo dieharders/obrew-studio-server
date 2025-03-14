@@ -2,7 +2,7 @@ import os
 import re
 import json
 import importlib.util
-from typing import Any, Awaitable, List, Type
+from typing import Any, Awaitable, List, Optional, Type
 from pydantic import BaseModel
 from core import common
 from core.classes import ToolDefinition, ToolFunctionParameter, ToolFunctionSchema
@@ -33,6 +33,7 @@ class Tool:
         self.func_definition: ToolFunctionSchema = None
         self.func: Awaitable[Any] = None
 
+    # Used by Workers
     async def choose_tool_from_query(
         self,
         llm: Type[LLAMA_CPP],
@@ -63,13 +64,27 @@ class Tool:
         data = content[0].get("data")
         # Parse out the json result using either regex or another llm call
         arguments_response_str = data.get("text")
-        parsed_llm_response = parse_structured_llm_response(
-            arguments_str=arguments_response_str,
-            allowed_arguments=[TOOL_NAME],
+        print(
+            f"{common.PRNT_API} Tool choice structured output:\n{arguments_response_str}"
         )
-        result: str = parsed_llm_response.get(TOOL_NAME, "")
-        return result
+        try:
+            parsed_llm_response = parse_structured_llm_response(
+                arguments_str=arguments_response_str, allowed_arguments=[TOOL_NAME]
+            )
+            chosen_tool: str = parsed_llm_response.get(TOOL_NAME, "")
+            print(f"{common.PRNT_API} Chosen tool:{chosen_tool}")
+            return chosen_tool
+        except Exception as err:
+            # Try to recover by just looking in the response for any mention of an assigned tool
+            if assigned_tools:
+                chosen_tool = find_tool_in_response(
+                    response=arguments_response_str, tools=names
+                )
+                if chosen_tool:
+                    return chosen_tool
+            raise err
 
+    # Used by Agents
     async def choose_tool_from_description(
         self,
         llm: Type[LLAMA_CPP],
@@ -81,6 +96,11 @@ class Tool:
         2. Prompt the llm with instruction in sys_msg, and a prompt with a command followed by the tool descriptions and original prompt.
         3. Extract the tool name as json response: {tool_name: ""}.
         """
+        tool_names = []
+        for tool in assigned_tools:
+            name = tool.get("name")
+            if name:
+                tool_names.append(name)
         tool_descriptions = tool_to_markdown(assigned_tools)
         prompt = f"# Tool descriptions:\n\n{tool_descriptions}\n# User query:\n\n{query_prompt}\n\n# Schema:\n\n{TOOL_CHOICE_SCHEMA}"
         system_message = f'Determine the best tool to choose based on each description and the needs of the user query. Return the name of the chosen tool in JSON format that matches the "Schema".'
@@ -95,12 +115,25 @@ class Tool:
         data = content[0].get("data")
         # Parse out the json result using either regex or another llm call
         arguments_response_str = data.get("text")
-        parsed_llm_response = parse_structured_llm_response(
-            arguments_str=arguments_response_str,
-            allowed_arguments=[TOOL_NAME],
+        print(
+            f"{common.PRNT_API} Tool choice structured output:\n{arguments_response_str}"
         )
-        result = parsed_llm_response.get(TOOL_NAME, "")
-        return result
+        try:
+            parsed_llm_response = parse_structured_llm_response(
+                arguments_str=arguments_response_str, allowed_arguments=[TOOL_NAME]
+            )
+            chosen_tool = parsed_llm_response.get(TOOL_NAME, "")
+            print(f"{common.PRNT_API} Chosen tool:{chosen_tool}")
+            return chosen_tool
+        except Exception as err:
+            # Try to recover by just looking in the response for any mention of an assigned tool
+            if assigned_tools:
+                chosen_tool = find_tool_in_response(
+                    response=arguments_response_str, tools=tool_names
+                )
+                if chosen_tool:
+                    return chosen_tool
+            raise err
 
     # Read the pydantic model for the tool from a file
     def read_function(self, filename: str) -> ToolFunctionSchema:
@@ -219,11 +252,17 @@ class Tool:
             data: AgentOutput = content[0].get("data")
             # Parse out the json result using regex
             arguments_response_str = data.get("text")
+            print(
+                f"{common.PRNT_API} Tool call structured output:\n{arguments_response_str}"
+            )
             parsed_llm_response = parse_structured_llm_response(
                 arguments_str=arguments_response_str,
                 allowed_arguments=required_llm_arguments,
             )
             # Call the function with the arguments provided from the llm response, Return results
+            print(
+                f"{common.PRNT_API} Calling tool function with arguments:\n{json.dumps(parsed_llm_response, indent=4)}"
+            )
             func_call_result = await self.func(**parsed_llm_response)
             return dict(raw=func_call_result, text=str(func_call_result))
         # Call function with arguments provided by the tool and/or prompt
@@ -335,10 +374,8 @@ def parse_structured_llm_response(
             }
             return filtered_json_object
         except json.JSONDecodeError as e:
-            print(f"{common.PRNT_API} Invalid JSON:", e)
             raise Exception("Invalid JSON.")
     else:
-        print(f"{common.PRNT_API} No JSON block found!", flush=True)
         raise Exception("No JSON block found!")
 
 
@@ -393,3 +430,14 @@ def get_llm_required_args(tool_params: List[ToolFunctionParameter]) -> List[str]
         if pname and pname != "prompt" and not param.get("value", None):
             result.append(pname)
     return result
+
+
+def find_tool_in_response(response: str, tools: List[str]) -> Optional[str]:
+    """Attempt to find any tool names in the given response text."""
+    print(f"{common.PRNT_API} Searching in response for tools...{tools}")
+    for tool_name in tools:
+        match = re.search(re.escape(tool_name), response, re.DOTALL)
+        if match:
+            print(f"{common.PRNT_API} Found tool:{tool_name}")
+            return tool_name  # Return first match immediately
+    return None  # Explicitly return None if no tool is found

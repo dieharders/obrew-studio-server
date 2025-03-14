@@ -1,7 +1,7 @@
 import json
 from typing import List, Type
 from sse_starlette.sse import EventSourceResponse
-from fastapi import Request, HTTPException
+from fastapi import Request
 from inference.helpers import GENERATING_TOKENS
 from storage.route import get_all_tool_definitions
 from tools.tool import Tool
@@ -96,6 +96,9 @@ class Agent:
             # @TODO In future we could have MultiTool(tools=tools) which can execute multiple chained tools.
             tool_call_result = await tool.call(
                 llm=self.llm, tool_def=assigned_tool, query=prompt
+            )
+            print(
+                f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4)}"
             )
             # Return streamed result
             if streaming:

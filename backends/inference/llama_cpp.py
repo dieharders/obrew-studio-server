@@ -66,6 +66,7 @@ class LLAMA_CPP:
             init_kwargs["--threads"] = n_threads
             init_kwargs["--threads-batch"] = n_threads
         # Assign vars
+        self.max_empty = 100
         self.chat_history = None
         self.process = None
         self.task_logging = None
@@ -172,9 +173,8 @@ class LLAMA_CPP:
 
     async def read_logs(self):
         async for line in self.process.stderr:
-            print(
-                f"{common.PRNT_LLAMA_LOG}", line.decode("utf-8").strip()
-            )  # Print logs in real-time
+            # Print logs in real-time
+            print(f"{common.PRNT_LLAMA_LOG}", line.decode("utf-8").strip())
 
     # Load a previous chat conversation
     # @TODO Not implemented, needs chat_to_completions(chat_history) to convert conversation to string
@@ -269,6 +269,7 @@ class LLAMA_CPP:
             if stream:
                 # Stream response as SSE
                 index = 0
+                num_empty = 0
                 while True:
                     if not self.process:
                         break
@@ -280,8 +281,15 @@ class LLAMA_CPP:
                     if line.strip() == ">":
                         if index == 1:
                             continue
-                        else:
+                        break
+                    # Bail on empty
+                    if line:
+                        num_empty = 0
+                    if line == "":
+                        num_empty += 1
+                        if num_empty > self.max_empty:
                             break
+                        continue
 
                     payload = make_chunk_payload(line)
                     yield json.dumps(payload)  # SSE format expects json
@@ -304,9 +312,11 @@ class LLAMA_CPP:
                             break
                         marker_num += 1
                     # Bail/skip on empty line
-                    if line == "" and index != 1:
+                    if line:
+                        num_empty = 0
+                    if line == "":
                         num_empty += 1
-                        if num_empty > 10:
+                        if num_empty > self.max_empty:
                             break
                         continue
 
@@ -396,8 +406,9 @@ class LLAMA_CPP:
             eos_token = "[end of text]"
             if stream:
                 num_empty = 0
-                max_num_empty = 10
                 while True:
+                    if not self.process:
+                        break
                     line = await self.process.stdout.read(14)
                     line = line.decode("utf-8")
                     eos_index = line.find(eos_token)
@@ -405,23 +416,29 @@ class LLAMA_CPP:
                     if eos_index != -1:
                         break
 
-                    payload = make_chunk_payload(line)
-                    # Check if we arent receiving anything and bail
+                    # Bail if if we find > (could me an error since this shouldnt show up)
+                    if line.strip().startswith(">"):
+                        raise Exception(
+                            "Possible out of memory error. Try a smaller model."
+                        )
+
+                    # Bail/skip on empty line
+                    if line:
+                        num_empty = 0
                     if line == "":
                         num_empty += 1
-                    else:
-                        num_empty = 0
-                    if num_empty > max_num_empty:
-                        break
+                        if num_empty > self.max_empty:
+                            break
+                        continue
+
                     # Send tokens
+                    payload = make_chunk_payload(line)
                     yield json.dumps(payload)  # SSE format expects json
             else:
                 # Return entire result in one response
                 content = ""
                 num_empty = 0
-                index = 0
                 while True:
-                    index += 1
                     if not self.process:
                         break
                     # Read and parse line as string
@@ -432,14 +449,13 @@ class LLAMA_CPP:
                         content += line
                         break
                     # Bail/skip on empty line
-                    if line.strip() == "":
-                        if index == 1:
-                            continue
-                        else:
-                            num_empty += 1
-                            if num_empty > 10:
-                                break
-                            continue
+                    if line:
+                        num_empty = 0
+                    if line == "":
+                        num_empty += 1
+                        if num_empty > self.max_empty:
+                            break
+                        continue
                     # Add line to text result
                     content += line
                 content = content.strip().rstrip(eos_token).rstrip()

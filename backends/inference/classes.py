@@ -45,7 +45,7 @@ class ACTIVE_ROLES(str, Enum):
 
 DEFAULT_TEMPERATURE = 0.8
 DEFAULT_CHAT_MODE = CHAT_MODES.INSTRUCT.value
-DEFAULT_ACTIVE_ROLE = ACTIVE_ROLES.WORKER.value
+DEFAULT_ACTIVE_ROLE = ACTIVE_ROLES.AGENT.value
 DEFAULT_MAX_TOKENS = (
     -2
 )  # until end of context window @TODO may not be good for chat mode?

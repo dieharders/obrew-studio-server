@@ -45,10 +45,12 @@ async def main(**kwargs: Params) -> Union[int, float]:
     # Dont need all these this since we inform llm of what the allowed values are,
     # but better safe than sorry.
     possible_operations = {
+        "plus": "+",
         "add": "+",
         "+": "+",
         "addition": "+",
         "-": "-",
+        "minus": "-",
         "subtract": "-",
         "subtraction": "-",
         "*": "*",
