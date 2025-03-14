@@ -12,7 +12,7 @@ from inference.classes import AgentOutput
 # The name to look for when loading python module
 TOOL_FUNCTION_NAME = "main"
 TOOL_NAME = "tool_name"
-example_schema = {[TOOL_NAME]: "name"}
+example_schema = {TOOL_NAME: "name"}
 TOOL_CHOICE_SCHEMA = f"```json\n{json.dumps(example_schema, indent=4)}\n```"
 
 
