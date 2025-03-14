@@ -8,7 +8,7 @@
   "mradermacher/Janus-Pro-7B-LM-GGUF": {
     "repoId": "mradermacher/Janus-Pro-7B-LM-GGUF",
     "name": "DeepSeek Janus Pro 7B (multi-modal)",
-    "description": "Janus-Pro is a novel autoregressive framework that unifies multimodal understanding and generation. It addresses the limitations of previous approaches by decoupling visual encoding into separate pathways, while still utilizing a single, unified transformer architecture for processing. The decoupling not only alleviates the conflict between the visual encoder’s roles in understanding and generation, but also enhances the framework’s flexibility. Janus-Pro surpasses previous unified model and matches or exceeds the performance of task-specific models. The simplicity, high flexibility, and effectiveness of Janus-Pro make it a strong candidate for next-generation unified multimodal models.",
+    "description": "Janus-Pro is a novel autoregressive framework that unifies multimodal understanding and generation. It addresses the limitations of previous approaches by decoupling visual encoding into separate pathways, while still utilizing a single, unified transformer architecture for processing. The decoupling not only alleviates the conflict between the visual encoder's roles in understanding and generation, but also enhances the framework's flexibility. Janus-Pro surpasses previous unified model and matches or exceeds the performance of task-specific models. The simplicity, high flexibility, and effectiveness of Janus-Pro make it a strong candidate for next-generation unified multimodal models.",
     "messageFormat": "deepseek-r1"
   },
   "unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF": {
@@ -76,6 +76,12 @@
     "name": "Dolphin Mistral 7B (uncensored)",
     "description": "This model is based on Mistral-7b. The base model has 16k context. This Dolphin is really good at coding, I trained with a lot of coding data. It is very obedient but it is not DPO tuned - so you still might need to encourage it in the system prompt as I show in the below examples.",
     "messageFormat": "dolphin-2.6-mistral"
+  },
+  "TheBloke/dolphin-2.7-mixtral-8x7b-GGUF": {
+    "repoId": "TheBloke/dolphin-2.7-mixtral-8x7b-GGUF",
+    "name": "Dolphin Mixtral 8x7b v2.7 (instruct) (uncensored)",
+    "description": "This model is based on Mixtral-8x7b. The base model has 32k context, finetuned with 16k. This Dolphin is really good at coding, I trained with a lot of coding data. It is very obedient but it is not DPO tuned - so you still might need to encourage it in the system prompt as I show in the below examples. `trust_remote_code` is required. This model is uncensored. I have filtered the dataset to remove alignment and bias. This makes the model more compliant. You are advised to implement your own alignment layer before exposing the model as a service. It will be highly compliant to any requests, even unethical ones. Please read my blog post about uncensored models. https://erichartford.com/uncensored-models You are responsible for any content you create using this model. Enjoy responsibly.",
+    "messageFormat": "mistral-0.2-instruct"
   },
   "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF": {
     "repoId": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
