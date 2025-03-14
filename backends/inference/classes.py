@@ -82,7 +82,7 @@ class RagTemplateData(BaseModel):
 
 class LoadTextInferenceCall(BaseModel):
     stream: Optional[bool] = True
-    stop: Optional[str] = None
+    stop: Optional[str] = ""
     echo: Optional[bool] = False
     model: Optional[str] = "local"
     mirostat_tau: Optional[float] = 5.0
@@ -176,7 +176,7 @@ class InferenceRequest(BaseModel):
     temperature: Optional[float] = 0.0  # precise
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
     # A list of strings to stop generation when encountered
-    stop: Optional[str] = None
+    stop: Optional[str] = ""
     echo: Optional[bool] = False
     model: Optional[str] = (
         "local"  # The name to use for the model in the completion object

@@ -121,6 +121,14 @@ class LLAMA_CPP:
             kwargs.update({"--grammar": grammar})
         self._generate_kwargs = kwargs
 
+    # Remove request from queue
+    async def complete_request(self):
+        """Remove the last request and complete the task."""
+        self.request_queue.get_nowait()
+        self.request_queue.task_done()  # Signal the end of requests
+        await self.request_queue.join()  # Wait for all tasks to complete
+        return
+
     # Create a cli instance and load a previous conversation (only needed for chat convo)
     # @TODO This is yet to be implemented
     async def load_cached_chat(
@@ -318,7 +326,7 @@ class LLAMA_CPP:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled.")
         except (ValueError, UnicodeEncodeError, Exception) as e:
             print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}")
-            raise Exception(f"Error querying llama.cpp: {e}")
+            raise Exception(f"Failed to query llama.cpp: {e}")
         except Exception as e:
             print(f"{common.PRNT_LLAMA} Some error occurred: {e}")
 
@@ -438,20 +446,17 @@ class LLAMA_CPP:
                             continue
                     # Add line to text result
                     content += line
-                content = content.strip().rstrip(eos_token)
+                content = content.strip().rstrip(eos_token).rstrip()
                 payload = make_chunk_payload(content)
                 yield payload
 
             # Finished - cleanup
             if self.task_logging:
                 self.task_logging.cancel()
-            self.request_queue.get_nowait()
-            self.request_queue.task_done()  # Signal the end of requests
-            await self.request_queue.join()  # Wait for all tasks to complete
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled.")
         except (ValueError, UnicodeEncodeError, Exception) as e:
             print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}")
-            raise Exception(f"Error querying llama.cpp: {e}")
+            raise Exception(f"Failed to query llama.cpp: {e}")
         except Exception as e:
             print(f"{common.PRNT_LLAMA} Some error occurred: {e}")

@@ -501,12 +501,13 @@ class KnowledgeSettings(BaseModel):
     index: List[str | None] = None
 
 
+# @TODO Extend this from the other dupes
 class ResponseSettings(BaseModel):
     temperature: float = None
     max_tokens: int = None
     top_p: float = None
     echo: bool = None
-    stop: List[str] = None
+    stop: str = ""
     repeat_penalty: float = None
     top_k: int = None
     stream: bool = None

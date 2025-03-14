@@ -38,25 +38,52 @@ class Agent:
 
         # Handles requests sequentially and streams responses using SSE
         if self.llm.request_queue.qsize() > 0:
-            print(f"{common.PRNT_API} Too many requests, please wait.")
-            return HTTPException(
-                status_code=429, detail="Too many requests, please wait."
-            )
+            print(f"{common.PRNT_API} Too many requests, please wait.", flush=True)
+            return {
+                "message": "Too many requests, please wait.",
+                "success": False,
+                "data": None,
+            }
         # Add request to queue
         await self.llm.request_queue.put(request)
 
+        #########################################################
         # Return tool assisted response if any tools are assigned
+        #########################################################
         if self.has_tools:
+            tool = Tool()
             assigned_tool: ToolDefinition = None
             all_installed_tool_defs: List[ToolDefinition] = (
                 get_all_tool_definitions().get("data")
             )
-            # @TODO Use the self.active_role attribute and some new logic to determine which tool to select. Right now we are hard-coding to first one
-            # Based on active_role, have LLM choose the appropriate tool based on their descriptions and prompt or explicit instruction within the prompt.
-            chosen_tool_name = self.tools[0]
             assigned_tool_defs = [
                 item for item in all_installed_tool_defs if item["name"] in self.tools
             ]
+            # Choose a tool to use
+            if len(self.tools) == 1:
+                # Always use the first tool if only one is assigned
+                chosen_tool_name = self.tools[0]
+            else:
+                # Based on active_role, have LLM choose the appropriate tool based on their descriptions and prompt or explicit instruction within the prompt.
+                match (self.active_role):
+                    case ACTIVE_ROLES.AGENT.value:
+                        # Choose the best tool based on each description and the needs of the prompt
+                        chosen_tool_name = await tool.choose_tool_from_description(
+                            llm=self.llm,
+                            query_prompt=query_prompt,
+                            assigned_tools=assigned_tool_defs,
+                        )
+                    case ACTIVE_ROLES.WORKER.value:
+                        # Use only the tool specified in a users query
+                        chosen_tool_name = await tool.choose_tool_from_query(
+                            llm=self.llm,
+                            query_prompt=query_prompt,
+                            assigned_tools=assigned_tool_defs,
+                        )
+                    case _:
+                        # Default - None or unknown role specified
+                        chosen_tool_name = self.tools[0]
+            # Get the function associated with the chosen tool name
             assigned_tool = next(
                 (
                     item
@@ -67,10 +94,10 @@ class Agent:
             )
             # Execute the tool. For now tool use is limited to one chosen tool.
             # @TODO In future we could have MultiTool(tools=tools) which can execute multiple chained tools.
-            tool = Tool()
             tool_call_result = await tool.call(
                 llm=self.llm, tool_def=assigned_tool, query=prompt
             )
+            # Return streamed result
             if streaming:
                 payload = {
                     "event": GENERATING_TOKENS,
@@ -82,9 +109,12 @@ class Agent:
 
                 generator = chunk_payload()
                 return EventSourceResponse(generator)
+            # Return entire result
             return tool_call_result
 
+        #######################################
         # Perform normal un-assisted generation
+        #######################################
         if prompt_template:
             # Assign the agent's template to the prompt
             query_prompt = prompt_template.replace(common.QUERY_INPUT, prompt)
@@ -123,5 +153,3 @@ class Agent:
                 raise Exception("Check 'mode' is provided.")
             case _:
                 raise Exception("No 'mode' or 'collection_names' provided.")
-
-        return response

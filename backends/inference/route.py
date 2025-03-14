@@ -454,9 +454,14 @@ async def generate_text(
             streaming=streaming,
             response_type=response_type,
         )
+        # Cleanup/complete request
+        await llm.complete_request()
+        # Return final answer
         return response
     except (KeyError, Exception) as err:
         print(f"{common.PRNT_API} Error: {err}", flush=True)
+        # Cleanup/complete request
+        await llm.complete_request()
         return {
             "success": False,
             "message": f"Something went wrong. Reason: {err}",
