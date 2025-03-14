@@ -74,5 +74,9 @@
   "bling-sheared-llama-0.1": {
     "system": "",
     "user": "<human>: {{prompt}}\n<bot>:"
+  },
+  "chatml": {
+    "system": "<|im_start|>system\n{{system_message}}<|im_end|>\n",
+    "user": "<|im_start|>user\n{{prompt}}<|im_end|>\n<|im_start|>assistant\n"
   }
 }
