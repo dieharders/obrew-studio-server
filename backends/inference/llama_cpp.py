@@ -318,10 +318,6 @@ class LLAMA_CPP:
             # Finished - cleanup
             if self.task_logging:
                 self.task_logging.cancel()
-            # Cleanup queue
-            self.request_queue.get_nowait()
-            self.request_queue.task_done()  # Signal the end of requests
-            await self.request_queue.join()  # Wait for all tasks to complete
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled.")
         except (ValueError, UnicodeEncodeError, Exception) as e:
