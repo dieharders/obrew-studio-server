@@ -61,7 +61,6 @@ class Tool:
             prompt=prompt,
             system_message=system_message,
             stream=False,
-            override_args={"--temp": 0.2},
         )
         content = [item async for item in response]
         data = content[0].get("data")
@@ -112,7 +111,6 @@ class Tool:
             prompt=prompt,
             system_message=system_message,
             stream=False,
-            override_args={"--temp": 0.2},
         )
         content = [item async for item in response]
         data = content[0].get("data")
@@ -244,12 +242,11 @@ class Tool:
             tool_prompt = tool_prompt.replace(TOOL_NAME, tool_name_str)
             tool_prompt = tool_prompt.replace(TOOL_DESCRIPTION, tool_description_str)
             # Prompt the LLM for a response using the tool's schema.
-            # A lower temperature is best for tool use.
+            # A lower temperature is better for tool use.
             llm_tool_use_response = llm.text_completion(
                 prompt=tool_prompt,
                 system_message=system_message,
                 stream=False,
-                override_args={"--temp": 0.2},  # @TODO Set --n-predict, --ctx-size etc?
             )
             content: List[dict] = [item async for item in llm_tool_use_response]
             data: AgentOutput = content[0].get("data")

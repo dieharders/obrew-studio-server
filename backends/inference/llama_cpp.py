@@ -205,9 +205,9 @@ class LLAMA_CPP:
     async def text_chat(
         self,
         prompt: str,
-        system_message: str = None,
+        system_message: Optional[str] = None,
         stream: bool = False,
-        override_args: dict = None,
+        override_args: Optional[dict] = None,
     ):
         try:
             # Create arguments for starting server
@@ -341,9 +341,9 @@ class LLAMA_CPP:
     async def text_completion(
         self,
         prompt: str,
-        system_message: str = None,
+        system_message: Optional[str] = None,
         stream: bool = False,
-        override_args: dict = None,
+        override_args: Optional[dict] = None,
     ):
         try:
             # If format type provided pass input unchanged, llama.cpp will handle it?
