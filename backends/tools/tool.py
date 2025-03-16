@@ -17,6 +17,9 @@ TOOL_CHOICE_SCHEMA = f"```json\n{json.dumps(example_schema, indent=4)}\n```"
 
 
 # Handles reading, loading and execution of tool functions and their core deps (if any).
+# @TODO May have better luck co-ercing Gemma3 using:
+# https://www.reddit.com/r/LocalLLaMA/comments/1jauy8d/giving_native_tool_calling_to_gemma_3_or_really/
+# and https://www.philschmid.de/gemma-function-calling
 class Tool:
     """
     Handles reading, loading and execution of tool functions and their core deps (if any).

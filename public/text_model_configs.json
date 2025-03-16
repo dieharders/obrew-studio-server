@@ -3,7 +3,8 @@
     "repoId": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
     "name": "DeepSeek R1 Distilled Llama-8B (reasoning)",
     "description": "We introduce our first-generation reasoning models, DeepSeek-R1-Zero and DeepSeek-R1. DeepSeek-R1-Zero, a model trained via large-scale reinforcement learning (RL) without supervised fine-tuning (SFT) as a preliminary step, demonstrated remarkable performance on reasoning. With RL, DeepSeek-R1-Zero naturally emerged with numerous powerful and interesting reasoning behaviors.",
-    "messageFormat": "deepseek-r1"
+    "messageFormat": "deepseek-r1",
+    "tags": ["reasoning"]
   },
   "mradermacher/Janus-Pro-7B-LM-GGUF": {
     "repoId": "mradermacher/Janus-Pro-7B-LM-GGUF",
@@ -15,19 +16,22 @@
     "repoId": "unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
     "name": "DeepSeek R1 Distilled Qwen-1.5B (reasoning)",
     "description": "We introduce our first-generation reasoning models, DeepSeek-R1-Zero and DeepSeek-R1. DeepSeek-R1-Zero, a model trained via large-scale reinforcement learning (RL) without supervised fine-tuning (SFT) as a preliminary step, demonstrated remarkable performance on reasoning. With RL, DeepSeek-R1-Zero naturally emerged with numerous powerful and interesting reasoning behaviors.",
-    "messageFormat": "deepseek-r1"
+    "messageFormat": "deepseek-r1",
+    "tags": ["reasoning"]
   },
   "unsloth/Llama-3.2-3B-Instruct-GGUF": {
     "repoId": "unsloth/Llama-3.2-3B-Instruct-GGUF",
     "name": "Llama 3.2 3B (instruct)",
     "description": "The Llama 3.2 collection of multilingual large language models (LLMs) is a collection of pretrained and instruction-tuned generative models in 1B and 3B sizes (text in/text out).\n\nThe Llama 3.2 instruction-tuned text only models are optimized for multilingual dialogue use cases, including agentic retrieval and summarization tasks. They outperform many of the available open source and closed chat models on common industry benchmarks.\n\nSupported languages: English, German, French, Italian, Portuguese, Hindi, Spanish, and Thai are officially supported. Llama 3.2 has been trained on a broader collection of languages than these 8 supported languages.",
-    "messageFormat": "chatml"
+    "messageFormat": "chatml",
+    "tags": ["instruct"]
   },
   "TheBloke/deepseek-coder-6.7B-instruct-GGUF": {
     "repoId": "TheBloke/deepseek-coder-6.7B-instruct-GGUF",
     "name": "DeepSeek Coder 6.7B (instruct)",
     "description": "Deepseek Coder is composed of a series of code language models, each trained from scratch on 2T tokens, with a composition of 87% code and 13% natural language in both English and Chinese. We provide various sizes of the code model, ranging from 1B to 33B versions. Each model is pre-trained on project-level code corpus by employing a window size of 16K and a extra fill-in-the-blank task, to support project-level code completion and infilling. For coding capabilities, Deepseek Coder achieves state-of-the-art performance among open-source code models on multiple programming languages and various benchmarks.",
-    "messageFormat": "deepseek-coder"
+    "messageFormat": "deepseek-coder",
+    "tags": ["instruct", "coding"]
   },
   "unsloth/phi-4-GGUF": {
     "repoId": "unsloth/phi-4-GGUF",
@@ -39,31 +43,36 @@
     "repoId": "TheBloke/Mistral-7B-v0.1-GGUF",
     "name": "Mistral 7B (chat)",
     "description": "The Mistral-7B-v0.1 Large Language Model (LLM) is a pretrained generative text model with 7 billion parameters. Mistral-7B-v0.1 outperforms Llama 2 13B on all benchmarks we tested.",
-    "messageFormat": "mistral-0.1"
+    "messageFormat": "mistral-0.1",
+    "tags": ["chat"]
   },
   "TheBloke/Mistral-7B-Instruct-v0.2-GGUF": {
     "repoId": "TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
     "name": "Mistral 7B v0.2 (instruct)",
     "description": "The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an improved instruct fine-tuned version of Mistral-7B-Instruct-v0.1.",
-    "messageFormat": "mistral-0.2-instruct"
+    "messageFormat": "mistral-0.2-instruct",
+    "tags": ["instruct"]
   },
   "TheBloke/Llama-2-13B-chat-GGUF": {
     "repoId": "TheBloke/Llama-2-13B-chat-GGUF",
     "name": "Llama 2 13B (chat)",
     "description": "Llama 2 is a collection of pretrained and fine-tuned generative text models ranging in scale from 7 billion to 70 billion parameters. Our fine-tuned LLMs, called Llama-2-Chat, are optimized for dialogue use cases. Llama-2-Chat models outperform open-source chat models on most benchmarks we tested, and in our human evaluations for helpfulness and safety, are on par with some popular closed-source models like ChatGPT and PaLM",
-    "messageFormat": "llama-2-13b-chat"
+    "messageFormat": "llama-2-13b-chat",
+    "tags": ["chat"]
   },
   "TheBloke/llama2_7b_chat_uncensored-GGUF": {
     "repoId": "TheBloke/llama2_7b_chat_uncensored-GGUF",
     "name": "Llama 2 7B (chat) (uncensored)",
     "description": "Uncensored Llama 2 model by George Sung and Jarrad Hope. Llama 2 is a collection of pretrained and fine-tuned generative text models ranging in scale from 7 billion to 70 billion parameters. Our fine-tuned LLMs, called Llama-2-Chat, are optimized for dialogue use cases. Llama-2-Chat models outperform open-source chat models on most benchmarks we tested, and in our human evaluations for helpfulness and safety, are on par with some popular closed-source models like ChatGPT and PaLM",
-    "messageFormat": "llama-2-7b-chat"
+    "messageFormat": "llama-2-7b-chat",
+    "tags": ["chat"]
   },
   "TheBloke/Llama-2-7B-32K-Instruct-GGUF": {
     "repoId": "TheBloke/Llama-2-7B-32K-Instruct-GGUF",
     "name": "Llama 2 7B 32k (instruct) (uncensored)",
     "description": "Llama-2-7B-32K-Instruct is an open-source, long-context chat model finetuned from Llama-2-7B-32K, over high-quality instruction and chat data. Llama-2-7B-32K-Instruct is fine-tuned over a combination of two parts: 1. 19K single- and multi-round conversations generated by human instructions and Llama-2-70B-Chat outputs. 2. Long-context Summarization and Long-context QA.",
-    "messageFormat": "llama-2-7b-instruct"
+    "messageFormat": "llama-2-7b-instruct",
+    "tags": ["instruct"]
   },
   "TheBloke/CodeLlama-7B-GGUF": {
     "repoId": "TheBloke/CodeLlama-7B-GGUF",
@@ -75,13 +84,15 @@
     "repoId": "TheBloke/dolphin-2.6-mistral-7B-GGUF",
     "name": "Dolphin Mistral 7B (uncensored)",
     "description": "This model is based on Mistral-7b. The base model has 16k context. This Dolphin is really good at coding, I trained with a lot of coding data. It is very obedient but it is not DPO tuned - so you still might need to encourage it in the system prompt as I show in the below examples.",
-    "messageFormat": "dolphin-2.6-mistral"
+    "messageFormat": "dolphin-2.6-mistral",
+    "tags": ["coding", "uncensored"]
   },
   "TheBloke/dolphin-2.7-mixtral-8x7b-GGUF": {
     "repoId": "TheBloke/dolphin-2.7-mixtral-8x7b-GGUF",
     "name": "Dolphin Mixtral 8x7b v2.7 (instruct) (uncensored)",
-    "description": "This model is based on Mixtral-8x7b. The base model has 32k context, finetuned with 16k. This Dolphin is really good at coding, I trained with a lot of coding data. It is very obedient but it is not DPO tuned - so you still might need to encourage it in the system prompt as I show in the below examples. `trust_remote_code` is required. This model is uncensored. I have filtered the dataset to remove alignment and bias. This makes the model more compliant. You are advised to implement your own alignment layer before exposing the model as a service. It will be highly compliant to any requests, even unethical ones. Please read my blog post about uncensored models. https://erichartford.com/uncensored-models You are responsible for any content you create using this model. Enjoy responsibly.",
-    "messageFormat": "mistral-0.2-instruct"
+    "description": "This model is based on Mixtral-8x7b. The base model has 32k context, finetuned with 16k. This Dolphin is really good at coding, I trained with a lot of coding data. It is very obedient but it is not DPO tuned - so you still might need to encourage it in the system prompt as I show in the below examples.\n\n`trust_remote_code` is required. This model is uncensored. I have filtered the dataset to remove alignment and bias. This makes the model highly compliant to any requests, even unethical ones.",
+    "messageFormat": "mistral-0.2-instruct",
+    "tags": ["coding", "uncensored"]
   },
   "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF": {
     "repoId": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
@@ -111,7 +122,8 @@
     "repoId": "TheBloke/Wizard-Vicuna-13B-Uncensored-GGUF",
     "name": "Wizard Vicuna 13B (uncensored)",
     "description": "This is wizard-vicuna-13b trained with a subset of the dataset - responses that contained alignment / moralizing were removed. The intent is to train a WizardLM that doesn't have alignment built-in, so that alignment (of any sort) can be added separately with for example with a RLHF LoRA.",
-    "messageFormat": "wizard-vicuna"
+    "messageFormat": "wizard-vicuna",
+    "tags": ["uncensored"]
   },
   "TheBloke/law-LLM-GGUF": {
     "repoId": "TheBloke/law-LLM-GGUF",
@@ -123,18 +135,70 @@
     "repoId": "TheBloke/orca_mini_v3_7B-GGUF",
     "name": "Orca Mini 7B (instruct) (uncensored)",
     "description": "An Uncensored LLaMA-7b model trained on explain tuned datasets, created using Instructions and Input from WizardLM, Alpaca & Dolly-V2 datasets and applying Orca Research Paper dataset construction approaches.",
-    "messageFormat": "orca-mini-v3"
+    "messageFormat": "orca-mini-v3",
+    "tags": ["instruct", "uncensored"]
   },
   "TheBloke/zephyr-7B-beta-GGUF": {
     "repoId": "TheBloke/zephyr-7B-beta-GGUF",
     "name": "Zephyr 7B Beta (search) (uncensored)",
     "description": "Zephyr is a series of language models that are trained to act as helpful assistants. Zephyr-7B-beta is the second model in the series, and is an uncensored, fine-tuned version of mistralai/Mistral-7B-v0.1. This model is recommended for RAG modes.",
-    "messageFormat": "zephyr"
+    "messageFormat": "zephyr",
+    "tags": ["RAG", "uncensored"]
   },
   "Aryanne/Bling-Sheared-Llama-1.3B-0.1-gguf": {
     "repoId": "Aryanne/Bling-Sheared-Llama-1.3B-0.1-gguf",
-    "name": "Sheared Llama 1.3B (search)",
+    "name": "Sheared Llama 1.3B",
     "description": "Instruct trained on top of a Sheared-LLaMA-1.3B base model. BLING is designed for enterprise automation use cases, especially in knowledge-intensive industries, such as financial services, legal and regulatory industries with complex information sources. BLING models try to focus on a narrower set of instructions more suitable to a ~1B parameter GPT model. BLING is ideal for rapid prototyping, testing, and the ability to perform an end-to-end workflow locally on a laptop without having to send sensitive information over an Internet-based API. The first BLING models have been trained for common RAG scenarios, specifically: question-answering, key-value extraction, and basic summarization as the core instruction types without the need for a lot of complex instruction verbiage - provide a text passage context, ask questions, and get clear fact-based responses.",
-    "messageFormat": "bling-sheared-llama-0.1"
+    "messageFormat": "bling-sheared-llama-0.1",
+    "tags": ["RAG", "instruct"]
+  },
+  "meetkai/functionary-small-v3.2-GGUF": {
+    "repoId": "meetkai/functionary-small-v3.2-GGUF",
+    "name": "Functionary Small v3.2 (tool-calling)",
+    "description": "Functionary is a language model that can interpret and execute functions/plugins.\n\nThe model determines when to execute functions, whether in parallel or serially, and can understand their outputs. It only triggers functions as needed. Function definitions are given as JSON Schema Objects, similar to OpenAI GPT function calls.",
+    "messageFormat": "functionary",
+    "tags": ["tool-calling"]
+  },
+  "Qwen/QwQ-32B-GGUF": {
+    "repoId": "Qwen/QwQ-32B-GGUF",
+    "name": "QwQ 32B (reasoning)",
+    "description": "QwQ is the reasoning model of the Qwen series. Compared with conventional instruction-tuned models, QwQ, which is capable of thinking and reasoning, can achieve significantly enhanced performance in downstream tasks, especially hard problems. QwQ-32B is the medium-sized reasoning model, which is capable of achieving competitive performance against state-of-the-art reasoning models, e.g., DeepSeek-R1, o1-mini.",
+    "messageFormat": "qwq",
+    "tags": ["reasoning"]
+  },
+  "lmstudio-community/Qwen2-VL-7B-Instruct-GGUF": {
+    "repoId": "lmstudio-community/Qwen2-VL-7B-Instruct-GGUF",
+    "name": "Qwen 2 VL 7B (vision, instruct)",
+    "description": "SoTA understanding of images of various resolution & ratio. Understanding videos of 20min+. Agent that can operate your mobiles, robots, etc. Multilingual Support.",
+    "messageFormat": "qwen2-vl",
+    "tags": ["vision", "instruct"]
+  },
+  "bartowski/Qwen2-VL-2B-Instruct-GGUF": {
+    "repoId": "bartowski/Qwen2-VL-2B-Instruct-GGUF",
+    "name": "Qwen 2 VL 2B (vision, instruct)",
+    "description": "SoTA understanding of images of various resolution & ratio. Understanding videos of 20min+. Agent that can operate your mobiles, robots, etc. Multilingual Support.",
+    "messageFormat": "qwen2-vl",
+    "tags": ["vision", "instruct"]
+  },
+  "unsloth/gemma-3-1b-it-GGUF": {
+    "repoId": "unsloth/gemma-3-1b-it-GGUF",
+    "name": "Gemma 3 1B (vision, instruct)",
+    "description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.\n\nGemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants.Gemma 3 has a large, 128K context window, multilingual support in over 140 languages, and is available in more sizes than previous versions.\n\nGemma 3 models are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure.",
+    "messageFormat": "gemma3",
+    "tags": ["vision", "instruct"]
+  },
+  "unsloth/gemma-3-4b-it-GGUF": {
+    "repoId": "unsloth/gemma-3-4b-it-GGUF",
+    "name": "Gemma 3 4B (vision, instruct)",
+    "description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.\n\nGemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants.Gemma 3 has a large, 128K context window, multilingual support in over 140 languages, and is available in more sizes than previous versions.\n\nGemma 3 models are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure.",
+    "messageFormat": "gemma3",
+    "tags": ["vision", "instruct"]
+  },
+  "unsloth/gemma-3-12b-it-GGUF": {
+    "repoId": "unsloth/gemma-3-12b-it-GGUF",
+    "name": "Gemma 3 12B (vision, instruct)",
+    "description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.\n\nGemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants.Gemma 3 has a large, 128K context window, multilingual support in over 140 languages, and is available in more sizes than previous versions.\n\nGemma 3 models are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure.",
+    "messageFormat": "gemma3",
+    "tags": ["vision", "instruct"]
   }
 }

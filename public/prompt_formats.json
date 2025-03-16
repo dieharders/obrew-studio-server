@@ -78,5 +78,21 @@
   "chatml": {
     "system": "<|im_start|>system\n{{system_message}}<|im_end|>\n",
     "user": "<|im_start|>user\n{{prompt}}<|im_end|>\n<|im_start|>assistant\n"
+  },
+  "functionary": {
+    "system": "<|start_header_id|>system<|end_header_id|>\n\nYou are capable of executing available function(s) if required.\nOnly execute function(s) when absolutely necessary.\nAsk for the required input to:recipient==all\nUse JSON for function arguments.\nRespond in this format:\n>>>${recipient}\n${content}\nAvailable functions:\n// Supported function definitions that should be called when necessary.\nnamespace functions {\n\n{{tool_defs}}\n\n} // namespace functions<|eot_id|>",
+    "user": "<|start_header_id|>user<|end_header_id|>\n\n{{prompt}}"
+  },
+  "qwen2-vl": {
+    "system": "<|im_start|>system\n{{system_message}}<|im_end|>\n",
+    "user": "<|im_start|>user\n{{prompt}}<|im_end|>\n<|im_start|>assistant"
+  },
+  "gemma3": {
+    "system": "{{system_message}}\n",
+    "user": "{{prompt}}"
+  },
+  "qwq": {
+    "system": "{{system_message}}\n",
+    "user": "{{prompt}}"
   }
 }
