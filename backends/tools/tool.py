@@ -67,14 +67,15 @@ class Tool:
         # Parse out the json result using either regex or another llm call
         arguments_response_str = data.get("text")
         print(
-            f"{common.PRNT_API} Tool choice structured output:\n{arguments_response_str}"
+            f"{common.PRNT_API} Tool choice structured output:\n{arguments_response_str}",
+            flush=True,
         )
         try:
             parsed_llm_response = parse_structured_llm_response(
                 arguments_str=arguments_response_str, allowed_arguments=[TOOL_NAME]
             )
             chosen_tool: str = parsed_llm_response.get(TOOL_NAME, "")
-            print(f"{common.PRNT_API} Chosen tool:{chosen_tool}")
+            print(f"{common.PRNT_API} Chosen tool:{chosen_tool}", flush=True)
             return chosen_tool
         except Exception as err:
             # Try to recover by just looking in the response for any mention of an assigned tool
@@ -253,7 +254,8 @@ class Tool:
             # Parse out the json result using regex
             arguments_response_str = data.get("text")
             print(
-                f"{common.PRNT_API} Tool call structured output:\n{arguments_response_str}"
+                f"{common.PRNT_API} Tool call structured output:\n{arguments_response_str}",
+                flush=True,
             )
             parsed_llm_response = parse_structured_llm_response(
                 arguments_str=arguments_response_str,
@@ -261,7 +263,8 @@ class Tool:
             )
             # Call the function with the arguments provided from the llm response, Return results
             print(
-                f"{common.PRNT_API} Calling tool function with arguments:\n{json.dumps(parsed_llm_response, indent=4)}"
+                f"{common.PRNT_API} Calling tool function with arguments:\n{json.dumps(parsed_llm_response, indent=4)}",
+                flush=True,
             )
             func_call_result = await self.func(**parsed_llm_response)
             return dict(raw=func_call_result, text=str(func_call_result))
@@ -435,10 +438,10 @@ def get_llm_required_args(tool_params: List[ToolFunctionParameter]) -> List[str]
 
 def find_tool_in_response(response: str, tools: List[str]) -> Optional[str]:
     """Attempt to find any tool names in the given response text."""
-    print(f"{common.PRNT_API} Searching in response for tools...{tools}")
+    print(f"{common.PRNT_API} Searching in response for tools...{tools}", flush=True)
     for tool_name in tools:
         match = re.search(re.escape(tool_name), response, re.DOTALL)
         if match:
-            print(f"{common.PRNT_API} Found tool:{tool_name}")
+            print(f"{common.PRNT_API} Found tool:{tool_name}", flush=True)
             return tool_name  # Return first match immediately
     return None  # Explicitly return None if no tool is found
