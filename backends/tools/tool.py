@@ -412,7 +412,7 @@ def get_required_schema(required: List[str], schema: dict) -> dict:
     return result
 
 
-def get_provided_args(prompt: str, tool_params: dict) -> dict:
+def get_provided_args(prompt: str, tool_params: dict):
     provided_arguments = dict()
     for pname in tool_params:
         value = tool_params[pname].get("value", None)
@@ -421,6 +421,7 @@ def get_provided_args(prompt: str, tool_params: dict) -> dict:
             continue
         if value:
             provided_arguments[pname] = value
+    return provided_arguments
 
 
 # Determine allowed arg names (arguments that llm needs to fill in)
