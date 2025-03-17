@@ -5,7 +5,7 @@
   },
   "deepseek-coder": {
     "system": "{{system_message}}\n",
-    "user": "### Instruction:\n{{prompt}}\n### Response:"
+    "user": "### Instruction:\n{{prompt}}\n### Response:\n"
   },
   "llama-3.2-instruct": {
     "system": "<|start_header_id|>system<|end_header_id|>\n{{system_message}}\n<|eot_id|>",
@@ -88,8 +88,8 @@
     "user": "<|im_start|>user\n{{prompt}}<|im_end|>\n<|im_start|>assistant"
   },
   "gemma3": {
-    "system": "{{system_message}}\n",
-    "user": "{{prompt}}"
+    "system": "",
+    "user": "<start_of_turn>user\n{{prompt}}<end_of_turn>\n<start_of_turn>model\n"
   },
   "qwq": {
     "system": "{{system_message}}\n",
