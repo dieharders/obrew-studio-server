@@ -409,7 +409,7 @@ class LLAMA_CPP:
                 while True:
                     if not self.process:
                         break
-                    line = await self.process.stdout.read(14)
+                    line = await self.process.stdout.read(1)
                     line = line.decode("utf-8")
                     eos_index = line.find(eos_token)
 
@@ -418,10 +418,7 @@ class LLAMA_CPP:
 
                     # Bail if if we find > (could me an error since this shouldnt show up)
                     if line.strip().startswith(">"):
-                        raise Exception(
-                            "Possible out of memory error. Try a smaller model."
-                        )
-
+                        break
                     # Bail/skip on empty line
                     if line:
                         num_empty = 0
@@ -442,8 +439,11 @@ class LLAMA_CPP:
                     if not self.process:
                         break
                     # Read and parse line as string
-                    line = await self.process.stdout.readline()
+                    line = await self.process.stdout.read(1)
                     line = line.decode("utf-8")
+                    # Bail if if we find > (could me an error since this shouldnt show up)
+                    if line.strip().startswith(">"):
+                        break
                     # Bail on EOS token
                     if line.find(eos_token) != -1:
                         content += line
