@@ -7,7 +7,7 @@
   "description": "Your personal Ai engine.",
   "private": false,
   "hosted_webui_url": "https://studio.openbrewai.com",
-  "llamacpp_tag": "b4589",
+  "llamacpp_tag": "b4905",
   "scripts": {
     "dev": "python ./backends/main.py --mode=dev --headless=False",
     "prod": "python ./backends/main.py --mode=prod --headless=False",
