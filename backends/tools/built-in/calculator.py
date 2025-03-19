@@ -36,17 +36,21 @@ class Params(BaseModel):
 # Required - Put custom code in folder [root]/tools/functions/
 # Or
 # Required - Put built-in code in folder backends/tools/built-in/
-def main(args: Params) -> Union[int, float]:
-    valueA = args["valueA"]
-    valueB = args["valueB"]
-    operation = args["operation"]
+#
+# Required - Functions must be asynchronous regardless
+async def main(**kwargs: Params) -> Union[int, float]:
+    value_a = kwargs["value_a"]
+    value_b = kwargs["value_b"]
+    operation = kwargs["operation"]
     # Dont need all these this since we inform llm of what the allowed values are,
     # but better safe than sorry.
     possible_operations = {
+        "plus": "+",
         "add": "+",
         "+": "+",
         "addition": "+",
         "-": "-",
+        "minus": "-",
         "subtract": "-",
         "subtraction": "-",
         "*": "*",
@@ -61,16 +65,16 @@ def main(args: Params) -> Union[int, float]:
         "div": "/",
         "division": "/",
     }
-    if not isinstance(valueA, int):
-        raise ValueError("valueA must be an int.")
-    elif not isinstance(valueB, int):
-        raise ValueError("valueB must be an int.")
+    if not isinstance(value_a, int):
+        raise ValueError("value_a must be an int.")
+    elif not isinstance(value_b, int):
+        raise ValueError("value_b must be an int.")
     elif operation not in possible_operations:
         raise ValueError(
             f"Invalid value {operation} specified for tool parameter 'operation'."
         )
 
     op_str = possible_operations[operation]
-    equation_str = f"{valueA} {op_str} {valueB}"
+    equation_str = f"{value_a} {op_str} {value_b}"
     result = eval(equation_str)
     return result

@@ -25,8 +25,8 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
         "endpoints": [
             # Generate a text response from Ai engine
             {
-                "name": "inference",
-                "urlPath": "/v1/text/inference",
+                "name": "generate",
+                "urlPath": "/v1/text/generate",
                 "method": "POST",
             },
             # Load the specified Ai model into memory

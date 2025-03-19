@@ -8,7 +8,7 @@ import httpx
 import subprocess
 from typing import Any, List, Optional, Tuple
 from core import classes
-from core.classes import InstalledTextModelMetadata, InstalledTextModel
+from core.classes import BotSettings, InstalledTextModelMetadata, InstalledTextModel
 from inference.classes import DEFAULT_MIN_CONTEXT_WINDOW, DEFAULT_CHAT_MODE, CHAT_MODES
 from huggingface_hub import (
     scan_cache_dir,
@@ -37,7 +37,10 @@ def dep_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
+CONTEXT_INPUT = "{context_str}"  # used by tools and RAG
+QUERY_INPUT = "{query_str}"
 MODEL_METADATAS_FILENAME = "installed_models.json"
+BACKENDS_FOLDER = "backends"
 APP_SETTINGS_FOLDER = "settings"
 APP_SETTINGS_PATH = app_path(APP_SETTINGS_FOLDER)
 TOOL_FOLDER = "tools"
@@ -478,7 +481,7 @@ def store_tool_definition(
                     os.remove(file_path)
 
 
-def save_bot_settings_file(folderpath: str, filepath: str, data: Any):
+def save_bot_settings_file(folderpath: str, filepath: str, data: BotSettings):
     # Create folder/file
     if not os.path.exists(folderpath):
         os.makedirs(folderpath)
@@ -494,11 +497,14 @@ def save_bot_settings_file(folderpath: str, filepath: str, data: Any):
         existing_data = []
 
     # Update the existing data
-    existing_data.append(data)
+    existing_data.append(data.model_dump())
 
     # Save the updated data to the file, this will overwrite all values
-    with open(filepath, "w") as file:
-        json.dump(existing_data, file, indent=2)
+    if isinstance(existing_data, list):
+        with open(filepath, "w") as file:
+            json.dump(existing_data, file, indent=2)
+    else:
+        print(f"{PRNT_API} Warning! Save data is malformed.", flush=True)
 
     return existing_data
 

@@ -1,6 +1,6 @@
 from enum import Enum
 from types import NoneType
-from typing import List, Optional
+from typing import Any, List, Optional
 from pydantic import BaseModel
 
 
@@ -45,7 +45,7 @@ class ACTIVE_ROLES(str, Enum):
 
 DEFAULT_TEMPERATURE = 0.8
 DEFAULT_CHAT_MODE = CHAT_MODES.INSTRUCT.value
-DEFAULT_ACTIVE_ROLE = ACTIVE_ROLES.WORKER.value
+DEFAULT_ACTIVE_ROLE = ACTIVE_ROLES.AGENT.value
 DEFAULT_MAX_TOKENS = (
     -2
 )  # until end of context window @TODO may not be good for chat mode?
@@ -61,6 +61,18 @@ DEFAULT_SYSTEM_MESSAGE = """You are an AI assistant that answers questions in a 
 """
 
 
+class AgentOutput(BaseModel):
+    text: str
+    raw: Optional[Any] = None
+    logging: Optional[dict] = None
+    metrics: Optional[dict] = None
+
+
+class SSEResponse(BaseModel):
+    event: str
+    data: AgentOutput
+
+
 class RagTemplateData(BaseModel):
     id: str
     name: str
@@ -70,7 +82,7 @@ class RagTemplateData(BaseModel):
 
 class LoadTextInferenceCall(BaseModel):
     stream: Optional[bool] = True
-    stop: Optional[List[str]] = []
+    stop: Optional[str] = ""
     echo: Optional[bool] = False
     model: Optional[str] = "local"
     mirostat_tau: Optional[float] = 5.0
@@ -145,18 +157,17 @@ class LoadInferenceResponse(BaseModel):
     }
 
 
+# @TODO This should extend LoadTextInferenceCall (or vice versa)
 class InferenceRequest(BaseModel):
     # __init__ args
     n_ctx: Optional[int] = DEFAULT_CONTEXT_WINDOW
     seed: Optional[int] = DEFAULT_SEED
     # homebrew server specific args
-    collectionNames: Optional[List[str]] = []
     tools: Optional[List[str]] = []
     responseMode: Optional[str] = DEFAULT_CHAT_MODE
     systemMessage: Optional[str] = None
     messageFormat: Optional[str] = None
     promptTemplate: Optional[str] = None
-    ragPromptTemplate: Optional[RagTemplateData] = None
     # __call__ args
     prompt: str
     messages: Optional[List[ChatMessage]] = []
@@ -165,7 +176,7 @@ class InferenceRequest(BaseModel):
     temperature: Optional[float] = 0.0  # precise
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
     # A list of strings to stop generation when encountered
-    stop: Optional[List[str]] = []
+    stop: Optional[str] = ""
     echo: Optional[bool] = False
     model: Optional[str] = (
         "local"  # The name to use for the model in the completion object
@@ -199,12 +210,12 @@ class InferenceRequest(BaseModel):
                     "tools": ["calculator"],
                     "responseMode": DEFAULT_CHAT_MODE,
                     "systemMessage": "You are a helpful Ai assistant.",
-                    "messageFormat": "<system> {system_message}\n<user> {prompt}",
-                    "promptTemplate": "Answer this question: {query_str}",
+                    "messageFormat": "<system> {{system_message}}\n<user> {{prompt}}",
+                    "promptTemplate": "Answer this question: {{query_str}}",
                     "ragPromptTemplate": {
                         "id": "summary",
                         "name": "Summary",
-                        "text": "This is a template: {query_str}",
+                        "text": "This is a template: {{query_str}}",
                     },
                     "messages": [
                         {"role": "user", "content": "What is meaning of life?"}
@@ -214,7 +225,7 @@ class InferenceRequest(BaseModel):
                     "temperature": 0.2,
                     "max_tokens": 1024,
                     "n_ctx": 2000,
-                    "stop": ["###", "[DONE]"],
+                    "stop": "[DONE]",
                     "echo": False,
                     "model": "llama2",
                     "grammar": None,

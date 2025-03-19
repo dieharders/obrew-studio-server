@@ -1,4 +1,5 @@
 from typing import Any
+from inference.classes import RagTemplateData
 from core import common, classes
 from llama_index.core import VectorStoreIndex, PromptTemplate
 from llama_index.core.response_synthesizers import ResponseMode
@@ -40,7 +41,7 @@ def build_qa_prompt(template, prompt_type):
 def query_embedding(
     llm: Any,
     query: str,
-    prompt_template: classes.RagTemplateData,
+    prompt_template: RagTemplateData,
     index: VectorStoreIndex,
     options: classes.ContextRetrievalOptions,
     streaming: bool,

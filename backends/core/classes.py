@@ -482,8 +482,8 @@ class ToolsSettings(BaseModel):
 
 
 class SystemSettings(BaseModel):
-    systemMessage: str = None
-    systemMessageName: str = None
+    systemMessage: Optional[str] = None
+    systemMessageName: Optional[str] = None
 
 
 class ModelSettings(BaseModel):
@@ -494,8 +494,6 @@ class ModelSettings(BaseModel):
 
 class PromptSettings(BaseModel):
     promptTemplate: dict = None
-    ragTemplate: dict = None
-    ragMode: dict = None
 
 
 class KnowledgeSettings(BaseModel):
@@ -503,12 +501,13 @@ class KnowledgeSettings(BaseModel):
     index: List[str | None] = None
 
 
+# @TODO Extend this from the other dupes
 class ResponseSettings(BaseModel):
     temperature: float = None
     max_tokens: int = None
     top_p: float = None
     echo: bool = None
-    stop: List[str] = []
+    stop: str = ""
     repeat_penalty: float = None
     top_k: int = None
     stream: bool = None
@@ -537,6 +536,8 @@ class ToolFunctionSchema(BaseModel):
     params_schema: Optional[dict] = None
     # All required params with example values
     params_example: Optional[dict] = None
+    # The return type of the output
+    output_type: Optional[List[str]] = None
 
 
 class ToolDefinition(ToolFunctionSchema):

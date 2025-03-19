@@ -89,8 +89,15 @@ class Webview:
         screen_x = 640
         screen_y = 640
         if self.screen_size and self.screen_size[1] != 0:
-            screen_x = self.screen_size[1] // 3
-            screen_y = self.screen_size[1] // 3
+            x = self.screen_size[0]
+            y = self.screen_size[1]
+            # Set to fill entire screen
+            # screen_x = self.screen_size[0]
+            # screen_y = self.screen_size[1]
+            #
+            # Set to fraction of screen size (square aspect)
+            screen_x = int(y // 1.5)
+            screen_y = int(y // 1.5)
 
         self.webview_window = webview.create_window(
             title="Obrew Studio",

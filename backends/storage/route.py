@@ -2,9 +2,8 @@ import os
 import glob
 import json
 from fastapi import APIRouter, Depends
-from tools.main import load_function_file
+from tools.tool import Tool
 from core import classes, common
-from inference import agent
 from storage import classes as storage_classes
 from nanoid import generate as uuid
 
@@ -124,7 +123,8 @@ def get_tool_schema(filename: str) -> classes.GetToolFunctionSchemaResponse:
     result = None
 
     try:
-        result = load_function_file(filename)
+        tool = Tool()
+        result = tool.read_function(filename=filename)
     except Exception as err:
         return {
             "success": False,
@@ -160,7 +160,9 @@ def get_tool_functions() -> classes.ListToolFunctionsResponse:
     try:
         # Check in _deps dir for built-in tools
         built_in_funcs_path = common.dep_path(
-            os.path.join("backends", common.TOOL_FOLDER, common.TOOL_FUNCS_FOLDER)
+            os.path.join(
+                common.BACKENDS_FOLDER, common.TOOL_FOLDER, common.TOOL_FUNCS_FOLDER
+            )
         )
         built_in_file_names = [
             f
@@ -190,19 +192,25 @@ def get_tool_functions() -> classes.ListToolFunctionsResponse:
 # Save bot settings
 @router.post("/bot-settings")
 def save_bot_settings(settings: classes.BotSettings) -> classes.BotSettingsResponse:
-    # Paths
-    file_name = BOT_SETTINGS_FILE_NAME
-    file_path = os.path.join(common.APP_SETTINGS_PATH, file_name)
-    # Save to memory
-    results = common.save_bot_settings_file(
-        common.APP_SETTINGS_PATH, file_path, settings
-    )
-
-    return {
-        "success": True,
-        "message": f"Saved bot settings to {file_path}",
-        "data": results,
-    }
+    try:
+        # Paths
+        file_name = BOT_SETTINGS_FILE_NAME
+        file_path = os.path.join(common.APP_SETTINGS_PATH, file_name)
+        # Save to memory
+        results = common.save_bot_settings_file(
+            common.APP_SETTINGS_PATH, file_path, settings
+        )
+        return {
+            "success": True,
+            "message": f"Saved bot settings to {file_path}",
+            "data": results,
+        }
+    except Exception as err:
+        return {
+            "success": False,
+            "message": f"Failed to save bot setting. {err}",
+            "data": None,
+        }
 
 
 # Delete bot settings
