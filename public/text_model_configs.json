@@ -170,14 +170,14 @@
     "repoId": "lmstudio-community/Qwen2-VL-7B-Instruct-GGUF",
     "name": "Qwen 2 VL 7B (vision, instruct)",
     "description": "SoTA understanding of images of various resolution & ratio. Understanding videos of 20min+. Agent that can operate your mobiles, robots, etc. Multilingual Support.",
-    "messageFormat": "qwen2-vl",
+    "messageFormat": "qwen",
     "tags": ["vision", "instruct"]
   },
   "bartowski/Qwen2-VL-2B-Instruct-GGUF": {
     "repoId": "bartowski/Qwen2-VL-2B-Instruct-GGUF",
     "name": "Qwen 2 VL 2B (vision, instruct)",
     "description": "SoTA understanding of images of various resolution & ratio. Understanding videos of 20min+. Agent that can operate your mobiles, robots, etc. Multilingual Support.",
-    "messageFormat": "qwen2-vl",
+    "messageFormat": "qwen",
     "tags": ["vision", "instruct"]
   },
   "unsloth/gemma-3-1b-it-GGUF": {

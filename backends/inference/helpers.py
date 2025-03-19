@@ -14,7 +14,8 @@ GENERATING_TOKENS = "GENERATING_TOKENS"
 
 # These are the supported template keys
 KEY_SYS_MESSAGE = "{{system_message}}"
-KEY_USER_MESSAGE = "{{prompt}}"
+KEY_USER_MESSAGE = "{{prompt}}"  # @TODO change to "{{user_prompt}}"
+KEY_TOOL_MESSAGE = "{{tool_defs}}"  # @TODO Implement with prompt_to_ converter funcs
 
 
 class Message_Template(TypedDict):

@@ -19,7 +19,6 @@ from inference.classes import (
 
 
 # https://github.com/ggerganov/llama.cpp/blob/master/examples/main/README.md#common-options
-# Only import and use this class
 class LLAMA_CPP:
     """Run a llama.cpp cli binary"""
 
@@ -416,7 +415,7 @@ class LLAMA_CPP:
                     if eos_index != -1:
                         break
 
-                    # Bail if if we find > (could me an error since this shouldnt show up)
+                    # Bail if if we find > (could be error since this shouldnt show up)
                     if line.strip().startswith(">"):
                         break
                     # Bail/skip on empty line
@@ -441,7 +440,7 @@ class LLAMA_CPP:
                     # Read and parse line as string
                     line = await self.process.stdout.read(1)
                     line = line.decode("utf-8")
-                    # Bail if if we find > (could me an error since this shouldnt show up)
+                    # Bail if if we find > (could be error since this shouldnt show up)
                     if line.strip().startswith(">"):
                         break
                     # Bail on EOS token
