@@ -214,7 +214,7 @@ class Tool:
         tool_params = tool_def.get("params", None)
         required_llm_arguments = get_llm_required_args(tool_params)
         if len(required_llm_arguments) > 0:
-            system_message = 'You are given a name and description of a function along with the input argument schema it expects. Based on this info and the "QUESTION" you are expected to return a JSON formatted string that looks similar to the "SCHEMA EXAMPLE" but with the values replaced. Ensure the JSON is properly formatted and each value is the correct data type according to the "SCHEMA".'
+            system_message = 'You are given a name and description of a function along with the input argument schema it expects. Based on this info and the "QUESTION" you are expected to return a JSON formatted string that looks similar to the "SCHEMA EXAMPLE" but with the values replaced. Ensure the JSON is properly formatted and each value is the correct data type according to the "SCHEMA". Example:\nQUESTION: Five - 100 thousand\nSCHEMA: ```json\n{"val_a": int, "val_b": int, "op": str}\n```\nRESPONSE: ```json\n"val_a": 5, "val_b": 100000, "op": "subtract"}\n```'
             prompt_template = "# Tool: {tool_name_str}\n\n## Description:\n\n{tool_description_str}\n\n## QUESTION:\n\n{query_str}\n\n## SCHEMA EXAMPLE:\n\n{tool_example_str}\n\n## SCHEMA:\n\n{tool_arguments_str}"
             TOOL_ARGUMENTS = "{tool_arguments_str}"
             TOOL_EXAMPLE_ARGUMENTS = "{tool_example_str}"
@@ -327,9 +327,9 @@ def load_function(filename: str):
         raise Exception("Failed to load tool function.")
 
 
-# Create a machine readable description of a tool definition.
 # Good for explaining each tool to llm so it can make a selection.
 def tool_to_markdown(tool_list: List[ToolDefinition], include_code=False):
+    """Create a machine readable description of a tool definition."""
     markdown_string = ""
     for index, item in enumerate(tool_list):
         markdown_string += f"## Tool {index + 1}\n\n"
@@ -340,8 +340,14 @@ def tool_to_markdown(tool_list: List[ToolDefinition], include_code=False):
                     markdown_string += (
                         f"### {key}\n```json\n{json.dumps(value, indent=4)}\n```\n\n"
                     )
-            elif key != "path" and key != "id":
+            # Add descr
+            elif key == "description" or key == "name":
                 markdown_string += f"### {key}\n\n{value}\n\n"
+            # Add tool return type
+            elif key == "output_type" and include_code:
+                return_type = ", ".join(value)
+                if return_type:
+                    markdown_string += f"### Return type:\n\n{return_type}"
     return markdown_string
 
 
