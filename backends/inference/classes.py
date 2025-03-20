@@ -62,7 +62,7 @@ DEFAULT_SYSTEM_MESSAGE = """You are an AI assistant that answers questions in a 
 
 
 class AgentOutput(BaseModel):
-    text: str
+    text: str  # current tokenized output or entire output
     raw: Optional[Any] = None
     logging: Optional[dict] = None
     metrics: Optional[dict] = None

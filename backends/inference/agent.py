@@ -125,7 +125,7 @@ class Agent:
         match (response_type):
             # Instruct is for Question/Answer (good for tool use, RAG)
             case CHAT_MODES.INSTRUCT.value:
-                response = self.llm.text_completion(
+                response = await self.llm.text_completion(
                     prompt=query_prompt,
                     system_message=system_message,
                     stream=streaming,
@@ -137,7 +137,7 @@ class Agent:
                 content = [item async for item in response]
                 return content[0].get("data")
             case CHAT_MODES.CHAT.value:
-                response = self.llm.text_chat(
+                response = await self.llm.text_chat(
                     prompt=query_prompt,
                     system_message=system_message,
                     stream=streaming,

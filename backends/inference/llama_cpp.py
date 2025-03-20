@@ -1,6 +1,7 @@
 import os
 import asyncio
 import json
+import codecs
 from typing import List, Optional
 from core import common
 from inference.helpers import (
@@ -221,7 +222,6 @@ class LLAMA_CPP:
                 "--no-warmup",  # skip warming up the model with an empty run
                 "-cnv",  # conversation mode
             ]
-
             # Configure args
             cmd_args.append("--in-prefix")
             cmd_args.append("")
@@ -242,12 +242,13 @@ class LLAMA_CPP:
                 merged_args.update(override_args)  # Add overrides
             sanitized = sanitize_kwargs(kwargs=merged_args)
             cmd_args.extend(sanitized)
-
             # Start process
+            is_initial_turn = False
             if not self.process:
                 print(
                     f"{common.PRNT_LLAMA} Starting llama.cpp cli ...\nWith chat command: {cmd_args}"
                 )
+                is_initial_turn = True
                 self.process = await asyncio.create_subprocess_exec(
                     *cmd_args,
                     stdin=asyncio.subprocess.PIPE,
@@ -258,82 +259,20 @@ class LLAMA_CPP:
                 # Read logs
                 if self.debug:
                     self.task_logging = asyncio.create_task(self.read_logs())
-
             # Send command to llama-cli
             command = f"{prompt.strip()}\\"
             print(f"{common.PRNT_LLAMA} Generating chat with command: {command}")
             self.process.stdin.write(command.encode("utf-8") + b"\n")
             await self.process.stdin.drain()
-
-            if stream:
-                # Stream response as SSE
-                index = 0
-                num_empty = 0
-                while True:
-                    if not self.process:
-                        break
-                    # Read and parse line as string
-                    index += 1
-                    line = await self.process.stdout.read(4)
-                    line = line.decode("utf-8")
-                    # Bail/skip on empty line
-                    if line.strip() == ">":
-                        if index == 1:
-                            continue
-                        break
-                    # Bail on empty
-                    if line:
-                        num_empty = 0
-                    if line == "":
-                        num_empty += 1
-                        if num_empty > self.max_empty:
-                            break
-                        continue
-
-                    payload = make_chunk_payload(line)
-                    yield json.dumps(payload)  # SSE format expects json
-            else:
-                # Return entire result in one response
-                content = ""
-                index = 0
-                num_empty = 0
-                marker_num = 0
-                while True:
-                    if not self.process:
-                        break
-                    # Read and parse line as string
-                    index += 1
-                    line = await self.process.stdout.read(1)
-                    line = line.decode("utf-8")
-                    # Bail if second > found
-                    if line.strip().startswith(">"):
-                        if marker_num > 0:
-                            break
-                        marker_num += 1
-                    # Bail/skip on empty line
-                    if line:
-                        num_empty = 0
-                    if line == "":
-                        num_empty += 1
-                        if num_empty > self.max_empty:
-                            break
-                        continue
-
-                    content += line
-                content = content.lstrip(">").rstrip("\r\n>").strip()
-                payload = make_chunk_payload(content)
-                yield payload
-
-            # Finished - cleanup
-            if self.task_logging:
-                self.task_logging.cancel()
+            # Text generation
+            return self._text_generator(
+                stream=stream, gen_type="chat", is_initial_turn=is_initial_turn
+            )
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled.")
         except (ValueError, UnicodeEncodeError, Exception) as e:
             print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}")
             raise Exception(f"Failed to query llama.cpp: {e}")
-        except Exception as e:
-            print(f"{common.PRNT_LLAMA} Some error occurred: {e}")
 
     # Predict the rest of the prompt
     # FYI, if we want to load prev conversation from cache and continue from there, most likely must use completion since -cnv mode makes it difficult to reload and manage chat history.
@@ -354,7 +293,6 @@ class LLAMA_CPP:
                     system_message=system_message,
                     template=self.message_format,
                 )
-
             # Create arguments
             cmd_args = [
                 self.BINARY_PATH,
@@ -379,12 +317,10 @@ class LLAMA_CPP:
                 merged_args.update(override_args)  # Add overrides
             sanitized = sanitize_kwargs(kwargs=merged_args)
             cmd_args.extend(sanitized)
-
             # Start process
             print(
                 f"{common.PRNT_LLAMA} Starting llama.cpp cli ...\nWith completion command: {cmd_args}"
             )
-
             # Send command to llama-cli
             # @TODO Incorporate with model_init_kwargs
             self.process = await asyncio.create_subprocess_exec(
@@ -397,77 +333,68 @@ class LLAMA_CPP:
             # Read logs
             if self.debug:
                 self.task_logging = asyncio.create_task(self.read_logs())
-
             # Send command to llama-cli
             await self.process.stdin.drain()
-
-            # Stream response as SSE
-            eos_token = "[end of text]"
-            if stream:
-                num_empty = 0
-                while True:
-                    if not self.process:
-                        break
-                    line = await self.process.stdout.read(1)
-                    line = line.decode("utf-8")
-                    eos_index = line.find(eos_token)
-
-                    if eos_index != -1:
-                        break
-
-                    # Bail if if we find > (could be error since this shouldnt show up)
-                    if line.strip().startswith(">"):
-                        break
-                    # Bail/skip on empty line
-                    if line:
-                        num_empty = 0
-                    if line == "":
-                        num_empty += 1
-                        if num_empty > self.max_empty:
-                            break
-                        continue
-
-                    # Send tokens
-                    payload = make_chunk_payload(line)
-                    yield json.dumps(payload)  # SSE format expects json
-            else:
-                # Return entire result in one response
-                content = ""
-                num_empty = 0
-                while True:
-                    if not self.process:
-                        break
-                    # Read and parse line as string
-                    line = await self.process.stdout.read(1)
-                    line = line.decode("utf-8")
-                    # Bail if if we find > (could be error since this shouldnt show up)
-                    if line.strip().startswith(">"):
-                        break
-                    # Bail on EOS token
-                    if line.find(eos_token) != -1:
-                        content += line
-                        break
-                    # Bail/skip on empty line
-                    if line:
-                        num_empty = 0
-                    if line == "":
-                        num_empty += 1
-                        if num_empty > self.max_empty:
-                            break
-                        continue
-                    # Add line to text result
-                    content += line
-                content = content.strip().rstrip(eos_token).rstrip()
-                payload = make_chunk_payload(content)
-                yield payload
-
-            # Finished - cleanup
-            if self.task_logging:
-                self.task_logging.cancel()
+            # Text generation
+            return self._text_generator(stream=stream, gen_type="completion")
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled.")
         except (ValueError, UnicodeEncodeError, Exception) as e:
             print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}")
             raise Exception(f"Failed to query llama.cpp: {e}")
-        except Exception as e:
-            print(f"{common.PRNT_LLAMA} Some error occurred: {e}")
+
+    async def _text_generator(
+        self, stream: bool, gen_type: str, is_initial_turn: Optional[bool] = False
+    ):
+        """Parse incoming tokens/text and stop generation when necessary"""
+        content = ""
+        marker_num = 0
+        decoder = codecs.getincrementaldecoder("utf-8")()
+        while True:
+            if not self.process:
+                break
+            # Attempt to read bytes and convert to text
+            try:
+                byte = await self.process.stdout.read(1)
+                # Bail on empty
+                if not byte:
+                    break
+                # Read and parse bytes into text incrementally, handles multi-byte decoding
+                byte_text = decoder.decode(byte)
+            # Stop incomplete bytes from passing
+            except (UnicodeEncodeError, UnicodeDecodeError) as e:
+                continue
+            # Bail if end of sequence token found
+            # Corresponds to a special token (number 2) in the LLaMa embedding
+            eos_token = "[end of text]"
+            if byte_text.find(eos_token) != -1:
+                break
+            # Bail if llama-cli ">" token found
+            if byte_text == ">":
+                marker_num += 1
+                if gen_type == "completion":
+                    break
+                if gen_type == "chat":
+                    # Bail on first occurrence
+                    if not is_initial_turn:
+                        break
+                    # Bail on subsequent occurrence
+                    if marker_num > 1:
+                        break
+            # Add text to accumulated content
+            content += byte_text
+            # Send tokens
+            if stream:
+                payload = make_chunk_payload(byte_text)
+                yield json.dumps(payload)  # streaming format expects json
+        # Finally, send all tokens together
+        content = decoder.decode(b"", final=True)
+        content = content.strip()
+        payload = make_chunk_payload(content)
+        if not stream:
+            yield payload
+        if stream:
+            yield json.dumps(payload)
+        # Cleanup
+        if self.task_logging:
+            self.task_logging.cancel()

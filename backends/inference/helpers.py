@@ -121,8 +121,10 @@ def messages_to_prompt(
     return "".join(string_messages)
 
 
-def make_chunk_payload(line_data: str) -> SSEResponse:
-    chunk = {"text": line_data}
+def make_chunk_payload(text: str) -> SSEResponse:
+    chunk = {"text": text}
+    # @TODO Add other attrs here...
+
     payload = {
         "event": GENERATING_TOKENS,
         "data": chunk,
