@@ -116,6 +116,7 @@ def check_llama_cpp_exists(file_path):
 
 
 def install_llama_cpp(gpu: dict, tag: str, target_path: str):
+    repo = "ggml-org/llama.cpp"
     is_nvidia_gpu = "NVIDIA" in gpu.get("gpu_name") or "NVIDIA" in gpu.get(
         "manufacturer"
     )
@@ -124,14 +125,14 @@ def install_llama_cpp(gpu: dict, tag: str, target_path: str):
         if is_nvidia_gpu:
             # Download llama.cpp binaries
             download_and_extract(
-                repo="ggerganov/llama.cpp",
+                repo=repo,
                 tag=tag,
                 asset_name=f"llama-{tag}-bin-win-cuda-cu12.4-x64.zip",
                 target_path=target_path,
             )
             # Download cuda dll's
             download_and_extract(
-                repo="ggerganov/llama.cpp",
+                repo=repo,
                 tag=tag,
                 asset_name="cudart-llama-bin-win-cu12.4-x64.zip",
                 target_path=target_path,
