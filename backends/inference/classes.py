@@ -210,12 +210,12 @@ class InferenceRequest(BaseModel):
                     "tools": ["calculator"],
                     "responseMode": DEFAULT_CHAT_MODE,
                     "systemMessage": "You are a helpful Ai assistant.",
-                    "messageFormat": "<system> {{system_message}}\n<user> {{prompt}}",
-                    "promptTemplate": "Answer this question: {{query_str}}",
+                    "messageFormat": "<system> {{system_message}}\n<user> {{user_message}}",
+                    "promptTemplate": "Answer this question: {{user_prompt}}",
                     "ragPromptTemplate": {
                         "id": "summary",
                         "name": "Summary",
-                        "text": "This is a template: {{query_str}}",
+                        "text": "This is some context: {{context_str}}",
                     },
                     "messages": [
                         {"role": "user", "content": "What is meaning of life?"}

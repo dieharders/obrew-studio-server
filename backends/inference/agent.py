@@ -2,9 +2,9 @@ import json
 from typing import List, Type
 from sse_starlette.sse import EventSourceResponse
 from fastapi import Request
-from inference.helpers import GENERATING_TOKENS
 from storage.route import get_all_tool_definitions
 from tools.tool import Tool
+from inference.helpers import GENERATING_TOKENS, KEY_PROMPT_MESSAGE
 from inference.classes import ACTIVE_ROLES, CHAT_MODES, DEFAULT_ACTIVE_ROLE, AgentOutput
 from inference.llama_cpp import LLAMA_CPP
 from core import common
@@ -120,7 +120,7 @@ class Agent:
         #######################################
         if prompt_template:
             # Assign the agent's template to the prompt
-            query_prompt = prompt_template.replace(common.QUERY_INPUT, prompt)
+            query_prompt = prompt_template.replace(KEY_PROMPT_MESSAGE, prompt)
 
         match (response_type):
             # Instruct is for Question/Answer (good for tool use, RAG)

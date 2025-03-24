@@ -37,8 +37,6 @@ def dep_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-CONTEXT_INPUT = "{context_str}"  # used by tools and RAG
-QUERY_INPUT = "{query_str}"
 MODEL_METADATAS_FILENAME = "installed_models.json"
 BACKENDS_FOLDER = "backends"
 APP_SETTINGS_FOLDER = "settings"

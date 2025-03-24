@@ -32,8 +32,12 @@ def get_model_install_config(model_id: str = None) -> dict:
             config = text_models[model_id]
             message_format = config["messageFormat"]
             model_name = config["name"]
+            tags = config["tags"]
             return dict(
-                message_format=message_format, model_name=model_name, models=text_models
+                message_format=message_format,
+                model_name=model_name,
+                models=text_models,
+                tags=tags,
             )
     except Exception as err:
         raise Exception(f"Error finding models list: {err}")
@@ -195,6 +199,7 @@ async def load_text_inference(
             model_path=modelPath,
             model_name=model_name,
             model_id=model_id,
+            is_tool_capable="tool-calling" in model_config.get("tags", []),
             # debug=True,  # For testing
             response_mode=data.responseMode,
             active_role=data.activeRole,

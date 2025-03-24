@@ -34,6 +34,7 @@ class LLAMA_CPP:
         raw: bool,  # user can send manually formatted messages
         # template converts messages to prompts
         message_format: Optional[dict] = {},
+        is_tool_capable=False,  # Whether model was trained for native func calling
         verbose=False,
         debug=False,  # Show logs
         model_init_kwargs: LoadTextInferenceInit = None,  # kwargs to pass when loading the model
@@ -66,6 +67,7 @@ class LLAMA_CPP:
             init_kwargs["--threads"] = n_threads
             init_kwargs["--threads-batch"] = n_threads
         # Assign vars
+        self.is_tool_capable = is_tool_capable
         self.max_empty = 100
         self.chat_history = None
         self.process = None
@@ -260,7 +262,7 @@ class LLAMA_CPP:
                 if self.debug:
                     self.task_logging = asyncio.create_task(self.read_logs())
             # Send command to llama-cli
-            command = f"{prompt.strip()}\\"
+            command = f"{prompt.strip()}\\"  # no need for msg format ?
             print(f"{common.PRNT_LLAMA} Generating chat with command: {command}")
             self.process.stdin.write(command.encode("utf-8") + b"\n")
             await self.process.stdin.drain()
@@ -282,6 +284,8 @@ class LLAMA_CPP:
         system_message: Optional[str] = None,
         stream: bool = False,
         override_args: Optional[dict] = None,
+        # tools for models trained for func calling
+        native_tool_defs: Optional[str] = None,
     ):
         try:
             # If format type provided pass input unchanged, llama.cpp will handle it?
@@ -291,7 +295,8 @@ class LLAMA_CPP:
                 formatted_prompt = completion_to_prompt(
                     user_message=prompt,
                     system_message=system_message,
-                    template=self.message_format,
+                    messageFormat=self.message_format,
+                    native_tool_defs=native_tool_defs,
                 )
             # Create arguments
             cmd_args = [
@@ -338,9 +343,9 @@ class LLAMA_CPP:
             # Text generation
             return self._text_generator(stream=stream, gen_type="completion")
         except asyncio.CancelledError:
-            print(f"{common.PRNT_LLAMA} Streaming task was cancelled.")
+            print(f"{common.PRNT_LLAMA} Streaming task was cancelled")
         except (ValueError, UnicodeEncodeError, Exception) as e:
-            print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}")
+            print(f"{common.PRNT_LLAMA} Failed to query llama.cpp: {e}")
             raise Exception(f"Failed to query llama.cpp: {e}")
 
     async def _text_generator(
@@ -350,6 +355,7 @@ class LLAMA_CPP:
         content = ""
         marker_num = 0
         decoder = codecs.getincrementaldecoder("utf-8")()
+        eos_token = "[end of text]"  # Corresponds to special token (number 2) in LLaMa embedding
         while True:
             if not self.process:
                 break
@@ -365,9 +371,7 @@ class LLAMA_CPP:
             except (UnicodeEncodeError, UnicodeDecodeError) as e:
                 continue
             # Bail if end of sequence token found
-            # Corresponds to a special token (number 2) in the LLaMa embedding
-            eos_token = "[end of text]"
-            if byte_text.find(eos_token) != -1:
+            if content.endswith(eos_token):
                 break
             # Bail if llama-cli ">" token found
             if byte_text == ">":
@@ -388,8 +392,12 @@ class LLAMA_CPP:
                 payload = make_chunk_payload(byte_text)
                 yield json.dumps(payload)  # streaming format expects json
         # Finally, send all tokens together
-        content = decoder.decode(b"", final=True)
-        content = content.strip()
+        content += decoder.decode(b"", final=True)
+        content = content.rstrip(eos_token).strip()
+        if not content:
+            raise Exception(
+                "No response from model. Check available memory or try offloading to CPU only."
+            )
         payload = make_chunk_payload(content)
         if not stream:
             yield payload

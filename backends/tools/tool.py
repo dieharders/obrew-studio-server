@@ -6,6 +6,7 @@ from typing import Any, Awaitable, List, Optional, Type
 from pydantic import BaseModel
 from core import common
 from core.classes import ToolDefinition, ToolFunctionParameter, ToolFunctionSchema
+from inference.helpers import KEY_PROMPT_MESSAGE
 from inference.llama_cpp import LLAMA_CPP
 from inference.classes import AgentOutput
 
@@ -57,7 +58,7 @@ class Tool:
         system_message = f'Determine if the user query contains a request or an expression of need for tool use. Identify only one tool name specified in the user query. Return the name of the specified tool in JSON format specified by "Schema".'
         prompt = f'# Tool names:\n\n{tool_names}\n\n# User query:\n\n"{query_prompt}"\n\n## Answer in JSON:\n\nSchema:{TOOL_CHOICE_SCHEMA}'
         # Ask llm to choose
-        response = llm.text_completion(
+        response = await llm.text_completion(
             prompt=prompt,
             system_message=system_message,
             stream=False,
@@ -108,7 +109,7 @@ class Tool:
         prompt = f"# Tool descriptions:\n\n{tool_descriptions}\n# User query:\n\n{query_prompt}\n\n# Schema:\n\n{TOOL_CHOICE_SCHEMA}"
         system_message = f'Determine the best tool to choose based on each description and the needs of the user query. Return the name of the chosen tool in JSON format that matches the "Schema".'
         # Ask llm to choose
-        response = llm.text_completion(
+        response = await llm.text_completion(
             prompt=prompt,
             system_message=system_message,
             stream=False,
@@ -214,12 +215,12 @@ class Tool:
         tool_params = tool_def.get("params", None)
         required_llm_arguments = get_llm_required_args(tool_params)
         if len(required_llm_arguments) > 0:
-            system_message = 'You are given a name and description of a function along with the input argument schema it expects. Based on this info and the "QUESTION" you are expected to return a JSON formatted string that looks similar to the "SCHEMA EXAMPLE" but with the values replaced. Ensure the JSON is properly formatted and each value is the correct data type according to the "SCHEMA". Example:\nQUESTION: Five - 100 thousand\nSCHEMA: ```json\n{"val_a": int, "val_b": int, "op": str}\n```\nRESPONSE: ```json\n"val_a": 5, "val_b": 100000, "op": "subtract"}\n```'
-            prompt_template = "# Tool: {tool_name_str}\n\n## Description:\n\n{tool_description_str}\n\n## QUESTION:\n\n{query_str}\n\n## SCHEMA EXAMPLE:\n\n{tool_example_str}\n\n## SCHEMA:\n\n{tool_arguments_str}"
-            TOOL_ARGUMENTS = "{tool_arguments_str}"
-            TOOL_EXAMPLE_ARGUMENTS = "{tool_example_str}"
-            TOOL_NAME = "{tool_name_str}"
-            TOOL_DESCRIPTION = "{tool_description_str}"
+            system_message = 'You are given a name and description of a function along with the input argument schema it expects. Based on this info and the "QUESTION" you are expected to return a JSON formatted string that looks similar to the "SCHEMA EXAMPLE" but with the values replaced. Ensure the JSON is properly formatted and each value is the correct data type according to the "SCHEMA".'
+            universal_tool_template = "# Tool: {{tool_name_str}}\n\n## Description:\n\n{{tool_description_str}}\n\n## QUESTION:\n\n{{user_prompt}}\n\n## SCHEMA EXAMPLE:\n\n{{tool_example_str}}\n\n## SCHEMA:\n\n{{tool_arguments_str}}"
+            TOOL_ARGUMENTS = "{{tool_arguments_str}}"
+            TOOL_EXAMPLE_ARGUMENTS = "{{tool_example_str}}"
+            TOOL_NAME = "{{tool_name_str}}"
+            TOOL_DESCRIPTION = "{{tool_description_str}}"
             # Return schema for llm to respond with
             tool_name_str = self.func_definition.get("name", "Tool")
             tool_description_str = self.func_definition.get("description", "")
@@ -236,18 +237,25 @@ class Tool:
             tool_example_json = json.dumps(params_example_dict, indent=4)
             tool_example_str = f"```json\n{tool_example_json}\n```"
             tool_args_str = schema_to_markdown(params_schema_dict)
-            # Inject template args into prompt template
-            tool_prompt = prompt_template.replace(common.QUERY_INPUT, query)
-            tool_prompt = tool_prompt.replace(TOOL_ARGUMENTS, tool_args_str)
-            tool_prompt = tool_prompt.replace(TOOL_EXAMPLE_ARGUMENTS, tool_example_str)
-            tool_prompt = tool_prompt.replace(TOOL_NAME, tool_name_str)
-            tool_prompt = tool_prompt.replace(TOOL_DESCRIPTION, tool_description_str)
+            tool_prompt = query
+            # Inject template args into prompt template (Universal func calling)
+            if not llm.is_tool_capable:
+                tool_prompt = universal_tool_template.replace(KEY_PROMPT_MESSAGE, query)
+                tool_prompt = tool_prompt.replace(TOOL_ARGUMENTS, tool_args_str)
+                tool_prompt = tool_prompt.replace(
+                    TOOL_EXAMPLE_ARGUMENTS, tool_example_str
+                )
+                tool_prompt = tool_prompt.replace(TOOL_NAME, tool_name_str)
+                tool_prompt = tool_prompt.replace(
+                    TOOL_DESCRIPTION, tool_description_str
+                )
             # Prompt the LLM for a response using the tool's schema.
             # A lower temperature is better for tool use.
-            llm_tool_use_response = llm.text_completion(
+            llm_tool_use_response = await llm.text_completion(
                 prompt=tool_prompt,
                 system_message=system_message,
                 stream=False,
+                tools=tool_args_str,  # for native func calling @TODO May need a special conversion func for args
             )
             content: List[dict] = [item async for item in llm_tool_use_response]
             data: AgentOutput = content[0].get("data")
