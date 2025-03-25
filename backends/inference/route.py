@@ -469,6 +469,6 @@ async def generate_text(
         await llm.complete_request()
         return {
             "success": False,
-            "message": f"Something went wrong. Reason: {err}",
+            "message": f"Text generation interrupted. Reason: {err}",
             "data": None,
         }
