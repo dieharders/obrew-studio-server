@@ -1,4 +1,5 @@
 import json
+import asyncio
 import httpx
 from enum import Enum
 from types import NoneType
@@ -36,9 +37,10 @@ class ApiServerClass(dict):
 
 class AppState(dict):
     requests_client: Type[httpx.Client]
+    request_queue: Type[asyncio.Queue] | None
     db_client: Type[ClientAPI] | None
     api: Type[ApiServerClass] | None
-    llm: Type[LLAMA_CPP] | None
+    llm: LLAMA_CPP | None
     embed_model: Type[HuggingFaceEmbedding] | str | None
 
 

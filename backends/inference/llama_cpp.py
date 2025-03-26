@@ -1,7 +1,10 @@
 import os
-import asyncio
 import json
 import codecs
+import signal
+import asyncio
+from asyncio.subprocess import Process
+from fastapi import Request
 from typing import List, Optional
 from core import common
 from inference.helpers import (
@@ -70,11 +73,12 @@ class LLAMA_CPP:
         self.is_tool_capable = is_tool_capable
         self.max_empty = 100
         self.chat_history = None
-        self.process = None
+        self.process: Process = None
+        self.process_type = ""
         self.task_logging = None
+        self.abort_requested = False
         self.prompt_template = None  # structures the llm thoughts (thinking)
         self.message_format = message_format
-        self.request_queue = asyncio.Queue()
         self.response_mode = response_mode
         self.active_role = active_role
         self.raw = raw
@@ -123,14 +127,6 @@ class LLAMA_CPP:
         if grammar:
             kwargs.update({"--grammar": grammar})
         self._generate_kwargs = kwargs
-
-    # Remove request from queue
-    async def complete_request(self):
-        """Remove the last request and complete the task."""
-        self.request_queue.get_nowait()
-        self.request_queue.task_done()  # Signal the end of requests
-        await self.request_queue.join()  # Wait for all tasks to complete
-        return
 
     # Create a cli instance and load a previous conversation (only needed for chat convo)
     # @TODO This is yet to be implemented
@@ -188,6 +184,7 @@ class LLAMA_CPP:
     # User can pause Ai and add more input, keeps conn open.
     # @TODO Yet to be implemented
     async def text_collab(self):
+        self.abort_requested = False
         # Create arguments for starting server
         cmd_args = [
             self.BINARY_PATH,
@@ -202,16 +199,29 @@ class LLAMA_CPP:
         ]
         return
 
-    # Send multi-turn messages by role. Message does not require formatting.
+    async def pause_text_chat(self):
+        # Send command to llama-cli
+        print(f"{common.PRNT_LLAMA} Pausing chat generation")
+        # Halts the process and returns control to user
+        os.kill(self.process.pid, signal.CTRL_C_EVENT)
+        # @TODO This breaks out of generator loop, but the CLI continues to generate tokens.
+        # self.process.stdin.write(b"\x03")  # Windows
+        # await self.process.stdin.drain()
+
+    # Send multi-turn messages by role. Message does not require formatting. Does not use tools.
     # Cannot reload chat history from cache.
+    # May be easier to re-implement chat using /completion and loading kv_cache each call.
     async def text_chat(
         self,
         prompt: str,
+        request: Request,
         system_message: Optional[str] = None,
         stream: bool = False,
         override_args: Optional[dict] = None,
     ):
         try:
+            self.abort_requested = False
+
             # Create arguments for starting server
             cmd_args = [
                 self.BINARY_PATH,
@@ -245,12 +255,10 @@ class LLAMA_CPP:
             sanitized = sanitize_kwargs(kwargs=merged_args)
             cmd_args.extend(sanitized)
             # Start process
-            is_initial_turn = False
             if not self.process:
                 print(
                     f"{common.PRNT_LLAMA} Starting llama.cpp cli ...\nWith chat command: {cmd_args}"
                 )
-                is_initial_turn = True
                 self.process = await asyncio.create_subprocess_exec(
                     *cmd_args,
                     stdin=asyncio.subprocess.PIPE,
@@ -262,13 +270,15 @@ class LLAMA_CPP:
                 if self.debug:
                     self.task_logging = asyncio.create_task(self.read_logs())
             # Send command to llama-cli
-            command = f"{prompt.strip()}\\"  # no need for msg format ?
+            command = f"{prompt.strip()}\\"  # @TODO No need to apply msg format ?
             print(f"{common.PRNT_LLAMA} Generating chat with command: {command}")
             self.process.stdin.write(command.encode("utf-8") + b"\n")
             await self.process.stdin.drain()
             # Text generation
             return self._text_generator(
-                stream=stream, gen_type="chat", is_initial_turn=is_initial_turn
+                stream=stream,
+                gen_type="chat",
+                request=request,
             )
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled.")
@@ -276,11 +286,12 @@ class LLAMA_CPP:
             print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}")
             raise Exception(f"Failed to query llama.cpp: {e}")
 
-    # Predict the rest of the prompt
+    # Predict the rest of the prompt. Can work with tools.
     # FYI, if we want to load prev conversation from cache and continue from there, most likely must use completion since -cnv mode makes it difficult to reload and manage chat history.
     async def text_completion(
         self,
         prompt: str,
+        request: Request,
         system_message: Optional[str] = None,
         stream: bool = False,
         override_args: Optional[dict] = None,
@@ -288,10 +299,12 @@ class LLAMA_CPP:
         native_tool_defs: Optional[str] = None,
     ):
         try:
+            self.abort_requested = False
+
             # If format type provided pass input unchanged, llama.cpp will handle it?
             formatted_prompt = prompt.strip()
-            # Format prompt if none specified
             if not self.raw:
+                # Format prompt with model template
                 formatted_prompt = completion_to_prompt(
                     user_message=prompt,
                     system_message=system_message,
@@ -341,23 +354,32 @@ class LLAMA_CPP:
             # Send command to llama-cli
             await self.process.stdin.drain()
             # Text generation
-            return self._text_generator(stream=stream, gen_type="completion")
+            return self._text_generator(
+                stream=stream, gen_type="completion", request=request
+            )
         except asyncio.CancelledError:
-            print(f"{common.PRNT_LLAMA} Streaming task was cancelled")
+            print(f"{common.PRNT_LLAMA} Streaming task was cancelled", flush=True)
         except (ValueError, UnicodeEncodeError, Exception) as e:
-            print(f"{common.PRNT_LLAMA} Failed to query llama.cpp: {e}")
+            print(f"{common.PRNT_LLAMA} Failed to query llama.cpp: {e}", flush=True)
             raise Exception(f"Failed to query llama.cpp: {e}")
 
     async def _text_generator(
-        self, stream: bool, gen_type: str, is_initial_turn: Optional[bool] = False
+        self,
+        stream: bool,
+        gen_type: str,
+        request: Request,
     ):
         """Parse incoming tokens/text and stop generation when necessary"""
+        self.process_type = gen_type
         content = ""
         marker_num = 0
         decoder = codecs.getincrementaldecoder("utf-8")()
         eos_token = "[end of text]"  # Corresponds to special token (number 2) in LLaMa embedding
         while True:
-            if not self.process:
+            # Handle abort signal or non-existent process
+            aborted = await request.is_disconnected()
+            if aborted or not self.process or self.abort_requested:
+                print(f"{common.PRNT_LLAMA} Text generation aborted", flush=True)
                 break
             # Attempt to read bytes and convert to text
             try:
@@ -373,18 +395,22 @@ class LLAMA_CPP:
             # Bail if end of sequence token found
             if content.endswith(eos_token):
                 break
-            # Bail if llama-cli ">" token found
+            # Check CLI token
             if byte_text == ">":
                 marker_num += 1
+                # Bail if llama-cli ">" token found
                 if gen_type == "completion":
                     break
                 if gen_type == "chat":
-                    # Bail on first occurrence
-                    if not is_initial_turn:
-                        break
                     # Bail on subsequent occurrence
                     if marker_num > 1:
                         break
+            if (
+                len(content) > len("\r\n>")
+                and content.endswith("\r\n>")
+                and gen_type == "chat"
+            ):
+                break
             # Add text to accumulated content
             content += byte_text
             # Send tokens
@@ -395,14 +421,14 @@ class LLAMA_CPP:
         content += decoder.decode(b"", final=True)
         content = content.rstrip(eos_token).strip()
         if not content:
-            raise Exception(
-                "No response from model. Check available memory or try offloading to CPU only."
+            print(
+                f"{common.PRNT_LLAMA} No response from model. Check available memory or try offloading to CPU only."
             )
         payload = make_chunk_payload(content)
-        if not stream:
-            yield payload
         if stream:
             yield json.dumps(payload)
+        else:
+            yield payload
         # Cleanup
         if self.task_logging:
             self.task_logging.cancel()

@@ -449,6 +449,17 @@ async def generate_text(
             print(f"{common.PRNT_API} Error: {msg}", flush=True)
             raise Exception(msg)
 
+        # Handles requests sequentially
+        if app.state.request_queue.qsize() > 0:
+            print(f"{common.PRNT_API} Too many requests, please wait.", flush=True)
+            return {
+                "message": "Too many requests, please wait.",
+                "success": False,
+                "data": None,
+            }
+        # Add request to queue
+        await app.state.request_queue.put(request)
+
         # Assign Agent
         agent = Agent(llm=llm, tools=assigned_tool_names, active_role=llm.active_role)
         response = await agent.call(
@@ -460,15 +471,50 @@ async def generate_text(
             response_type=response_type,
         )
         # Cleanup/complete request
-        await llm.complete_request()
+        await complete_request(app)
         # Return final answer
         return response
     except (KeyError, Exception) as err:
         print(f"{common.PRNT_API} Error: {err}", flush=True)
         # Cleanup/complete request
-        await llm.complete_request()
+        await complete_request(app)
+        if llm and llm.task_logging:
+            llm.task_logging.cancel()
         return {
             "success": False,
             "message": f"Text generation interrupted. Reason: {err}",
             "data": None,
         }
+
+
+# Stop text inference
+@router.post("/stop")
+async def stop_text(request: Request):
+    app: classes.FastAPIApp = request.app
+    llm = app.state.llm
+    if llm:
+        llm.abort_requested = True
+        process = llm.process
+        process_type = llm.process_type
+        if process_type == "completion" and process:
+            # Only terminate /completion processes
+            process.terminate()
+            process = None
+        elif process_type == "chat":
+            # Otherwise send "turn" command to cli to pause the chat
+            await llm.pause_text_chat()
+    return {
+        "success": True,
+        "message": f"Closed connection and stopped inference.",
+        "data": None,
+    }
+
+
+# Remove request from queue
+async def complete_request(app: classes.FastAPIApp):
+    """Remove the last request and complete the task."""
+    print(f"{common.PRNT_API} Request completed", flush=True)
+    app.state.request_queue.get_nowait()
+    app.state.request_queue.task_done()  # Signal the end of requests
+    await app.state.request_queue.join()  # Wait for all tasks to complete
+    return

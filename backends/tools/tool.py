@@ -2,6 +2,7 @@ import os
 import re
 import json
 import importlib.util
+from fastapi import Request
 from typing import Any, Awaitable, List, Optional, Type
 from pydantic import BaseModel
 from core import common
@@ -32,7 +33,8 @@ class Tool:
     4. Finally, return the function's results along with a text version.
     """
 
-    def __init__(self):
+    def __init__(self, request: Request):
+        self.request = request
         self.filename: str = None
         self.func_definition: ToolFunctionSchema = None
         self.func: Awaitable[Any] = None
@@ -62,6 +64,7 @@ class Tool:
             prompt=prompt,
             system_message=system_message,
             stream=False,
+            request=self.request,
         )
         content = [item async for item in response]
         data = content[0].get("data")
@@ -113,6 +116,7 @@ class Tool:
             prompt=prompt,
             system_message=system_message,
             stream=False,
+            request=self.request,
         )
         content = [item async for item in response]
         data = content[0].get("data")
@@ -255,7 +259,8 @@ class Tool:
                 prompt=tool_prompt,
                 system_message=system_message,
                 stream=False,
-                tools=tool_args_str,  # for native func calling @TODO May need a special conversion func for args
+                request=self.request,
+                native_tool_defs=tool_args_str,  # for native func calling @TODO May need a special conversion func for args
             )
             content: List[dict] = [item async for item in llm_tool_use_response]
             data: AgentOutput = content[0].get("data")

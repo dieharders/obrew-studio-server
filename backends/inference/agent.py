@@ -36,22 +36,11 @@ class Agent:
         query_prompt = prompt
         tool_call_result = None
 
-        # Handles requests sequentially and streams responses using SSE
-        if self.llm.request_queue.qsize() > 0:
-            print(f"{common.PRNT_API} Too many requests, please wait.", flush=True)
-            return {
-                "message": "Too many requests, please wait.",
-                "success": False,
-                "data": None,
-            }
-        # Add request to queue
-        await self.llm.request_queue.put(request)
-
         #########################################################
         # Return tool assisted response if any tools are assigned
         #########################################################
         if self.has_tools:
-            tool = Tool()
+            tool = Tool(request)
             assigned_tool: ToolDefinition = None
             all_installed_tool_defs: List[ToolDefinition] = (
                 get_all_tool_definitions().get("data")
@@ -116,7 +105,7 @@ class Agent:
             return tool_call_result
 
         #######################################
-        # Perform normal un-assisted generation
+        # Or, Perform normal un-assisted generation
         #######################################
         if prompt_template:
             # Assign the agent's template to the prompt
@@ -129,6 +118,7 @@ class Agent:
                     prompt=query_prompt,
                     system_message=system_message,
                     stream=streaming,
+                    request=request,
                 )
                 # Return streaming response
                 if streaming:
@@ -136,11 +126,13 @@ class Agent:
                 # Return complete response
                 content = [item async for item in response]
                 return content[0].get("data")
+            # Long running conversation that remembers discussion history
             case CHAT_MODES.CHAT.value:
                 response = await self.llm.text_chat(
                     prompt=query_prompt,
                     system_message=system_message,
                     stream=streaming,
+                    request=request,
                 )
                 # Return streaming response
                 if streaming:

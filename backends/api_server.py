@@ -3,6 +3,7 @@ import signal
 import sys
 import json
 import uvicorn
+import asyncio
 import httpx
 from collections.abc import Callable
 from fastapi import (
@@ -86,6 +87,7 @@ class ApiServer:
             print(f"{common.PRNT_API} Lifespan startup", flush=True)
             # Initialize global data here
             app.state.api = self
+            app.state.request_queue = asyncio.Queue()
             app.state.db_client = None
             app.state.llm = None  # Set each time user loads a model
             app.state.embed_model = None
