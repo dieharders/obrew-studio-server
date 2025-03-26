@@ -5,7 +5,7 @@ from enum import Enum
 from types import NoneType
 from fastapi import FastAPI
 from typing import List, Optional, Union, Type
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 from chromadb import Collection
 from chromadb.api import ClientAPI
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -534,6 +534,9 @@ class ToolFunctionParameter(BaseModel):
 class ToolFunctionSchema(BaseModel):
     description: Optional[str] = None
     params: List[ToolFunctionParameter]
+    # Tool use
+    json_schema: Optional[str] = None
+    typescript_schema: Optional[str] = None
     # Schema for params to pass for tool use
     params_schema: Optional[dict] = None
     # All required params with example values

@@ -35,6 +35,7 @@ class LLAMA_CPP:
         active_role: str,  # ACTIVE_ROLES
         response_mode: str,  # CHAT_MODES
         raw: bool,  # user can send manually formatted messages
+        tool_schema_type: str = None,  # Determines which format of func definition should be applied
         # template converts messages to prompts
         message_format: Optional[dict] = {},
         is_tool_capable=False,  # Whether model was trained for native func calling
@@ -70,6 +71,7 @@ class LLAMA_CPP:
             init_kwargs["--threads"] = n_threads
             init_kwargs["--threads-batch"] = n_threads
         # Assign vars
+        self.tool_schema_type = tool_schema_type
         self.is_tool_capable = is_tool_capable
         self.max_empty = 100
         self.chat_history = None

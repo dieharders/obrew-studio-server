@@ -1,6 +1,7 @@
 import os
 import re
 import json
+from enum import Enum
 import importlib.util
 from fastapi import Request
 from typing import Any, Awaitable, List, Optional, Type
@@ -18,8 +19,13 @@ example_schema = {TOOL_NAME: "name"}
 TOOL_CHOICE_SCHEMA = f"```json\n{json.dumps(example_schema, indent=4)}\n```"
 
 
+class TOOL_SCHEMA_TYPE(str, Enum):
+    TYPESCRIPT = "typescript"
+    JSON = "json"
+
+
 # Handles reading, loading and execution of tool functions and their core deps (if any).
-# @TODO May have better luck co-ercing Gemma3 using:
+# @TODO May have better luck coercing Gemma3 using:
 # https://www.reddit.com/r/LocalLLaMA/comments/1jauy8d/giving_native_tool_calling_to_gemma_3_or_really/
 # and https://www.philschmid.de/gemma-function-calling
 class Tool:
@@ -33,7 +39,7 @@ class Tool:
     4. Finally, return the function's results along with a text version.
     """
 
-    def __init__(self, request: Request):
+    def __init__(self, request: Optional[Request] = None):
         self.request = request
         self.filename: str = None
         self.func_definition: ToolFunctionSchema = None
@@ -144,6 +150,7 @@ class Tool:
 
     # Read the pydantic model for the tool from a file
     def read_function(self, filename: str) -> ToolFunctionSchema:
+        """Reads a tool's pydantic function from python file, constructs schemas, and outputs a tool schema definition."""
         self.filename = filename
 
         try:
@@ -160,6 +167,7 @@ class Tool:
                 example_tool_schema = examples[0]
             properties: dict = schema.get("properties", dict)
             # Make params
+            func_name = filename.split(".")[0]
             params = []
             tool_schema = dict()
             for prop in properties.items():
@@ -182,7 +190,7 @@ class Tool:
             return_type = func.__annotations__.get("return")
             return_type_name = func.__annotations__.get("return").__name__
             if return_type_name == "Union":
-                # @TODO Make this into an array of strings
+                # @TODO Make "return_type" this into an array of strings
                 output_types = [str(return_type)]
             else:
                 output_types = [return_type_name]
@@ -196,6 +204,17 @@ class Tool:
                 "params_schema": tool_schema,
                 # All required params with example values
                 "params_example": example_tool_schema,
+                # Tool schemas
+                "typescript_schema": tool_to_typescript_schema(
+                    name=func_name,
+                    description=tool_description,
+                    params=params,
+                ),
+                "json_schema": tool_to_json_schema(
+                    name=func_name,
+                    description=tool_description,
+                    params=params,
+                ),
                 # The return type of the output
                 "output_type": output_types,
             }
@@ -241,8 +260,13 @@ class Tool:
             tool_example_json = json.dumps(params_example_dict, indent=4)
             tool_example_str = f"```json\n{tool_example_json}\n```"
             tool_args_str = schema_to_markdown(params_schema_dict)
-            tool_prompt = query
+            # Determine schema format to use for native func calling
+            if llm.tool_schema_type == TOOL_SCHEMA_TYPE.TYPESCRIPT.value:
+                tool_native_args_str = tool_def.get("typescript_schema", "")
+            else:
+                tool_native_args_str = tool_def.get("json_schema", "")
             # Inject template args into prompt template (Universal func calling)
+            tool_prompt = query
             if not llm.is_tool_capable:
                 tool_prompt = universal_tool_template.replace(KEY_PROMPT_MESSAGE, query)
                 tool_prompt = tool_prompt.replace(TOOL_ARGUMENTS, tool_args_str)
@@ -260,7 +284,7 @@ class Tool:
                 system_message=system_message,
                 stream=False,
                 request=self.request,
-                native_tool_defs=tool_args_str,  # for native func calling @TODO May need a special conversion func for args
+                native_tool_defs=tool_native_args_str,  # for native func calling
             )
             content: List[dict] = [item async for item in llm_tool_use_response]
             data: AgentOutput = content[0].get("data")
@@ -401,6 +425,57 @@ def parse_structured_llm_response(
         raise Exception("No JSON block found!")
 
 
+# Conversion func to translate our tool def to a native tool (openai compatible) json schema.
+# Most models will likely use this, but some, like Functionary use other formats.
+def tool_to_json_schema(name: str, description: str, params: List[dict]) -> str:
+    # Construct parameters
+    properties = {}
+    required = []
+    for param in params:
+        param_name = param["name"]
+        param_type = param["type"]
+        param_description = param["description"]
+        param_schema = {"type": param_type, "description": param_description}
+        properties[param_name] = param_schema
+        required.append(param_name)
+    # Construct new schema
+    # @TODO Add output type
+    native_schema = {
+        "type": "function",
+        "function": {
+            "name": name,
+            "description": description,
+            "parameters": {
+                "type": "object",  # For now, props all passed as object
+                "properties": properties,
+                "required": required,
+            },
+        },
+    }
+    return json.dumps(native_schema)
+
+
+# Conversion func to translate our tool def to a native tool (typescript) schema
+def tool_to_typescript_schema(name: str, description: str, params: List[dict]) -> str:
+    # Construct parameters
+    properties = ""
+    output_type = "any"  # @TODO Define output type
+    for param in params:
+        param_name = param["name"]
+        param_type = param["type"]
+        param_description = param["description"]
+        param_str = f"// {param_description}\n{param_name}: {param_type},"
+        properties += f"\n{param_str}"
+    # Construct new schema
+    native_schema = f"""// {description}
+type {name} = (_: {{
+{properties}
+}}) => {output_type};"""
+    # Result
+    return native_schema
+
+
+# Convert a tool's schema to markdown text
 def schema_to_markdown(schema: dict) -> str:
     result = ""
     for index, pname in enumerate(schema):

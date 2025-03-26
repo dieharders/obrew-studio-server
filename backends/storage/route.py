@@ -13,7 +13,7 @@ router = APIRouter()
 BOT_SETTINGS_FILE_NAME = "bots.json"
 
 
-# Save tool settings
+# Save tool  to disk.
 @router.post("/tool-settings")
 def save_tool_definition(
     tool_def: classes.ToolDefinition,

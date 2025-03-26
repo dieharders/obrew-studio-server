@@ -22,7 +22,6 @@ from inference.classes import (
 
 def get_model_install_config(model_id: str = None) -> dict:
     try:
-
         # Get the config for the model
         config_path = common.dep_path(os.path.join("public", "text_model_configs.json"))
         with open(config_path, "r") as file:
@@ -32,11 +31,17 @@ def get_model_install_config(model_id: str = None) -> dict:
             config = text_models[model_id]
             message_format = config["messageFormat"]
             model_name = config["name"]
-            tags = config["tags"]
+            tags = config.get("tags")
+            repoId = config.get("repoId", "")
+            toolSchemaType = config.get("toolSchemaType", "")
+            description = config.get("description", "")
             return dict(
                 message_format=message_format,
+                description=description,
+                id=repoId,
                 model_name=model_name,
                 models=text_models,
+                tool_schema_type=toolSchemaType,
                 tags=tags,
             )
     except Exception as err:
@@ -191,6 +196,7 @@ async def load_text_inference(
         model_config = get_model_install_config(model_id)
         message_format_id = model_config["message_format"]
         model_name = model_config["model_name"]
+        tool_schema_type = model_config.get("tool_schema_type")
         # Load the prompt formats
         message_template = get_prompt_formats(message_format_id)
         # Load the specified Ai model using a specific inference backend
@@ -199,8 +205,9 @@ async def load_text_inference(
             model_path=modelPath,
             model_name=model_name,
             model_id=model_id,
+            tool_schema_type=tool_schema_type,
             is_tool_capable="tool-calling" in model_config.get("tags", []),
-            # debug=True,  # For testing
+            # debug=True,  # For testing, @TODO Add a toggle in webui for this
             response_mode=data.responseMode,
             active_role=data.activeRole,
             raw=data.raw,
