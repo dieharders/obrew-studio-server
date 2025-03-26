@@ -156,7 +156,16 @@
     "repoId": "meetkai/functionary-small-v3.2-GGUF",
     "name": "Functionary Small v3.2 (tool-calling)",
     "description": "Functionary is a language model that can interpret and execute functions/plugins.\n\nThe model determines when to execute functions, whether in parallel or serially, and can understand their outputs. It only triggers functions as needed. Function definitions are given as JSON Schema Objects, similar to OpenAI GPT function calls.",
-    "messageFormat": "functionary",
+    "messageFormat": "functionaryV3",
+    "toolSchemaType": "typescript",
+    "tags": ["tool-calling"]
+  },
+  "meetkai/functionary-7b-v2-GGUF": {
+    "repoId": "meetkai/functionary-7b-v2-GGUF",
+    "name": "Functionary 7B v2 (tool-calling)",
+    "description": "Functionary is a language model that can interpret and execute functions/plugins.\n\nThe model determines when to execute functions, whether in parallel or serially, and can understand their outputs. It only triggers functions as needed. Function definitions are given as JSON Schema Objects, similar to OpenAI GPT function calls.",
+    "messageFormat": "functionaryV2",
+    "toolSchemaType": "typescript",
     "tags": ["tool-calling"]
   },
   "Qwen/QwQ-32B-GGUF": {

@@ -79,9 +79,13 @@
     "system": "<|im_start|>system\n{{system_message}}<|im_end|>\n",
     "user": "<|im_start|>user\n{{user_message}}<|im_end|>\n<|im_start|>assistant\n"
   },
-  "functionary": {
+  "functionaryV3": {
     "system": "<|start_header_id|>system<|end_header_id|>\n\nYou are capable of executing available function(s) if required.\nOnly execute function(s) when absolutely necessary.\nAsk for the required input to:recipient==all\nUse JSON for function arguments.\nRespond in this format:\n>>>${recipient}\n${content}\nAvailable functions:\n// Supported function definitions that should be called when necessary.\nnamespace functions {\n\n{{tool_defs}}\n\n} // namespace functions<|eot_id|>",
     "user": "<|start_header_id|>user<|end_header_id|>\n\n{{user_message}}"
+  },
+  "functionaryV2": {
+    "system": "<|from|>system\n<|recipient|>all\n<|content|>// Supported function definitions that should be called when necessary.\nnamespace functions {\n\n{{tool_defs}}\n\n} // namespace functions\n<|from|>system\n<|recipient|>all\n<|content|>{{system_message}}\n",
+    "user": "<|from|>user\n<|recipient|>all\n<|content|>{{user_message}}"
   },
   "qwen": {
     "system": "<|im_start|>system\n{{system_message}}<|im_end|>\n",
