@@ -48,47 +48,57 @@ class Agent:
             assigned_tool_defs = [
                 item for item in all_installed_tool_defs if item["name"] in self.tools
             ]
-            # Choose a tool to use
-            if len(self.tools) == 1:
-                # Always use the first tool if only one is assigned
-                chosen_tool_name = self.tools[0]
+            # If llm has native tool calling, allow it to choose from all assigned tools
+            if self.llm.is_tool_capable:
+                tool_call_result = await tool.native_call(
+                    llm=self.llm, tool_defs=assigned_tool_defs, query=prompt
+                )
+                print(
+                    f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4)}"
+                )
             else:
-                # Based on active_role, have LLM choose the appropriate tool based on their descriptions and prompt or explicit instruction within the prompt.
-                match (self.active_role):
-                    case ACTIVE_ROLES.AGENT.value:
-                        # Choose the best tool based on each description and the needs of the prompt
-                        chosen_tool_name = await tool.choose_tool_from_description(
-                            llm=self.llm,
-                            query_prompt=query_prompt,
-                            assigned_tools=assigned_tool_defs,
-                        )
-                    case ACTIVE_ROLES.WORKER.value:
-                        # Use only the tool specified in a users query
-                        chosen_tool_name = await tool.choose_tool_from_query(
-                            llm=self.llm,
-                            query_prompt=query_prompt,
-                            assigned_tools=assigned_tool_defs,
-                        )
-                    case _:
-                        # Default - None or unknown role specified
-                        chosen_tool_name = self.tools[0]
-            # Get the function associated with the chosen tool name
-            assigned_tool = next(
-                (
-                    item
-                    for item in assigned_tool_defs
-                    if item["name"] == chosen_tool_name
-                ),
-                None,
-            )
-            # Execute the tool. For now tool use is limited to one chosen tool.
-            # @TODO In future we could have MultiTool(tools=tools) which can execute multiple chained tools.
-            tool_call_result = await tool.call(
-                llm=self.llm, tool_def=assigned_tool, query=prompt
-            )
-            print(
-                f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4)}"
-            )
+                # Choose a tool to use
+                if len(self.tools) == 1:
+                    # Always use the first tool if only one is assigned
+                    chosen_tool_name = self.tools[0]
+                else:
+                    # Based on active_role, have LLM choose the appropriate tool based on their descriptions and prompt or explicit instruction within the prompt.
+                    match (self.active_role):
+                        case ACTIVE_ROLES.AGENT.value:
+                            # Choose the best tool based on each description and the needs of the prompt
+                            chosen_tool_name = await tool.choose_tool_from_description(
+                                llm=self.llm,
+                                query_prompt=query_prompt,
+                                assigned_tools=assigned_tool_defs,
+                            )
+                        case ACTIVE_ROLES.WORKER.value:
+                            # @TODO Pass the desired tool as override "selectedTool" with request instead of querying llm in a prompt.
+                            # Use only the tool specified in a users query
+                            chosen_tool_name = await tool.choose_tool_from_query(
+                                llm=self.llm,
+                                query_prompt=query_prompt,
+                                assigned_tools=assigned_tool_defs,
+                            )
+                        case _:
+                            # Default - None or unknown role specified
+                            chosen_tool_name = self.tools[0]
+                # Get the function associated with the chosen tool name
+                assigned_tool = next(
+                    (
+                        item
+                        for item in assigned_tool_defs
+                        if item["name"] == chosen_tool_name
+                    ),
+                    None,
+                )
+                # Execute the tool. For now tool use is limited to one chosen tool.
+                # @TODO In future we could have MultiTool(tools=tools) which can execute multiple chained tools.
+                tool_call_result = await tool.universal_call(
+                    llm=self.llm, tool_def=assigned_tool, query=prompt
+                )
+                print(
+                    f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4)}"
+                )
             # Return streamed result
             if streaming:
                 payload = {

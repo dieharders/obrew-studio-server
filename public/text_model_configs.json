@@ -168,6 +168,14 @@
     "toolSchemaType": "typescript",
     "tags": ["tool-calling"]
   },
+  "MadeAgents/Hammer2.1-1.5b": {
+    "repoId": "MadeAgents/Hammer2.1-1.5b",
+    "name": "Hammer 1.5B v2.1 (tool-calling)",
+    "description": "Hammer refers to a series of lightweight Large Action Models. Currently, we are releasing Hammer 2.1 models (0.5B, 1.5B, 3B, and 7B) with strong function calling capability. These models are based on the Qwen 2.5 coder series and utilize function masking techniques and other advanced technologies. Hammer 2.1 series bring significant enhancements, while still maintaining the basic functionality of Hammer 2.0's Single-Turn interaction and further strengthening other capabilities.",
+    "messageFormat": "hammer2",
+    "toolSchemaType": "json",
+    "tags": ["tool-calling"]
+  },
   "Qwen/QwQ-32B-GGUF": {
     "repoId": "Qwen/QwQ-32B-GGUF",
     "name": "QwQ 32B (reasoning)",

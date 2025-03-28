@@ -397,7 +397,7 @@ class LLAMA_CPP:
             # Bail if end of sequence token found
             if content.endswith(eos_token):
                 break
-            # Check CLI token
+            # Check CLI "turn" token
             if byte_text == ">":
                 marker_num += 1
                 # Bail if llama-cli ">" token found

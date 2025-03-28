@@ -123,8 +123,9 @@ class ApiServer:
     def shutdown(self, *args):
         try:
             print(f"{common.PRNT_API} Server forced to shutdown.", flush=True)
-            self.app.state.llm.unload()
-            os.kill(os.getpid(), signal.SIGTERM)  # or SIGINT
+            if self.app.state.llm:
+                self.app.state.llm.unload()
+                os.kill(os.getpid(), signal.SIGTERM)  # or SIGINT
         except Exception as e:
             print(
                 f"{common.PRNT_API} Failed to shutdown API server. Error: {e}",
