@@ -33,7 +33,7 @@ TOOL_CHOICE_SCHEMA = f"```json\n{json.dumps(example_schema, indent=4)}\n```"
 
 class TOOL_SCHEMA_TYPE(str, Enum):
     TYPESCRIPT = "typescript"
-    JSON = "json"
+    JSON = "json"  # openai format
 
 
 # Handles reading, loading and execution of tool functions and their core deps (if any).

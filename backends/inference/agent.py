@@ -114,11 +114,11 @@ class Agent:
             # Return entire result
             return tool_call_result
 
-        #######################################
+        ###########################################
         # Or, Perform normal un-assisted generation
-        #######################################
+        ###########################################
         if prompt_template:
-            # Assign the agent's template to the prompt
+            # Apply the agent's template to the prompt
             query_prompt = prompt_template.replace(KEY_PROMPT_MESSAGE, prompt)
 
         match (response_type):

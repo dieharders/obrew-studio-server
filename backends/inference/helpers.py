@@ -11,12 +11,14 @@ from inference.classes import (
 
 # Event names
 GENERATING_TOKENS = "GENERATING_TOKENS"
+GENERATING_CONTENT = "GENERATING_CONTENT"
+FEEDING_PROMPT = "FEEDING_PROMPT"
 
 # These are the supported template keys
 KEY_SYS_MESSAGE = "{{system_message}}"
 KEY_USER_MESSAGE = "{{user_message}}"  # Final message to send with prompt template applied to user's prompt
 KEY_PROMPT_MESSAGE = "{{user_prompt}}"  # User's query
-KEY_TOOL_MESSAGE = "{{tool_defs}}"  # @TODO Implement with prompt_to_ converter funcs
+KEY_TOOL_MESSAGE = "{{tool_defs}}"
 KEY_CONTEXT_MESSAGE = "{{context_str}}"  # used by tools and RAG
 
 
@@ -162,12 +164,27 @@ def messages_to_prompt(
     return "".join(string_messages)
 
 
-def make_chunk_payload(text: str) -> SSEResponse:
+def token_payload(text: str) -> SSEResponse:
     chunk = {"text": text}
-    # @TODO Add other attrs here...
 
     payload = {
         "event": GENERATING_TOKENS,
         "data": chunk,
     }
     return payload
+
+
+# Final text response. This should replace all previous text.
+def content_payload(text: str) -> SSEResponse:
+    # @TODO Add other attrs here...
+    content = {"text": text}
+
+    payload = {
+        "event": GENERATING_CONTENT,
+        "data": content,
+    }
+    return payload
+
+
+def event_payload(event_name: str) -> SSEResponse:
+    return {"event": event_name}

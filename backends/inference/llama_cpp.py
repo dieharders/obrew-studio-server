@@ -8,8 +8,13 @@ from fastapi import Request
 from typing import List, Optional
 from core import common
 from inference.helpers import (
+    FEEDING_PROMPT,
+    GENERATING_CONTENT,
+    GENERATING_TOKENS,
     completion_to_prompt,
-    make_chunk_payload,
+    event_payload,
+    token_payload,
+    content_payload,
     sanitize_kwargs,
 )
 from inference.classes import (
@@ -206,9 +211,6 @@ class LLAMA_CPP:
         print(f"{common.PRNT_LLAMA} Pausing chat generation")
         # Halts the process and returns control to user
         os.kill(self.process.pid, signal.CTRL_C_EVENT)
-        # @TODO This breaks out of generator loop, but the CLI continues to generate tokens.
-        # self.process.stdin.write(b"\x03")  # Windows
-        # await self.process.stdin.drain()
 
     # Send multi-turn messages by role. Message does not require formatting. Does not use tools.
     # Cannot reload chat history from cache.
@@ -377,7 +379,11 @@ class LLAMA_CPP:
         marker_num = 0
         decoder = codecs.getincrementaldecoder("utf-8")()
         eos_token = "[end of text]"  # Corresponds to special token (number 2) in LLaMa embedding
+        has_gen_started = False
+        # Start of generation
+        yield event_payload(FEEDING_PROMPT)
         while True:
+            # @TODO Check debug logs of llama.cpp for events
             # Handle abort signal or non-existent process
             aborted = await request.is_disconnected()
             if aborted or not self.process or self.abort_requested:
@@ -389,6 +395,9 @@ class LLAMA_CPP:
                 # Bail on empty
                 if not byte:
                     break
+                if not has_gen_started:
+                    has_gen_started = True
+                    yield event_payload(GENERATING_TOKENS)
                 # Read and parse bytes into text incrementally, handles multi-byte decoding
                 byte_text = decoder.decode(byte)
             # Stop incomplete bytes from passing
@@ -417,16 +426,17 @@ class LLAMA_CPP:
             content += byte_text
             # Send tokens
             if stream:
-                payload = make_chunk_payload(byte_text)
+                payload = token_payload(byte_text)
                 yield json.dumps(payload)  # streaming format expects json
         # Finally, send all tokens together
+        yield event_payload(GENERATING_CONTENT)
         content += decoder.decode(b"", final=True)
         content = content.rstrip(eos_token).strip()
         if not content:
             print(
                 f"{common.PRNT_LLAMA} No response from model. Check available memory or try offloading to CPU only."
             )
-        payload = make_chunk_payload(content)
+        payload = content_payload(content)
         if stream:
             yield json.dumps(payload)
         else:

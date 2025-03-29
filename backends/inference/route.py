@@ -512,7 +512,7 @@ async def stop_text(request: Request):
             await llm.pause_text_chat()
     return {
         "success": True,
-        "message": f"Closed connection and stopped inference.",
+        "message": "Closed connection and stopped inference.",
         "data": None,
     }
 
