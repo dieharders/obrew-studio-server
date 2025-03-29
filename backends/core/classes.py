@@ -647,7 +647,7 @@ class InstalledTextModelMetadata(BaseModel):
             "examples": [
                 {
                     "id": "llama2-13b",
-                    "savePath": "C:\\Project Files\\brain-dump-ai\\models\\llama-2-13b-chat.ggmlv3.q2_K.bin",
+                    "savePath": "C:\\project\\models\\llama-2-13b-chat.ggmlv3.q2_K.bin",
                     "numTimesRun": 0,
                     "isFavorited": False,
                 }

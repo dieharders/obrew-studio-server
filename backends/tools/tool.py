@@ -21,7 +21,10 @@ from tools.helpers import (
 )
 from core import common
 from core.classes import ToolDefinition, ToolFunctionSchema
-from inference.helpers import KEY_PROMPT_MESSAGE
+from inference.helpers import (
+    KEY_PROMPT_MESSAGE,
+    read_event_data,
+)
 from inference.llama_cpp import LLAMA_CPP
 from inference.classes import AgentOutput
 
@@ -88,7 +91,7 @@ class Tool:
             request=self.request,
         )
         content = [item async for item in response]
-        data = content[0].get("data")
+        data = read_event_data(content)
         # Parse out the json result using either regex or another llm call
         arguments_response_str = data.get("text")
         print(
@@ -140,7 +143,7 @@ class Tool:
             request=self.request,
         )
         content = [item async for item in response]
-        data = content[0].get("data")
+        data = read_event_data(content)
         # Parse out the json result using either regex or another llm call
         arguments_response_str = data.get("text")
         print(
@@ -263,8 +266,8 @@ class Tool:
             native_tool_defs=native_tool_defs,
         )
         content: List[dict] = [item async for item in llm_tool_use_response]
+        data = read_event_data(content)
         # Parse the output
-        data: AgentOutput = content[0].get("data")
         arguments_response_str = data.get("text")
         print(
             f"{common.PRNT_API} Native tool call structured output:\n{arguments_response_str}",
@@ -325,8 +328,8 @@ class Tool:
                 request=self.request,
             )
             content: List[dict] = [item async for item in llm_tool_use_response]
-            data: AgentOutput = content[0].get("data")
             # Parse out the json result using regex
+            data = read_event_data(content)
             arguments_response_str = data.get("text")
             print(
                 f"{common.PRNT_API} Universal tool call structured output:\n{arguments_response_str}",
@@ -345,7 +348,7 @@ class Tool:
             return dict(raw=func_call_result, text=str(func_call_result))
         else:
             # Call function with arguments provided by the tool and/or prompt
-            func_arguments = get_provided_args(prompt=query, tool_params=tool_params)
+            func_arguments = get_provided_args(args_str=query, tool_params=tool_params)
             func_call_result = await self.func(**func_arguments)
             # Return results
             return dict(raw=func_call_result, text=str(func_call_result))

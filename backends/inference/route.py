@@ -17,6 +17,7 @@ from inference.classes import (
     LoadInferenceResponse,
     LoadInferenceRequest,
     CHAT_MODES,
+    SSEResponse,
 )
 
 
@@ -428,7 +429,7 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
 async def generate_text(
     request: Request,
     payload: InferenceRequest,
-) -> AgentOutput | classes.GenericEmptyResponse:
+) -> SSEResponse | AgentOutput | classes.GenericEmptyResponse:
     app: classes.FastAPIApp = request.app
 
     try:
@@ -482,7 +483,7 @@ async def generate_text(
         # Return final answer
         return response
     except (KeyError, Exception) as err:
-        print(f"{common.PRNT_API} Error: {err}", flush=True)
+        print(f"{common.PRNT_API} Text Generation error: {err}", flush=True)
         # Cleanup/complete request
         await complete_request(app)
         if llm and llm.task_logging:

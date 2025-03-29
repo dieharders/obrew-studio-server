@@ -63,14 +63,14 @@ DEFAULT_SYSTEM_MESSAGE = """You are an AI assistant that answers questions in a 
 
 class AgentOutput(BaseModel):
     text: str  # current tokenized output or entire output
-    raw: Optional[Any] = None
-    logging: Optional[dict] = None
+    raw: Optional[Any] = None  # tokens, including template tokens
+    logging: Optional[List[str]] = None
     metrics: Optional[dict] = None
 
 
 class SSEResponse(BaseModel):
     event: str
-    data: AgentOutput
+    data: Optional[AgentOutput] = None
 
 
 class RagTemplateData(BaseModel):

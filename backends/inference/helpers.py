@@ -4,6 +4,7 @@ from typing import List, Optional, Sequence
 from core import common
 from inference.classes import (
     DEFAULT_SYSTEM_MESSAGE,
+    AgentOutput,
     ChatMessage,
     MessageRole,
     SSEResponse,
@@ -95,7 +96,6 @@ def completion_to_prompt(
 # ):
 #     """Convert a single user chat message to prompt by applying the model's format."""
 #     command = user_message.strip()
-
 #     if messageFormat:
 #         # Check if template includes a user message
 #         if messageFormat["user"] and messageFormat["user"].find(KEY_USER_MESSAGE) != -1:
@@ -104,7 +104,6 @@ def completion_to_prompt(
 #             )
 #         # @TODO Check if messageFormat includes {{tool_defs}}
 #         # @TODO Check if messageFormat includes {{context_str}}
-
 #     return f"{command}\\"
 
 
@@ -164,9 +163,16 @@ def messages_to_prompt(
     return "".join(string_messages)
 
 
+def tool_payload(data: str) -> SSEResponse:
+    payload = {
+        "event": GENERATING_CONTENT,
+        "data": data,
+    }
+    return payload
+
+
 def token_payload(text: str) -> SSEResponse:
     chunk = {"text": text}
-
     payload = {
         "event": GENERATING_TOKENS,
         "data": chunk,
@@ -178,7 +184,6 @@ def token_payload(text: str) -> SSEResponse:
 def content_payload(text: str) -> SSEResponse:
     # @TODO Add other attrs here...
     content = {"text": text}
-
     payload = {
         "event": GENERATING_CONTENT,
         "data": content,
@@ -188,3 +193,16 @@ def content_payload(text: str) -> SSEResponse:
 
 def event_payload(event_name: str) -> SSEResponse:
     return {"event": event_name}
+
+
+# Find the "data" in content matching the event
+def read_event_data(data_events: List[dict]) -> AgentOutput:
+    dataIndex = 0
+    for index, event in enumerate(data_events):
+        if event.get("event") == GENERATING_CONTENT and event.get("data"):
+            dataIndex = index
+            break
+    data: dict = data_events[dataIndex].get("data")
+    if not data:
+        raise Exception("No data returned.")
+    return data

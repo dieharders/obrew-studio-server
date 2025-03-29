@@ -180,6 +180,8 @@ class LLAMA_CPP:
         async for line in self.process.stderr:
             # Print logs in real-time
             print(f"{common.PRNT_LLAMA_LOG}", line.decode("utf-8").strip())
+            # @TODO Check debug logs of llama.cpp for events
+            # ...
 
     # Load a previous chat conversation
     # @TODO Not implemented, needs chat_to_completions(chat_history) to convert conversation to string
@@ -383,7 +385,6 @@ class LLAMA_CPP:
         # Start of generation
         yield event_payload(FEEDING_PROMPT)
         while True:
-            # @TODO Check debug logs of llama.cpp for events
             # Handle abort signal or non-existent process
             aborted = await request.is_disconnected()
             if aborted or not self.process or self.abort_requested:
@@ -429,7 +430,6 @@ class LLAMA_CPP:
                 payload = token_payload(byte_text)
                 yield json.dumps(payload)  # streaming format expects json
         # Finally, send all tokens together
-        yield event_payload(GENERATING_CONTENT)
         content += decoder.decode(b"", final=True)
         content = content.rstrip(eos_token).strip()
         if not content:
@@ -444,3 +444,6 @@ class LLAMA_CPP:
         # Cleanup
         if self.task_logging:
             self.task_logging.cancel()
+        # Only terminate cli if Instruct mode
+        if self.process and gen_type == "completion":
+            self.process.terminate()

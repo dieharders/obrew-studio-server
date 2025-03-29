@@ -4,13 +4,20 @@ from sse_starlette.sse import EventSourceResponse
 from fastapi import Request
 from storage.route import get_all_tool_definitions
 from tools.tool import Tool
-from inference.helpers import GENERATING_TOKENS, KEY_PROMPT_MESSAGE
-from inference.classes import ACTIVE_ROLES, CHAT_MODES, DEFAULT_ACTIVE_ROLE, AgentOutput
+from inference.helpers import KEY_PROMPT_MESSAGE, read_event_data, tool_payload
+from inference.classes import (
+    ACTIVE_ROLES,
+    CHAT_MODES,
+    DEFAULT_ACTIVE_ROLE,
+    AgentOutput,
+    SSEResponse,
+)
 from inference.llama_cpp import LLAMA_CPP
 from core import common
 from core.classes import ToolDefinition
 
 
+# @TODO Assign "logging": [], "metrics": {} to all final responses.
 class Agent:
     def __init__(
         self,
@@ -32,7 +39,7 @@ class Agent:
         streaming: bool,
         system_message: str,
         response_type: str,
-    ) -> AgentOutput:
+    ) -> AgentOutput | SSEResponse:
         query_prompt = prompt
         tool_call_result = None
 
@@ -101,16 +108,12 @@ class Agent:
                 )
             # Return streamed result
             if streaming:
-                payload = {
-                    "event": GENERATING_TOKENS,
-                    "data": tool_call_result,
-                }
 
-                async def chunk_payload():
+                async def payload_generator():
+                    payload = tool_payload(tool_call_result)
                     yield json.dumps(payload)
 
-                generator = chunk_payload()
-                return EventSourceResponse(generator)
+                return EventSourceResponse(payload_generator())
             # Return entire result
             return tool_call_result
 
@@ -135,7 +138,8 @@ class Agent:
                     return EventSourceResponse(response)
                 # Return complete response
                 content = [item async for item in response]
-                return content[0].get("data")
+                data = read_event_data(content)
+                return data
             # Long running conversation that remembers discussion history
             case CHAT_MODES.CHAT.value:
                 response = await self.llm.text_chat(
@@ -149,7 +153,8 @@ class Agent:
                     return EventSourceResponse(response)
                 # Return complete response
                 content = [item async for item in response]
-                return content[0].get("data")
+                data = read_event_data(content)
+                return data
             case CHAT_MODES.COLLAB.value:
                 # @TODO Add a mode for collaborate
                 # ...
