@@ -447,3 +447,4 @@ class LLAMA_CPP:
         # Only terminate cli if Instruct mode
         if self.process and gen_type == "completion":
             self.process.terminate()
+            self.process = None
