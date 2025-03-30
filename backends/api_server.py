@@ -3,6 +3,7 @@ import signal
 import sys
 import json
 import uvicorn
+import asyncio
 import httpx
 from collections.abc import Callable
 from fastapi import (
@@ -86,6 +87,7 @@ class ApiServer:
             print(f"{common.PRNT_API} Lifespan startup", flush=True)
             # Initialize global data here
             app.state.api = self
+            app.state.request_queue = asyncio.Queue()
             app.state.db_client = None
             app.state.llm = None  # Set each time user loads a model
             app.state.embed_model = None
@@ -121,8 +123,9 @@ class ApiServer:
     def shutdown(self, *args):
         try:
             print(f"{common.PRNT_API} Server forced to shutdown.", flush=True)
-            self.app.state.llm.unload()
-            os.kill(os.getpid(), signal.SIGTERM)  # or SIGINT
+            if self.app.state.llm:
+                self.app.state.llm.unload()
+                os.kill(os.getpid(), signal.SIGTERM)  # or SIGINT
         except Exception as e:
             print(
                 f"{common.PRNT_API} Failed to shutdown API server. Error: {e}",

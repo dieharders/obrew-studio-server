@@ -1,10 +1,11 @@
 import json
+import asyncio
 import httpx
 from enum import Enum
 from types import NoneType
 from fastapi import FastAPI
 from typing import List, Optional, Union, Type
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 from chromadb import Collection
 from chromadb.api import ClientAPI
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -36,9 +37,10 @@ class ApiServerClass(dict):
 
 class AppState(dict):
     requests_client: Type[httpx.Client]
+    request_queue: Type[asyncio.Queue] | None
     db_client: Type[ClientAPI] | None
     api: Type[ApiServerClass] | None
-    llm: Type[LLAMA_CPP] | None
+    llm: LLAMA_CPP | None
     embed_model: Type[HuggingFaceEmbedding] | str | None
 
 
@@ -532,6 +534,9 @@ class ToolFunctionParameter(BaseModel):
 class ToolFunctionSchema(BaseModel):
     description: Optional[str] = None
     params: List[ToolFunctionParameter]
+    # Tool use
+    json_schema: Optional[str] = None
+    typescript_schema: Optional[str] = None
     # Schema for params to pass for tool use
     params_schema: Optional[dict] = None
     # All required params with example values
@@ -642,7 +647,7 @@ class InstalledTextModelMetadata(BaseModel):
             "examples": [
                 {
                     "id": "llama2-13b",
-                    "savePath": "C:\\Project Files\\brain-dump-ai\\models\\llama-2-13b-chat.ggmlv3.q2_K.bin",
+                    "savePath": "C:\\project\\models\\llama-2-13b-chat.ggmlv3.q2_K.bin",
                     "numTimesRun": 0,
                     "isFavorited": False,
                 }

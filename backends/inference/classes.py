@@ -62,15 +62,15 @@ DEFAULT_SYSTEM_MESSAGE = """You are an AI assistant that answers questions in a 
 
 
 class AgentOutput(BaseModel):
-    text: str
-    raw: Optional[Any] = None
-    logging: Optional[dict] = None
+    text: str  # current tokenized output or entire output
+    raw: Optional[Any] = None  # tokens, including template tokens
+    logging: Optional[List[str]] = None
     metrics: Optional[dict] = None
 
 
 class SSEResponse(BaseModel):
     event: str
-    data: AgentOutput
+    data: Optional[AgentOutput] = None
 
 
 class RagTemplateData(BaseModel):
@@ -210,12 +210,12 @@ class InferenceRequest(BaseModel):
                     "tools": ["calculator"],
                     "responseMode": DEFAULT_CHAT_MODE,
                     "systemMessage": "You are a helpful Ai assistant.",
-                    "messageFormat": "<system> {{system_message}}\n<user> {{prompt}}",
-                    "promptTemplate": "Answer this question: {{query_str}}",
+                    "messageFormat": "<system> {{system_message}}\n<user> {{user_message}}",
+                    "promptTemplate": "Answer this question: {{user_prompt}}",
                     "ragPromptTemplate": {
                         "id": "summary",
                         "name": "Summary",
-                        "text": "This is a template: {{query_str}}",
+                        "text": "This is some context: {{context_str}}",
                     },
                     "messages": [
                         {"role": "user", "content": "What is meaning of life?"}

@@ -4,6 +4,7 @@ from typing import List, Optional, Sequence
 from core import common
 from inference.classes import (
     DEFAULT_SYSTEM_MESSAGE,
+    AgentOutput,
     ChatMessage,
     MessageRole,
     SSEResponse,
@@ -11,45 +12,20 @@ from inference.classes import (
 
 # Event names
 GENERATING_TOKENS = "GENERATING_TOKENS"
+GENERATING_CONTENT = "GENERATING_CONTENT"
+FEEDING_PROMPT = "FEEDING_PROMPT"
 
 # These are the supported template keys
 KEY_SYS_MESSAGE = "{{system_message}}"
-KEY_USER_MESSAGE = "{{prompt}}"  # @TODO change to "{{user_prompt}}"
-KEY_TOOL_MESSAGE = "{{tool_defs}}"  # @TODO Implement with prompt_to_ converter funcs
+KEY_USER_MESSAGE = "{{user_message}}"  # Final message to send with prompt template applied to user's prompt
+KEY_PROMPT_MESSAGE = "{{user_prompt}}"  # User's query
+KEY_TOOL_MESSAGE = "{{tool_defs}}"
+KEY_CONTEXT_MESSAGE = "{{context_str}}"  # used by tools and RAG
 
 
 class Message_Template(TypedDict):
     system: str
     user: str
-
-
-# This assumes one turn convo (question/answer) so system msg is included. Feed result to /completion.
-def completion_to_prompt(
-    user_message: str,
-    system_message: Optional[str] = None,
-    template: Optional[Message_Template] = None,
-):
-    """Convert user message to prompt by applying the model's template."""
-
-    try:
-        sys_msg = system_message or DEFAULT_SYSTEM_MESSAGE
-        prompt = ""
-
-        if template:
-            # Check if template includes a system message token and assign system message
-            if template["system"] and template["system"].find(KEY_SYS_MESSAGE) != -1:
-                prompt = template["system"].replace(KEY_SYS_MESSAGE, sys_msg.strip())
-            # Check if template includes a user message
-            if template["user"] and template["user"].find(KEY_USER_MESSAGE) != -1:
-                prompt += template["user"].replace(
-                    KEY_USER_MESSAGE, f"{sys_msg.strip()}\n\n{user_message.strip()}"
-                )
-            return prompt
-        else:
-            # No template, combine sys and user messages
-            return f"{sys_msg.strip()}\n\n{user_message.strip()}"
-    except Exception as e:
-        print(f"{common.PRNT_LLAMA} Error: {e}")
 
 
 def sanitize_kwargs(kwargs: dict) -> list[str]:
@@ -63,6 +39,72 @@ def sanitize_kwargs(kwargs: dict) -> list[str]:
         else:
             arr.extend([f"{key}", str(value)])
     return arr
+
+
+# This assumes one turn convo (question/answer) so system msg is included. Feed result to /completion.
+def completion_to_prompt(
+    user_message: str,
+    system_message: Optional[str] = "",
+    messageFormat: Optional[Message_Template] = None,
+    native_tool_defs: Optional[str] = "",
+):
+    """Convert user message to prompt by applying the model's format."""
+
+    try:
+        sys_msg = system_message  # or DEFAULT_SYSTEM_MESSAGE
+        prompt = ""
+
+        if messageFormat:
+            # Check if messageFormat includes a system message token and assign system message
+            if messageFormat["system"]:
+                if messageFormat["system"].find(KEY_SYS_MESSAGE) != -1 and sys_msg:
+                    prompt = messageFormat["system"].replace(
+                        KEY_SYS_MESSAGE, sys_msg.strip()
+                    )
+                else:
+                    # A template without token means it has sys message baked in
+                    prompt = messageFormat["system"]
+            elif sys_msg:
+                prompt = sys_msg.strip()
+            # Check if messageFormat includes tool_defs
+            if prompt.find(KEY_TOOL_MESSAGE) != -1:
+                prompt = prompt.replace(KEY_TOOL_MESSAGE, native_tool_defs)
+            # Check if messageFormat includes a user message
+            if (
+                messageFormat["user"]
+                and messageFormat["user"].find(KEY_USER_MESSAGE) != -1
+            ):
+                # Add prompt to sys message
+                prompt += messageFormat["user"].replace(
+                    KEY_USER_MESSAGE, user_message.strip()
+                )
+            # @TODO Check if messageFormat includes {{context_str}}
+            return prompt
+        else:
+            # No template, combine sys and user messages
+            if sys_msg:
+                return f"{sys_msg.strip()}\n\n{user_message.strip()}"
+            else:
+                return user_message.strip()
+    except Exception as e:
+        print(f"{common.PRNT_LLAMA} Error: {e}")
+
+
+# def chat_to_prompt(
+#     user_message: str,
+#     messageFormat: Optional[Message_Template] = None,
+# ):
+#     """Convert a single user chat message to prompt by applying the model's format."""
+#     command = user_message.strip()
+#     if messageFormat:
+#         # Check if template includes a user message
+#         if messageFormat["user"] and messageFormat["user"].find(KEY_USER_MESSAGE) != -1:
+#             command = messageFormat["user"].replace(
+#                 KEY_USER_MESSAGE, user_message.strip()
+#             )
+#         # @TODO Check if messageFormat includes {{tool_defs}}
+#         # @TODO Check if messageFormat includes {{context_str}}
+#     return f"{command}\\"
 
 
 # Convert structured chat conversation to prompt (str). Result would be fed to a /completion after loading its kv cache.
@@ -121,10 +163,45 @@ def messages_to_prompt(
     return "".join(string_messages)
 
 
-def make_chunk_payload(line_data: str) -> SSEResponse:
-    chunk = {"text": line_data}
+def tool_payload(data: str) -> SSEResponse:
+    payload = {
+        "event": GENERATING_CONTENT,
+        "data": data,
+    }
+    return payload
+
+
+def token_payload(text: str) -> SSEResponse:
+    chunk = {"text": text}
     payload = {
         "event": GENERATING_TOKENS,
         "data": chunk,
     }
     return payload
+
+
+# Final text response. This should replace all previous text.
+def content_payload(text: str) -> SSEResponse:
+    content = {"text": text}
+    payload = {
+        "event": GENERATING_CONTENT,
+        "data": content,
+    }
+    return payload
+
+
+def event_payload(event_name: str) -> SSEResponse:
+    return {"event": event_name}
+
+
+# Find the "data" in content matching the event
+def read_event_data(data_events: List[dict]) -> AgentOutput:
+    dataIndex = 0
+    for index, event in enumerate(data_events):
+        if event.get("event") == GENERATING_CONTENT and event.get("data"):
+            dataIndex = index
+            break
+    data: dict = data_events[dataIndex].get("data")
+    if not data:
+        raise Exception("No data returned.")
+    return data

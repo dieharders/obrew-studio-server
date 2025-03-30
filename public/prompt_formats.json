@@ -1,98 +1,106 @@
 {
   "deepseek-r1": {
     "system": "",
-    "user": "<｜User｜>{{prompt}}\n<｜Assistant｜>"
+    "user": "<｜User｜>{{user_message}}\n<｜Assistant｜>"
   },
   "deepseek-coder": {
     "system": "{{system_message}}\n",
-    "user": "### Instruction:\n{{prompt}}\n### Response:\n"
+    "user": "### Instruction:\n{{user_message}}\n### Response:\n"
   },
   "llama-3.2-instruct": {
     "system": "<|start_header_id|>system<|end_header_id|>\n{{system_message}}\n<|eot_id|>",
-    "user": "<|start_header_id|>user<|end_header_id|>\n\n{{prompt}}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+    "user": "<|start_header_id|>user<|end_header_id|>\n\n{{user_message}}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
   },
   "phi-4-instruct": {
     "system": "<|im_start|>system<|im_sep|>\n{{system_message}}<|im_end|>\n",
-    "user": "<|im_start|>user<|im_sep|>\n{{prompt}}<|im_end|>\n<|im_start|>assistant<|im_sep|>"
+    "user": "<|im_start|>user<|im_sep|>\n{{user_message}}<|im_end|>\n<|im_start|>assistant<|im_sep|>"
   },
   "mistral-0.1": {
     "system": "{{system_message}}\n\n",
-    "user": "{{prompt}}"
+    "user": "{{user_message}}"
   },
   "mistral-0.2-instruct": {
     "system": "<s>[INST] {{system_message}}\n\n",
-    "user": "{{prompt}} [/INST]"
+    "user": "{{user_message}} [/INST]"
   },
   "llama-2-13b-chat": {
     "system": "[INST] <<SYS>>\n{{system_message}}\n<</SYS>>\n",
-    "user": "{{prompt}} [/INST]"
+    "user": "{{user_message}} [/INST]"
   },
   "llama-2-7b-chat": {
     "system": "",
-    "user": "### HUMAN:\n{{prompt}}\n\n### RESPONSE:"
+    "user": "### HUMAN:\n{{user_message}}\n\n### RESPONSE:"
   },
   "llama-2-7b-instruct": {
     "system": "",
-    "user": "[INST] {{prompt}} [/INST]"
+    "user": "[INST] {{user_message}} [/INST]"
   },
   "code-llama": {
     "system": "",
-    "user": "{{prompt}}"
+    "user": "{{user_message}}"
   },
   "dolphin-2.6-mistral": {
     "system": "<|im_start|>system\n{{system_message}}<|im_end|>\n",
-    "user": "<|im_start|>user\n{{prompt}}<|im_end|>\n<|im_start|>assistant"
+    "user": "<|im_start|>user\n{{user_message}}<|im_end|>\n<|im_start|>assistant"
   },
   "mixtral-8x7b-instruct": {
     "system": "[INST] {{system_message}} ",
-    "user": "{{prompt}} [/INST]"
+    "user": "{{user_message}} [/INST]"
   },
   "wizardcoder-python": {
     "system": "{{system_message}}\n\n",
-    "user": "### Instruction:\n{{prompt}}\n\n### Response:\n"
+    "user": "### Instruction:\n{{user_message}}\n\n### Response:\n"
   },
   "luna-ai-llama2": {
     "system": "",
-    "user": "USER: {{prompt}}\nASSISTANT:"
+    "user": "USER: {{user_message}}\nASSISTANT:"
   },
   "openbuddy-openllama": {
     "system": "You can speak fluently in many languages, for example: English, Chinese.\nYour vast knowledge is cutoff: 2021-09.{{system_message}}\n\n",
-    "user": "User: {{prompt}}\nAssistant:"
+    "user": "User: {{user_message}}\nAssistant:"
   },
   "wizard-vicuna": {
     "system": "{{system_message}} ",
-    "user": "USER: {{prompt}} ASSISTANT:"
+    "user": "USER: {{user_message}} ASSISTANT:"
   },
   "orca-mini-v3": {
     "system": "### System:\n{{system_message}}\n\n",
-    "user": "### User:\n{{prompt}}\n\n### Assistant:"
+    "user": "### User:\n{{user_message}}\n\n### Assistant:"
   },
   "zephyr": {
     "system": "<|system|>\n{{system_message}}</s>\n",
-    "user": "<|user|>\n{{prompt}}</s>\n<|assistant|>\n"
+    "user": "<|user|>\n{{user_message}}</s>\n<|assistant|>\n"
   },
   "bling-sheared-llama-0.1": {
     "system": "",
-    "user": "<human>: {{prompt}}\n<bot>:"
+    "user": "<human>: {{user_message}}\n<bot>:"
   },
   "chatml": {
     "system": "<|im_start|>system\n{{system_message}}<|im_end|>\n",
-    "user": "<|im_start|>user\n{{prompt}}<|im_end|>\n<|im_start|>assistant\n"
+    "user": "<|im_start|>user\n{{user_message}}<|im_end|>\n<|im_start|>assistant\n"
   },
-  "functionary": {
-    "system": "<|start_header_id|>system<|end_header_id|>\n\nYou are capable of executing available function(s) if required.\nOnly execute function(s) when absolutely necessary.\nAsk for the required input to:recipient==all\nUse JSON for function arguments.\nRespond in this format:\n>>>${recipient}\n${content}\nAvailable functions:\n// Supported function definitions that should be called when necessary.\nnamespace functions {\n\n{{tool_defs}}\n\n} // namespace functions<|eot_id|>",
-    "user": "<|start_header_id|>user<|end_header_id|>\n\n{{prompt}}"
+  "functionaryV3": {
+    "system": "<|start_header_id|>system<|end_header_id|>\n\nYou are capable of executing available function(s) if required.\nOnly execute function(s) when absolutely necessary.\nAsk for the required input to:recipient==all\nUse JSON for function arguments.\nRespond in this format:\n>>>${recipient}\n${content}\nAvailable functions:\n// Supported function definitions that should be called when necessary.\nnamespace functions {{{tool_defs}}\n\n} // namespace functions<|eot_id|>",
+    "user": "<|start_header_id|>user<|end_header_id|>\n\n{{user_message}}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+  },
+  "functionaryV2": {
+    "system": "<|from|>system\n<|recipient|>all\n<|content|>// Supported function definitions that should be called when necessary.\nnamespace functions {{{tool_defs}}\n\n} // namespace functions\n<|from|>system\n<|recipient|>all\n<|content|>{{system_message}}\n",
+    "user": "<|from|>user\n<|recipient|>all\n<|content|>{{user_message}}<|from|>assistant\n<|recipient|>all<|content|>"
+  },
+  "hammer2": {
+    "system": "<|im_start|>system\n{{system_message}}<|im_end|>\n",
+    "user": "<|im_start|>user\n[BEGIN OF TASK INSTRUCTION]\nYou are a tool calling assistant. In order to complete the user's request, you need to select one or more appropriate tools from the following tools and fill in the correct values for the tool parameters. Your specific tasks are:\n1. Make one or more function/tool calls to meet the request based on the question.\n2. If none of the function can be used, point it out and refuse to answer.\n3. If the given question lacks the parameters required by the function, also point it out.\n\nThe following are characters that may interact with you\n1. user: Provides query or additional information.\n2. tool: Returns the results of the tool calling.\n[END OF TASK INSTRUCTION]\n\n[BEGIN OF TASK INSTRUCTION]\n\nThe output MUST strictly adhere to the following JSON format, and NO other text MUST be included.\nThe example format is as follows. Please make sure the parameter type is correct. If no function call is needed, please directly output an empty list '[]'\n```\n[\n    {\"name\": \"func_name1\", \"arguments\": {\"argument1\": \"value1\", \"argument2\": \"value2\"}},\n    ... (more tool calls as required)\n]\n[END OF TASK INSTRUCTION]\n\n<|im_end|>\n[BEGIN OF AVAILABLE_TOOLS]\n{{{tool_defs}}\n[END OF AVAILABLE_TOOLS]\n\n<|im_start|>user\n{{user_message}}<|im_end|>\n<|im_start|>assistant\n"
   },
   "qwen": {
     "system": "<|im_start|>system\n{{system_message}}<|im_end|>\n",
-    "user": "<|im_start|>user\n{{prompt}}<|im_end|>\n<|im_start|>assistant"
+    "user": "<|im_start|>user\n{{user_message}}<|im_end|>\n<|im_start|>assistant"
   },
   "gemma3": {
     "system": "",
-    "user": "<start_of_turn>user\n{{prompt}}<end_of_turn>\n<start_of_turn>model\n"
+    "user": "<start_of_turn>user\n{{user_message}}<end_of_turn>\n<start_of_turn>model\n"
   },
   "qwq": {
     "system": "",
-    "user": "<|im_start|>user\n{{prompt}}<|im_end|>\n<|im_start|>assistant\n<think>\n"
+    "user": "<|im_start|>user\n{{user_message}}<|im_end|>\n<|im_start|>assistant\n<think>\n"
   }
 }

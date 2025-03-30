@@ -58,7 +58,7 @@ class Params(BaseModel):
                 # first example for display in UI/documentation
                 {
                     "prompt": "Find me contact info for the head of HR.",
-                    "prompt_template": "{{prompt}}",
+                    "prompt_template": "{{user_prompt}}",
                     "strategy": "summarize",
                     "similarity_top_k": 3,
                     "memories": ["company_data"],

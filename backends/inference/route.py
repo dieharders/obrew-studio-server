@@ -17,12 +17,12 @@ from inference.classes import (
     LoadInferenceResponse,
     LoadInferenceRequest,
     CHAT_MODES,
+    SSEResponse,
 )
 
 
 def get_model_install_config(model_id: str = None) -> dict:
     try:
-
         # Get the config for the model
         config_path = common.dep_path(os.path.join("public", "text_model_configs.json"))
         with open(config_path, "r") as file:
@@ -32,8 +32,18 @@ def get_model_install_config(model_id: str = None) -> dict:
             config = text_models[model_id]
             message_format = config["messageFormat"]
             model_name = config["name"]
+            tags = config.get("tags")
+            repoId = config.get("repoId", "")
+            toolSchemaType = config.get("toolSchemaType", "")
+            description = config.get("description", "")
             return dict(
-                message_format=message_format, model_name=model_name, models=text_models
+                message_format=message_format,
+                description=description,
+                id=repoId,
+                model_name=model_name,
+                models=text_models,
+                tool_schema_type=toolSchemaType,
+                tags=tags,
             )
     except Exception as err:
         raise Exception(f"Error finding models list: {err}")
@@ -187,6 +197,7 @@ async def load_text_inference(
         model_config = get_model_install_config(model_id)
         message_format_id = model_config["message_format"]
         model_name = model_config["model_name"]
+        tool_schema_type = model_config.get("tool_schema_type")
         # Load the prompt formats
         message_template = get_prompt_formats(message_format_id)
         # Load the specified Ai model using a specific inference backend
@@ -195,7 +206,9 @@ async def load_text_inference(
             model_path=modelPath,
             model_name=model_name,
             model_id=model_id,
-            # debug=True,  # For testing
+            tool_schema_type=tool_schema_type,
+            is_tool_capable="tool-calling" in model_config.get("tags", []),
+            # debug=True,  # For testing, @TODO Add a toggle in webui for this
             response_mode=data.responseMode,
             active_role=data.activeRole,
             raw=data.raw,
@@ -416,7 +429,7 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
 async def generate_text(
     request: Request,
     payload: InferenceRequest,
-) -> AgentOutput | classes.GenericEmptyResponse:
+) -> SSEResponse | AgentOutput | classes.GenericEmptyResponse:
     app: classes.FastAPIApp = request.app
 
     try:
@@ -444,6 +457,17 @@ async def generate_text(
             print(f"{common.PRNT_API} Error: {msg}", flush=True)
             raise Exception(msg)
 
+        # Handles requests sequentially
+        if app.state.request_queue.qsize() > 0:
+            print(f"{common.PRNT_API} Too many requests, please wait.", flush=True)
+            return {
+                "message": "Too many requests, please wait.",
+                "success": False,
+                "data": None,
+            }
+        # Add request to queue
+        await app.state.request_queue.put(request)
+
         # Assign Agent
         agent = Agent(llm=llm, tools=assigned_tool_names, active_role=llm.active_role)
         response = await agent.call(
@@ -455,15 +479,50 @@ async def generate_text(
             response_type=response_type,
         )
         # Cleanup/complete request
-        await llm.complete_request()
+        await complete_request(app)
         # Return final answer
         return response
     except (KeyError, Exception) as err:
-        print(f"{common.PRNT_API} Error: {err}", flush=True)
+        print(f"{common.PRNT_API} Text Generation error: {err}", flush=True)
         # Cleanup/complete request
-        await llm.complete_request()
+        await complete_request(app)
+        if llm and llm.task_logging:
+            llm.task_logging.cancel()
         return {
             "success": False,
-            "message": f"Something went wrong. Reason: {err}",
+            "message": f"Text generation interrupted. Reason: {err}",
             "data": None,
         }
+
+
+# Stop text inference
+@router.post("/stop")
+async def stop_text(request: Request):
+    app: classes.FastAPIApp = request.app
+    llm = app.state.llm
+    if llm:
+        llm.abort_requested = True
+        process = llm.process
+        process_type = llm.process_type
+        if process_type == "completion" and process:
+            # Only terminate /completion processes
+            process.terminate()
+            process = None
+        elif process_type == "chat":
+            # Otherwise send "turn" command to cli to pause the chat
+            await llm.pause_text_chat()
+    return {
+        "success": True,
+        "message": "Closed connection and stopped inference.",
+        "data": None,
+    }
+
+
+# Remove request from queue
+async def complete_request(app: classes.FastAPIApp):
+    """Remove the last request and complete the task."""
+    print(f"{common.PRNT_API} Request completed", flush=True)
+    app.state.request_queue.get_nowait()
+    app.state.request_queue.task_done()  # Signal the end of requests
+    await app.state.request_queue.join()  # Wait for all tasks to complete
+    return

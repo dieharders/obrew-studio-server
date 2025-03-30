@@ -29,6 +29,12 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
                 "urlPath": "/v1/text/generate",
                 "method": "POST",
             },
+            # Stop text generation from Ai engine
+            {
+                "name": "stop",
+                "urlPath": "/v1/text/stop",
+                "method": "POST",
+            },
             # Load the specified Ai model into memory
             {
                 "name": "load",
