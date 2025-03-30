@@ -59,9 +59,6 @@ class Tool:
     def __init__(self, request: Optional[Request] = None):
         self.request = request
         self.filename: str = None
-        # @TODO Dont think we need these here
-        self.func_definition: ToolFunctionSchema = None
-        self.func: Awaitable[Any] = None
 
     # Used by Workers
     async def choose_tool_from_query(
@@ -214,7 +211,7 @@ class Tool:
                 output_types = [return_type_name]
 
             # Define tool
-            self.func_definition = {
+            func_definition = {
                 "description": tool_description,
                 # Tool parameters configurable by user
                 "params": params,
@@ -236,7 +233,7 @@ class Tool:
                 # The return type of the output
                 "output_type": output_types,
             }
-            return self.func_definition
+            return func_definition
         except Exception as err:
             print(f"{common.PRNT_API} Error loading tool function: {err}", flush=True)
             raise err
@@ -249,6 +246,7 @@ class Tool:
         query: str = "",
     ):
         native_tool_defs = ""
+        tool_func = load_function(tool_def.get("path", None))
         for tool_def in tool_defs:
             # Determine schema format to use for native func calling
             if llm.tool_schema_type == TOOL_SCHEMA_TYPE.TYPESCRIPT.value:
@@ -274,7 +272,7 @@ class Tool:
             flush=True,
         )
         parsed_llm_response = json.loads(arguments_response_str)
-        func_call_result = await self.func(**parsed_llm_response)
+        func_call_result = await tool_func(**parsed_llm_response)
         return dict(raw=func_call_result, text=str(func_call_result))
 
     # Execute the tool function with the provided arguments (if any)
@@ -285,8 +283,7 @@ class Tool:
         llm: Type[LLAMA_CPP] = None,
         query: str = "",
     ) -> AgentOutput:
-        self.func_definition = tool_def
-        self.func = load_function(tool_def.get("path", None))
+        tool_func = load_function(tool_def.get("path", None))
         # Determine if llm is required, if so call the function
         tool_params = tool_def.get("params", None)
         required_llm_arguments = get_llm_required_args(tool_params)
@@ -298,16 +295,16 @@ class Tool:
             TOOL_NAME = "{{tool_name_str}}"
             TOOL_DESCRIPTION = "{{tool_description_str}}"
             # Return schema for llm to respond with
-            tool_name_str = self.func_definition.get("name", "Tool")
-            tool_description_str = self.func_definition.get("description", "")
+            tool_name_str = tool_def.get("name", "Tool")
+            tool_description_str = tool_def.get("description", "")
             # Parse these to only include data from the required_llm_arguments list
             params_schema_dict = get_required_schema(
                 required=required_llm_arguments,
-                schema=self.func_definition.get("params_schema", dict()),
+                schema=tool_def.get("params_schema", dict()),
             )
             params_example_dict = get_required_examples(
                 required=required_llm_arguments,
-                example=self.func_definition.get("params_example", dict()),
+                example=tool_def.get("params_example", dict()),
             )
             # Convert func arguments to machine readable strings
             tool_example_json = json.dumps(params_example_dict, indent=4)
@@ -344,11 +341,11 @@ class Tool:
                 f"{common.PRNT_API} Calling tool function with arguments:\n{json.dumps(parsed_llm_response, indent=4)}",
                 flush=True,
             )
-            func_call_result = await self.func(**parsed_llm_response)
+            func_call_result = await tool_func(**parsed_llm_response)
             return dict(raw=func_call_result, text=str(func_call_result))
         else:
             # Call function with arguments provided by the tool and/or prompt
             func_arguments = get_provided_args(args_str=query, tool_params=tool_params)
-            func_call_result = await self.func(**func_arguments)
+            func_call_result = await tool_func(**func_arguments)
             # Return results
             return dict(raw=func_call_result, text=str(func_call_result))
