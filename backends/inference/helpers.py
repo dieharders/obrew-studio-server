@@ -182,7 +182,6 @@ def token_payload(text: str) -> SSEResponse:
 
 # Final text response. This should replace all previous text.
 def content_payload(text: str) -> SSEResponse:
-    # @TODO Add other attrs here...
     content = {"text": text}
     payload = {
         "event": GENERATING_CONTENT,
