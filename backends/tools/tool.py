@@ -2,7 +2,7 @@ import json
 from enum import Enum
 import importlib.util
 from fastapi import Request
-from typing import Any, Awaitable, List, Optional, Type
+from typing import List, Optional, Type
 from pydantic import BaseModel
 from tools.helpers import (
     TOOL_FUNCTION_NAME,
@@ -13,6 +13,7 @@ from tools.helpers import (
     get_required_schema,
     import_tool_function,
     load_function,
+    parse_json_block,
     parse_structured_llm_response,
     schema_to_markdown,
     tool_to_json_schema,
@@ -162,6 +163,47 @@ class Tool:
                 if chosen_tool:
                     return chosen_tool
             raise err
+
+    async def choose_and_call(
+        self,
+        tool_defs: List[ToolDefinition],
+        llm: Type[LLAMA_CPP] = None,
+        query: str = "",
+    ):
+        tool_schemas = ""
+        tool_funcs = dict()
+        # Use json schema format for structured output
+        for tool_def in tool_defs:
+            name = tool_def.get("name")
+            tool_funcs[name] = load_function(tool_def.get("path", None))
+            def_json_str = tool_def.get("json_schema", "")
+            # def_schema_description = f"```json\n{json.dumps(def_json_str, indent=4)}\n```"
+            tool_schemas += f"\n\n{def_json_str}"
+        output_schema_str = '{\n"tool_choice": str,\n"tool_parameters": dict\n}'
+        prompt = f"# Tool descriptions:\n\n{tool_schemas}\n# User query:\n\n{query}\n\n# Chosen tool schema:\n\n"
+        system_message = f"Determine if the user query contains a request or an expression of need for a tool and use the chosen tool schema to output in JSON format: {output_schema_str}."
+        # Prompt the LLM for a response using the tool's schema.
+        # A lower temperature is better for tool use.
+        llm_tool_use_response = await llm.text_completion(
+            system_message=system_message,
+            prompt=prompt,
+            stream=False,
+            request=self.request,
+        )
+        content: List[dict] = [item async for item in llm_tool_use_response]
+        data = read_event_data(content)
+        # Parse the output
+        arguments_response_str = data.get("text")
+        print(
+            f"{common.PRNT_API} Universal (Agent) tool call structured output:\n{arguments_response_str}",
+            flush=True,
+        )
+        parsed_llm_response = parse_json_block(arguments_response_str)
+        chosen_tool_name = parsed_llm_response.get("tool_choice")
+        chosen_tool_params = parsed_llm_response.get("tool_parameters")
+        tool_func = tool_funcs[chosen_tool_name]
+        func_call_result = await tool_func(**chosen_tool_params)
+        return dict(raw=func_call_result, text=str(func_call_result))
 
     # Read the pydantic model for the tool from a file
     def read_function(self, filename: str) -> ToolFunctionSchema:

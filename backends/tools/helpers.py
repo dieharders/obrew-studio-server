@@ -85,9 +85,47 @@ def tool_to_markdown(tool_list: List[ToolDefinition], include_code=False):
     return markdown_string
 
 
+def parse_json_block(text):
+    # Try different possible patterns for the JSON code block
+    patterns = [
+        r"```json\n(.*?)```",  # Standard format
+        r"```json\r\n(.*?)```",  # Windows line endings
+        r"`{3}json\n(.*?)`{3}",  # Alternative backtick representation
+        r"`{3}json\r\n(.*?)`{3}",  # Windows line endings with alternative representation
+        r"```\s*json\s*\n(.*?)```",  # With potential whitespace
+        r"```\s*json\s*\r\n(.*?)```",  # Windows line endings with whitespace
+    ]
+
+    json_str = text
+    for pattern in patterns:
+        result = re.sub(pattern, r"\1", text, flags=re.DOTALL)
+        # Success
+        if result != text:  # If any change was made
+            json_str = result
+
+    # If none of the above patterns worked, try a more aggressive approach
+    if not json_str:
+        json_str = re.sub(
+            r"`{1,3}\s*json\s*\r?\n(.*?)`{1,3}", r"\1", text, flags=re.DOTALL
+        )
+        # If still no change, fail, etc
+        # if json_str == text:
+        # raise Exception("No pattern matched.")
+
+    # Clean up
+    json_str = result.strip()
+
+    # Convert JSON block back to a dictionary to ensure it's valid JSON
+    try:
+        json_object: dict = json.loads(json_str)
+        return json_object
+    except json.JSONDecodeError as e:
+        raise Exception("Invalid JSON.")
+
+
 # Parse out the json from llm tool call response using either regex or another llm call
 def parse_structured_llm_response(
-    arguments_str: str, allowed_arguments: List[str]
+    arguments_str: str, allowed_arguments: List[str] = []
 ) -> dict:
     pattern_object = r"({.*?})"
     pattern_json_object = r"\`\`\`json\n({.*?})\n\`\`\`"
@@ -112,9 +150,10 @@ def parse_structured_llm_response(
             # Remove any unrelated keys from json
             json_object: dict = json.loads(json_block)
             # Filter out keys not in the allowed_keys set
-            filtered_json_object = {
-                k: v for k, v in json_object.items() if k in allowed_arguments
-            }
+            if len(allowed_arguments) > 0:
+                filtered_json_object = {
+                    k: v for k, v in json_object.items() if k in allowed_arguments
+                }
             return filtered_json_object
         except json.JSONDecodeError as e:
             raise Exception("Invalid JSON.")
