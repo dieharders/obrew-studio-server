@@ -38,6 +38,11 @@ class CHAT_MODES(str, Enum):
     COLLAB = "collab"
 
 
+class TOOL_RESPONSE_MODES(str, Enum):
+    ANSWER = "answer"
+    RESULT = "result"
+
+
 class ACTIVE_ROLES(str, Enum):
     WORKER = "worker"
     AGENT = "agent"
@@ -45,6 +50,7 @@ class ACTIVE_ROLES(str, Enum):
 
 DEFAULT_TEMPERATURE = 0.8
 DEFAULT_CHAT_MODE = CHAT_MODES.INSTRUCT.value
+DEFAULT_TOOL_RESPONSE_MODE = TOOL_RESPONSE_MODES.ANSWER.value
 DEFAULT_ACTIVE_ROLE = ACTIVE_ROLES.AGENT.value
 DEFAULT_MAX_TOKENS = (
     -2
@@ -165,6 +171,7 @@ class InferenceRequest(BaseModel):
     # homebrew server specific args
     tools: Optional[List[str]] = []
     responseMode: Optional[str] = DEFAULT_CHAT_MODE
+    toolResponseMode: Optional[str] = DEFAULT_TOOL_RESPONSE_MODE
     systemMessage: Optional[str] = None
     messageFormat: Optional[str] = None
     promptTemplate: Optional[str] = None

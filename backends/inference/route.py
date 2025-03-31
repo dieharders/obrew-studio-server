@@ -434,6 +434,9 @@ async def generate_text(
 
     try:
         response_type = payload.responseMode  # conversation type
+        tool_response_type = (
+            payload.toolResponseMode
+        )  # how response from tool is handled
         streaming = payload.stream
         system_message = payload.systemMessage
         prompt = payload.prompt
@@ -469,6 +472,7 @@ async def generate_text(
         await app.state.request_queue.put(request)
 
         # Assign Agent
+        # @TODO does active_role need passing here or in each .call() ?
         agent = Agent(llm=llm, tools=assigned_tool_names, active_role=llm.active_role)
         response = await agent.call(
             request=request,
@@ -477,6 +481,7 @@ async def generate_text(
             prompt_template=prompt_template,
             streaming=streaming,
             response_type=response_type,
+            tool_response_type=tool_response_type,
         )
         # Cleanup/complete request
         await complete_request(app)
