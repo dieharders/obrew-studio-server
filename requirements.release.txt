@@ -1,5 +1,7 @@
 # Use Python version 3.12.8
 #
+# Handling ai responses
+json_repair==0.40.0
 # UUID
 nanoid==2.0.0
 # QR-code image gen
