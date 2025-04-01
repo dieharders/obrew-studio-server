@@ -113,8 +113,12 @@ def parse_json_block(text: str):
 
     # Try the raw response
     try:
-        result_dict = json.loads(json_str.strip())
-        return result_dict
+        # Check if response starts/ends with {}
+        t = text.strip()
+        is_object = t.startswith("{") and t.endswith("}")
+        if is_object:
+            result_dict = repair_json(json_str, return_objects=True)
+            return result_dict
     except:
         pass
 
@@ -142,10 +146,9 @@ def parse_json_block(text: str):
     try:
         # Clean up
         json_str = strip_extra_chars(json_str)
-        # https://github.com/mangiucugna/json_repair
-        json_str = repair_json(json_str)
         # Convert JSON block back to a dictionary to ensure it's valid JSON
-        json_object: dict = json.loads(json_str)
+        # https://github.com/mangiucugna/json_repair
+        json_object = repair_json(json_str, return_objects=True)
         return json_object
     except json.JSONDecodeError as e:
         raise Exception("Invalid JSON.")
@@ -241,15 +244,16 @@ def get_required_schema(required: List[str], schema: dict) -> dict:
     return result
 
 
-def get_provided_args(args_str: str, tool_params: dict):
+def get_provided_args(prompt: str, tool_params: List[dict]):
     provided_arguments = dict()
-    for pname in tool_params:
-        value = tool_params[pname].get("value", None)
-        if pname == "prompt":
-            provided_arguments[pname] = args_str
+    for tool_def in tool_params:
+        param_name = tool_def.get("name")
+        value = tool_def.get("value", None)
+        if param_name == "prompt":
+            provided_arguments[param_name] = prompt
             continue
         if value:
-            provided_arguments[pname] = value
+            provided_arguments[param_name] = value
     return provided_arguments
 
 

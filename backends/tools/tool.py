@@ -174,6 +174,7 @@ class Tool:
                     return chosen_tool
             return None
 
+    # Used by Agent
     async def choose_and_call(
         self,
         tool_defs: List[ToolDefinition],
@@ -185,11 +186,8 @@ class Tool:
         # Use json schema format for structured output
         for tool_def in tool_defs:
             name = tool_def.get("name")
-            tool_funcs[name] = {
-                "func": load_function(tool_def.get("path", None)),
-                "params": tool_def.get("params", None),
-            }
-            # @TODO Determine which format to feed tools into llm (json, xml, etc)
+            tool_funcs[name] = tool_def
+            # @TODO Determine which format to feed tools to llm (json, xml, etc)
             # if llm.tool_schema_type == TOOL_SCHEMA_TYPE.TYPESCRIPT.value:
             def_json_str = tool_def.get("json_schema", "")
             tool_schemas += f"\n\n{def_json_str}"
@@ -216,24 +214,27 @@ class Tool:
         if not parsed_llm_response:
             return None
         # Get chosen tool from response
-        chosen_tool_name = parsed_llm_response.get("tool_choice")
+        chosen_tool_name = parsed_llm_response.get(KEY_TOOL_NAME)
         tool_choice_def = tool_funcs[chosen_tool_name]
         tool_params = tool_choice_def["params"]
-        tool_func = tool_choice_def["func"]
+        tool_func = tool_choice_def["path"]
         # Cleanup dict
         allowed_args = get_llm_required_args(tool_params)
         chosen_tool_params: dict = parsed_llm_response.get(KEY_TOOL_PARAMS)
         filter_allowed_keys(schema=chosen_tool_params, allowed=allowed_args)
-        # Call function with arguments provided by the tool or llm
-        func_results = await attempt_func_call(tool_def=tool_def, args_str=query)
+        # Call function with arguments provided by the tool first
+        func_results = await call_func_with_tool_params(
+            tool_def=tool_choice_def, prompt=query
+        )
         if func_results:
             return func_results
+        # Otherwise, Call function with arguments from llm
         else:
             func_call_result = await tool_func(**chosen_tool_params)
             return dict(raw=func_call_result, text=str(func_call_result))
 
     # Read the pydantic model for the tool from a file
-    def read_function(self, filename: str) -> ToolFunctionSchema:
+    def read_function(self, filename: str, tool_name: str) -> ToolFunctionSchema:
         """Reads a tool's pydantic function from python file, constructs schemas, and outputs a tool schema definition."""
         self.filename = filename
 
@@ -252,6 +253,7 @@ class Tool:
             properties: dict = schema.get("properties", dict)
             # Make params
             func_name = filename.split(".")[0]
+            tool_schema_name = tool_name or func_name
             params = []
             tool_schema = dict()
             for prop in properties.items():
@@ -290,12 +292,12 @@ class Tool:
                 "params_example": example_tool_schema,
                 # Tool schemas
                 "typescript_schema": tool_to_typescript_schema(
-                    name=func_name,
+                    name=tool_schema_name,
                     description=tool_description,
                     params=params,
                 ),
                 "json_schema": tool_to_json_schema(
-                    name=func_name,
+                    name=tool_schema_name,
                     description=tool_description,
                     params=params,
                 ),
@@ -353,7 +355,7 @@ class Tool:
         llm: Type[LLAMA_CPP] = None,
         query: str = "",
     ) -> AgentOutput | None:
-        func_results = await attempt_func_call(tool_def=tool_def, args_str=query)
+        func_results = await call_func_with_tool_params(tool_def=tool_def, prompt=query)
         # Call function with arguments provided by the tool or llm
         if func_results:
             return func_results
@@ -421,18 +423,20 @@ class Tool:
             return dict(raw=func_call_result, text=str(func_call_result))
 
 
-async def attempt_func_call(tool_def: ToolDefinition, args_str: str):
+async def call_func_with_tool_params(tool_def: ToolDefinition, prompt: str):
     """If tool requires llm params, then return nothing, otherwise return func result."""
     tool_params = tool_def.get("params", None)
     required_llm_arguments = get_llm_required_args(tool_params)
-    # If llm params are required, you need the llm to give a struct reponse...
+    # If llm params are required, you need the llm to give a struct response...
     if len(required_llm_arguments) > 0:
         return None
     # If llm params not required, call the function directly
     else:
         tool_func = load_function(tool_def.get("path", None))
+        if not tool_func:
+            raise Exception("No function found.")
         # Call function with arguments provided by the tool and/or prompt
-        func_arguments = get_provided_args(args_str=args_str, tool_params=tool_params)
+        func_arguments = get_provided_args(prompt=prompt, tool_params=tool_params)
         func_call_result = await tool_func(**func_arguments)
         # Return results
         return dict(raw=func_call_result, text=str(func_call_result))

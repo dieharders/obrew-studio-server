@@ -475,7 +475,6 @@ async def generate_text(
         await app.state.request_queue.put(request)
 
         # Assign Agent
-        # @TODO does active_role need passing here or in each .call() ?
         agent = Agent(llm=llm, tools=assigned_tool_names, active_role=llm.active_role)
         response = await agent.call(
             request=request,
@@ -484,6 +483,7 @@ async def generate_text(
             prompt_template=prompt_template,
             streaming=streaming,
             response_type=response_type,
+            active_role=llm.active_role,
             tool_response_type=tool_response_type,
         )
         # Cleanup/complete request
