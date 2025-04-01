@@ -130,6 +130,7 @@ class Agent:
         # Or, Perform normal un-assisted generation
         ###########################################
         if prompt_template:
+            # If a tool call failed handle its prompt, otherwise call normally
             p = tool_response_prompt if tool_response_prompt else prompt
             # Apply the agent's template to the prompt
             query_prompt = prompt_template.replace(KEY_PROMPT_MESSAGE, p)
