@@ -75,7 +75,7 @@ class Agent:
                     chosen_tool_name = self.tools[0]
                 # Based on active_role, have LLM choose the appropriate tool based on their descriptions and prompt or explicit instruction within the prompt.
                 elif self.active_role == ACTIVE_ROLES.WORKER.value:
-                    # @TODO Pass the desired tool as override "chosenTool" with request instead of querying llm in a prompt.
+                    # @TODO Pass the desired tool as override "chosenTool" with request instead of querying llm in a prompt?
                     # Choose a tool explicitly or implicitly specified in the user query
                     chosen_tool_name = await tool.choose_tool_from_query(
                         llm=self.llm,
@@ -83,11 +83,7 @@ class Agent:
                         assigned_tools=assigned_tool_defs,
                     )
                     # Choose the best tool based on each description and the needs of the prompt
-                    # chosen_tool_name = await tool.choose_tool_from_description(
-                    #     llm=self.llm,
-                    #     query_prompt=query_prompt,
-                    #     assigned_tools=assigned_tool_defs,
-                    # )
+                    # chosen_tool_name = await tool.choose_tool_from_description(...)
                 # Get the function associated with the chosen tool name
                 assigned_tool = next(
                     (
