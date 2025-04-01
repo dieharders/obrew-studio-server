@@ -9,6 +9,7 @@ from inference.classes import (
     ACTIVE_ROLES,
     CHAT_MODES,
     DEFAULT_ACTIVE_ROLE,
+    TOOL_RESPONSE_MODES,
     AgentOutput,
     SSEResponse,
 )
@@ -43,6 +44,7 @@ class Agent:
     ) -> AgentOutput | SSEResponse:
         query_prompt = prompt
         tool_call_result = None
+        tool_response_prompt = ""
 
         #########################################################
         # Return tool assisted response if any tools are assigned
@@ -103,28 +105,35 @@ class Agent:
             print(
                 f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4)}"
             )
-            # @TODO Handle tool response types here
-            # if tool_response_type == TOOL_RESPONSE_MODES.ANSWER.value:
-            # re-prompt llm again
-            # else:
+            # Handle tool response
+            if not tool_call_result:
+                # Apply the agent's template to the prompt along with original prompt and answer
+                if prompt_template:
+                    tool_response_prompt = f"\nFailed to use tool, no JSON block found. The last response comes from this context:\n{prompt}"
+            elif tool_response_type == TOOL_RESPONSE_MODES.ANSWER.value:
+                # Apply the agent's template to the prompt along with original prompt and answer
+                if prompt_template:
+                    raw_answer = tool_call_result.get("raw")
+                    tool_response_prompt = f"\n{prompt}\n\nAnswer: {raw_answer}"
+                # Pass thru to "normal" generation logic below
+            else:
+                # Return raw value only
+                if streaming:
 
-            # Return streamed result
-            if streaming:
+                    async def payload_generator():
+                        payload = tool_payload(tool_call_result)
+                        yield json.dumps(payload)
 
-                async def payload_generator():
-                    payload = tool_payload(tool_call_result)
-                    yield json.dumps(payload)
-
-                return EventSourceResponse(payload_generator())
-            # Return entire result
-            return tool_call_result
+                    return EventSourceResponse(payload_generator())
+                return tool_call_result
 
         ###########################################
         # Or, Perform normal un-assisted generation
         ###########################################
         if prompt_template:
+            p = tool_response_prompt if tool_response_prompt else prompt
             # Apply the agent's template to the prompt
-            query_prompt = prompt_template.replace(KEY_PROMPT_MESSAGE, prompt)
+            query_prompt = prompt_template.replace(KEY_PROMPT_MESSAGE, p)
 
         match (response_type):
             # Instruct is for Question/Answer (good for tool use, RAG)

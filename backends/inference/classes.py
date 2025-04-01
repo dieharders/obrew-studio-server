@@ -169,7 +169,7 @@ class InferenceRequest(BaseModel):
     n_ctx: Optional[int] = DEFAULT_CONTEXT_WINDOW
     seed: Optional[int] = DEFAULT_SEED
     # homebrew server specific args
-    tools: Optional[List[str]] = []
+    tools: Optional[List[str]] = None
     responseMode: Optional[str] = DEFAULT_CHAT_MODE
     toolResponseMode: Optional[str] = DEFAULT_TOOL_RESPONSE_MODE
     systemMessage: Optional[str] = None
@@ -177,13 +177,13 @@ class InferenceRequest(BaseModel):
     promptTemplate: Optional[str] = None
     # __call__ args
     prompt: str
-    messages: Optional[List[ChatMessage]] = []
+    messages: Optional[List[ChatMessage]] = None
     stream: Optional[bool] = True
     # suffix: Optional[str] = ""
     temperature: Optional[float] = 0.0  # precise
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
-    # A list of strings to stop generation when encountered
-    stop: Optional[str] = ""
+    # Stops generation when string encountered
+    stop: Optional[str] = None
     echo: Optional[bool] = False
     model: Optional[str] = (
         "local"  # The name to use for the model in the completion object
@@ -206,7 +206,6 @@ class InferenceRequest(BaseModel):
         0.0  # The penalty to apply to tokens based on their frequency in the prompt
     )
     similarity_top_k: Optional[int] = None
-    response_mode: Optional[str] = None
 
     model_config = {
         "json_schema_extra": {
@@ -219,11 +218,6 @@ class InferenceRequest(BaseModel):
                     "systemMessage": "You are a helpful Ai assistant.",
                     "messageFormat": "<system> {{system_message}}\n<user> {{user_message}}",
                     "promptTemplate": "Answer this question: {{user_prompt}}",
-                    "ragPromptTemplate": {
-                        "id": "summary",
-                        "name": "Summary",
-                        "text": "This is some context: {{context_str}}",
-                    },
                     "messages": [
                         {"role": "user", "content": "What is meaning of life?"}
                     ],
@@ -246,7 +240,6 @@ class InferenceRequest(BaseModel):
                     "presence_penalty": 0.0,
                     "frequency_penalty": 0.0,
                     "similarity_top_k": 1,
-                    "response_mode": "compact",
                 }
             ]
         }

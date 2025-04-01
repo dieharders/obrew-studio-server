@@ -380,7 +380,8 @@ class LLAMA_CPP:
         content = ""
         marker_num = 0
         decoder = codecs.getincrementaldecoder("utf-8")()
-        eos_token = "[end of text]"  # Corresponds to special token (number 2) in LLaMa embedding
+        eos_llama_token = "[end of text]"  # Corresponds to special token (number 2) in LLaMa embedding
+        eos_deepseek_token = "</think"  # @TODO Include
         has_gen_started = False
         # Start of generation
         yield event_payload(FEEDING_PROMPT)
@@ -405,7 +406,7 @@ class LLAMA_CPP:
             except (UnicodeEncodeError, UnicodeDecodeError) as e:
                 continue
             # Bail if end of sequence token found
-            if content.endswith(eos_token):
+            if content.endswith(eos_llama_token):
                 break
             # Check CLI "turn" token
             if byte_text == ">":
@@ -431,7 +432,7 @@ class LLAMA_CPP:
                 yield json.dumps(payload)  # streaming format expects json
         # Finally, send all tokens together
         content += decoder.decode(b"", final=True)
-        content = content.rstrip(eos_token).strip()
+        content = content.rstrip(eos_llama_token).strip()
         if not content:
             print(
                 f"{common.PRNT_LLAMA} No response from model. Check available memory or try offloading to CPU only."
