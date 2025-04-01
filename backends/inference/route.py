@@ -229,7 +229,7 @@ async def load_text_inference(
             "data": None,
         }
     except (Exception, KeyError) as error:
-        print(f"{common.PRNT_API} Error: loading model {model_id}\n{error}")
+        print(f"{common.PRNT_API} Failed loading model: {model_id}\n{error}")
         return {
             "message": f"Unable to load AI model [{model_id}]\nMake sure you have available system memory.\n{error}",
             "success": False,
@@ -437,9 +437,8 @@ async def generate_text(
 
     try:
         response_type = payload.responseMode  # conversation type
-        tool_response_type = (
-            payload.toolResponseMode
-        )  # how response from tool is handled
+        # how to handle response from tool
+        tool_response_type = payload.toolResponseMode
         streaming = payload.stream
         system_message = payload.systemMessage
         prompt = payload.prompt

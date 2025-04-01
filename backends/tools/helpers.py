@@ -155,8 +155,8 @@ def parse_json_block(text: str):
 
 
 # Parse out the json from llm tool call response using regex
-def parse_tool_response(text: str, allowed_arguments: List[str] = []):
-    json_dict = parse_json_block(text)
+def parse_tool_response(json_str: str, allowed_arguments: List[str] = []):
+    json_dict = parse_json_block(json_str)
     if not json_dict:
         return None
     # Remove any unrelated keys from json

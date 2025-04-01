@@ -102,13 +102,13 @@ class Tool:
         )
         try:
             parsed_llm_response = parse_tool_response(
-                text=arguments_response_str, allowed_arguments=[KEY_TOOL_NAME]
+                json_str=arguments_response_str, allowed_arguments=[KEY_TOOL_NAME]
             )
             # Handle no json block with re-prompt
             if not parsed_llm_response:
                 raise Exception("No json found.")
             chosen_tool: str = parsed_llm_response.get(KEY_TOOL_NAME, "")
-            print(f"{common.PRNT_API} Chosen tool:{chosen_tool}", flush=True)
+            print(f"{common.PRNT_API} Chosen tool: {chosen_tool}", flush=True)
             return chosen_tool
         except Exception as err:
             # Try to recover by just looking in the response for any mention of an assigned tool
@@ -156,13 +156,13 @@ class Tool:
         )
         try:
             parsed_llm_response = parse_tool_response(
-                text=arguments_response_str, allowed_arguments=[KEY_TOOL_NAME]
+                json_str=arguments_response_str, allowed_arguments=[KEY_TOOL_NAME]
             )
             # Handle no json block with re-prompt
             if not parsed_llm_response:
                 raise Exception("No json found.")
             chosen_tool: str = parsed_llm_response.get(KEY_TOOL_NAME, "")
-            print(f"{common.PRNT_API} Chosen tool:{chosen_tool}")
+            print(f"{common.PRNT_API} Chosen tool: {chosen_tool}", flush=True)
             return chosen_tool
         except Exception as err:
             # Try to recover by just looking in the response for any mention of an assigned tool
@@ -407,7 +407,7 @@ class Tool:
                 flush=True,
             )
             parsed_llm_response = parse_tool_response(
-                text=arguments_response_str,
+                json_str=arguments_response_str,
                 allowed_arguments=required_llm_arguments,
             )
             # Handle no json block with re-prompt at Agent level
