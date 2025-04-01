@@ -101,13 +101,16 @@ class Agent:
             print(
                 f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4)}"
             )
-            # Handle tool response
+            # Handle tool responses
+            #
+            # If we get nothing from tool, answer back with failed response as context
             if not tool_call_result:
                 # Apply the agent's template to the prompt along with original prompt and answer
                 if prompt_template:
                     tool_response_prompt = f"\nFailed to use tool, no JSON block found. The last response comes from this context:\n{prompt}"
+            # Answer back with original prompt and tool result
             elif tool_response_type == TOOL_RESPONSE_MODES.ANSWER.value:
-                # Apply the agent's template to the prompt along with original prompt and answer
+                # Apply the agent's template to prompt
                 if prompt_template:
                     raw_answer = tool_call_result.get("raw")
                     tool_response_prompt = f"\n{prompt}\n\nAnswer: {raw_answer}"
