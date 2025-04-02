@@ -9,7 +9,6 @@ from typing import List, Optional
 from core import common
 from inference.helpers import (
     FEEDING_PROMPT,
-    GENERATING_CONTENT,
     GENERATING_TOKENS,
     completion_to_prompt,
     event_payload,
@@ -131,6 +130,8 @@ class LLAMA_CPP:
         if stopwords:
             # Never use an empty string like [""] or empty array []
             kwargs.update({"--reverse-prompt": stopwords})
+        # @TODO This is the grammar string passed from webui, but we should pass a filename that loads a grammar file using --grammar-file
+        # Useful if we want only emojis or react code as output
         if grammar:
             kwargs.update({"--grammar": grammar})
         self._generate_kwargs = kwargs
@@ -224,6 +225,7 @@ class LLAMA_CPP:
         system_message: Optional[str] = None,
         stream: bool = False,
         override_args: Optional[dict] = None,
+        constrain_json_output: Optional[dict] = None,
     ):
         try:
             self.abort_requested = False
@@ -240,6 +242,11 @@ class LLAMA_CPP:
                 "--no-warmup",  # skip warming up the model with an empty run
                 "-cnv",  # conversation mode
             ]
+            # Add conditional args
+            if constrain_json_output:
+                # Constrain output using json schema
+                cmd_args.append("--json-schema")
+                cmd_args.append(json.dumps(constrain_json_output))
             # Configure args
             cmd_args.append("--in-prefix")
             cmd_args.append("")
@@ -303,6 +310,7 @@ class LLAMA_CPP:
         override_args: Optional[dict] = None,
         # tools for models trained for func calling
         native_tool_defs: Optional[str] = None,
+        constrain_json_output: Optional[dict] = None,
     ):
         try:
             self.abort_requested = False
@@ -330,6 +338,11 @@ class LLAMA_CPP:
                 "--prompt",
                 formatted_prompt,
             ]
+            # Add conditional args
+            if constrain_json_output:
+                # Constrain output using json schema
+                cmd_args.append("--json-schema")
+                cmd_args.append(json.dumps(constrain_json_output))
             # Add stop words
             if self.generate_kwargs.get("--reverse-prompt"):
                 cmd_args.append("--reverse-prompt")

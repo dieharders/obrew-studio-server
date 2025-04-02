@@ -33,8 +33,23 @@ from inference.classes import AgentOutput
 # Structured output schemas (json)
 KEY_TOOL_NAME = "tool_choice"
 KEY_TOOL_PARAMS = "tool_parameters"
+TOOL_CHOICE_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        KEY_TOOL_NAME: {"type": "string"},
+    },
+    "required": [KEY_TOOL_NAME],
+}
 TOOL_CHOICE_SCHEMA = {KEY_TOOL_NAME: "name"}
 TOOL_CHOICE_SCHEMA_STR = f"```json\n{json.dumps(TOOL_CHOICE_SCHEMA, indent=4)}\n```"
+TOOL_OUTPUT_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        KEY_TOOL_NAME: {"type": "string"},
+        KEY_TOOL_PARAMS: {"type": "object", "properties": {}, "required": []},
+    },
+    "required": [KEY_TOOL_NAME, KEY_TOOL_PARAMS],
+}
 TOOL_OUTPUT_SCHEMA = {KEY_TOOL_NAME: "str", KEY_TOOL_PARAMS: "dict"}
 TOOL_OUTPUT_SCHEMA_STR = f"```json\n{json.dumps(TOOL_OUTPUT_SCHEMA, indent=4)}\n```"
 
@@ -45,10 +60,7 @@ class TOOL_SCHEMA_TYPE(str, Enum):
 
 
 # Handles reading, loading and execution of tool functions and their core deps (if any).
-# @TODO May have better luck coercing Gemma3 using:
-# https://www.reddit.com/r/LocalLLaMA/comments/1jauy8d/giving_native_tool_calling_to_gemma_3_or_really/
-# and https://www.philschmid.de/gemma-function-calling
-# List of Ollama tool models -> https://ollama.com/search?c=tools
+# List of tool models -> https://ollama.com/search?c=tools
 # https://huggingface.co/cfahlgren1/natural-functions -- https://ollama.com/calebfahlgren/natural-functions
 class Tool:
     """
@@ -64,174 +76,6 @@ class Tool:
     def __init__(self, request: Optional[Request] = None):
         self.request = request
         self.filename: str = None
-
-    # Used by Workers
-    async def choose_tool_from_query(
-        self,
-        llm: Type[LLAMA_CPP],
-        query_prompt: str,
-        assigned_tools: List[ToolDefinition],
-    ):
-        """
-        1. Prompt the llm to read the original prompt and determine if the user wants to use a tool.
-        2. Extract the name of the specified tool from json response.
-        """
-        # Make names from definitions
-        names = []
-        for tool in assigned_tools:
-            name = tool.get("name")
-            if name:
-                names.append(name)
-        tool_names = ", ".join(names)
-        system_message = f'Determine if the user query contains a request or an expression of need for tool use. Identify only one tool name specified in the user query. Return the name of the specified tool in JSON format specified by "Schema".'
-        prompt = f'# Tool names:\n\n{tool_names}\n\n# User query:\n\n"{query_prompt}"\n\n## Answer in JSON:\n\nSchema:{TOOL_CHOICE_SCHEMA_STR}'
-        # Ask llm to choose
-        response = await llm.text_completion(
-            prompt=prompt,
-            system_message=system_message,
-            stream=False,
-            request=self.request,
-        )
-        content = [item async for item in response]
-        data = read_event_data(content)
-        # Parse out the json result using either regex or another llm call
-        arguments_response_str = data.get("text")
-        print(
-            f"{common.PRNT_API} Tool choice structured output:\n{arguments_response_str}",
-            flush=True,
-        )
-        try:
-            parsed_llm_response = parse_tool_response(
-                json_str=arguments_response_str, allowed_arguments=[KEY_TOOL_NAME]
-            )
-            # Handle no json block with re-prompt
-            if not parsed_llm_response:
-                raise Exception("No json found.")
-            chosen_tool: str = parsed_llm_response.get(KEY_TOOL_NAME, "")
-            print(f"{common.PRNT_API} Chosen tool: {chosen_tool}", flush=True)
-            return chosen_tool
-        except Exception as err:
-            # Try to recover by just looking in the response for any mention of an assigned tool
-            if assigned_tools:
-                chosen_tool = find_tool_in_response(
-                    response=arguments_response_str, tools=names
-                )
-                if chosen_tool:
-                    return chosen_tool
-            return None
-
-    # Used by Workers
-    async def choose_tool_from_description(
-        self,
-        llm: Type[LLAMA_CPP],
-        query_prompt: str,
-        assigned_tools: List[ToolDefinition],
-    ) -> str:
-        """
-        1. Create a markdown style string of all assigned tools' description and title.
-        2. Prompt the llm with instruction in sys_msg, and a prompt with a command followed by the tool descriptions and original prompt.
-        3. Extract the tool name from json response.
-        """
-        tool_names = []
-        for tool in assigned_tools:
-            name = tool.get("name")
-            if name:
-                tool_names.append(name)
-        tool_descriptions = tool_to_markdown(assigned_tools)
-        prompt = f"# Tool descriptions:\n\n{tool_descriptions}\n# User query:\n\n{query_prompt}\n\n# Schema:\n\n{TOOL_CHOICE_SCHEMA_STR}"
-        system_message = f'Determine the best tool to choose based on each description and the needs of the user query. Return the name of the chosen tool in JSON format that matches the "Schema".'
-        # Ask llm to choose
-        response = await llm.text_completion(
-            prompt=prompt,
-            system_message=system_message,
-            stream=False,
-            request=self.request,
-        )
-        content = [item async for item in response]
-        data = read_event_data(content)
-        # Parse out the json result using either regex or another llm call
-        arguments_response_str = data.get("text")
-        print(
-            f"{common.PRNT_API} Tool choice structured output:\n{arguments_response_str}"
-        )
-        try:
-            parsed_llm_response = parse_tool_response(
-                json_str=arguments_response_str, allowed_arguments=[KEY_TOOL_NAME]
-            )
-            # Handle no json block with re-prompt
-            if not parsed_llm_response:
-                raise Exception("No json found.")
-            chosen_tool: str = parsed_llm_response.get(KEY_TOOL_NAME, "")
-            print(f"{common.PRNT_API} Chosen tool: {chosen_tool}", flush=True)
-            return chosen_tool
-        except Exception as err:
-            # Try to recover by just looking in the response for any mention of an assigned tool
-            if assigned_tools:
-                chosen_tool = find_tool_in_response(
-                    response=arguments_response_str, tools=tool_names
-                )
-                if chosen_tool:
-                    return chosen_tool
-            return None
-
-    # Used by Agent
-    async def choose_and_call(
-        self,
-        tool_defs: List[ToolDefinition],
-        llm: Type[LLAMA_CPP] = None,
-        query: str = "",
-    ):
-        tool_schemas = ""
-        tool_funcs = dict()
-        # Use json schema format for structured output
-        for tool_def in tool_defs:
-            name = tool_def.get("name")
-            tool_funcs[name] = tool_def
-            # @TODO Determine which format to feed tools to llm (json, xml, etc)
-            # if llm.tool_schema_type == TOOL_SCHEMA_TYPE.TYPESCRIPT.value:
-            def_json_str = tool_def.get("json_schema", "")
-            tool_schemas += f"\n\n{def_json_str}"
-        prompt = f"# Tool descriptions:{tool_schemas}\n# User query:\n\n{query}\n\n# Chosen tool schema:\n\n```json\n"
-        system_message = f"Determine if the user query contains a request or an expression of need for a tool and use the chosen tool schema to output in JSON format: {TOOL_OUTPUT_SCHEMA_STR}."
-        # Prompt the LLM for a response using the tool's schema.
-        # A lower temperature is better for tool use.
-        llm_tool_use_response = await llm.text_completion(
-            system_message=system_message,
-            prompt=prompt,
-            stream=False,
-            request=self.request,
-        )
-        content: List[dict] = [item async for item in llm_tool_use_response]
-        data = read_event_data(content)
-        # Parse the output
-        arguments_response_str = data.get("text")
-        print(
-            f"{common.PRNT_API} Universal (Agent) tool call structured output:\n{arguments_response_str}",
-            flush=True,
-        )
-        parsed_llm_response = parse_json_block(arguments_response_str)
-        # Handle no json
-        if not parsed_llm_response:
-            return None
-        # Get chosen tool from response
-        chosen_tool_name = parsed_llm_response.get(KEY_TOOL_NAME)
-        tool_choice_def = tool_funcs[chosen_tool_name]
-        tool_params = tool_choice_def["params"]
-        tool_func = tool_choice_def["path"]
-        # Cleanup dict
-        allowed_args = get_llm_required_args(tool_params)
-        chosen_tool_params: dict = parsed_llm_response.get(KEY_TOOL_PARAMS)
-        filter_allowed_keys(schema=chosen_tool_params, allowed=allowed_args)
-        # Call function with arguments provided by the tool first
-        func_results = await call_func_with_tool_params(
-            tool_def=tool_choice_def, prompt=query
-        )
-        if func_results:
-            return func_results
-        # Otherwise, Call function with arguments from llm
-        else:
-            func_call_result = await tool_func(**chosen_tool_params)
-            return dict(raw=func_call_result, text=str(func_call_result))
 
     # Read the pydantic model for the tool from a file
     def read_function(self, filename: str, tool_name: str) -> ToolFunctionSchema:
@@ -309,6 +153,179 @@ class Tool:
             print(f"{common.PRNT_API} Error loading tool function: {err}", flush=True)
             raise err
 
+    # Used by Workers
+    async def choose_tool_from_query(
+        self,
+        llm: Type[LLAMA_CPP],
+        query_prompt: str,
+        assigned_tools: List[ToolDefinition],
+    ):
+        """
+        1. Prompt the llm to read the original prompt and determine if the user wants to use a tool.
+        2. Extract the name of the specified tool from json response.
+        """
+        # Make names from definitions
+        names = []
+        for tool in assigned_tools:
+            name = tool.get("name")
+            if name:
+                names.append(name)
+        tool_names = ", ".join(names)
+        system_message = f'Determine if the user query contains a request or an expression of need for tool use. Identify only one tool name specified in the user query. Return the name of the specified tool in JSON format specified by "Schema".'
+        prompt = f'# Tool names:\n\n{tool_names}\n\n# User query:\n\n"{query_prompt}"\n\n## Answer in JSON:\n\nSchema:{TOOL_CHOICE_SCHEMA_STR}'
+        # Ask llm to choose
+        response = await llm.text_completion(
+            prompt=prompt,
+            system_message=system_message,
+            stream=False,
+            request=self.request,
+            constrain_json_output=TOOL_CHOICE_JSON_SCHEMA,
+        )
+        content = [item async for item in response]
+        data = read_event_data(content)
+        # Parse out the json result using either regex or another llm call
+        arguments_response_str = data.get("text")
+        print(
+            f"{common.PRNT_API} Tool choice structured output:\n{arguments_response_str}",
+            flush=True,
+        )
+        try:
+            parsed_llm_response = parse_tool_response(
+                json_str=arguments_response_str, allowed_arguments=[KEY_TOOL_NAME]
+            )
+            # Handle no json block with re-prompt
+            if not parsed_llm_response:
+                raise Exception("No json found.")
+            chosen_tool: str = parsed_llm_response.get(KEY_TOOL_NAME, "")
+            print(f"{common.PRNT_API} Chosen tool: {chosen_tool}", flush=True)
+            return chosen_tool
+        except Exception as err:
+            # Try to recover by just looking in the response for any mention of an assigned tool
+            if assigned_tools:
+                chosen_tool = find_tool_in_response(
+                    response=arguments_response_str, tools=names
+                )
+                if chosen_tool:
+                    return chosen_tool
+            return None
+
+    # Used by Workers
+    async def choose_tool_from_description(
+        self,
+        llm: Type[LLAMA_CPP],
+        query_prompt: str,
+        assigned_tools: List[ToolDefinition],
+    ) -> str:
+        """
+        1. Create a markdown style string of all assigned tools' description and title.
+        2. Prompt the llm with instruction in sys_msg, and a prompt with a command followed by the tool descriptions and original prompt.
+        3. Extract the tool name from json response.
+        """
+        tool_names = []
+        for tool in assigned_tools:
+            name = tool.get("name")
+            if name:
+                tool_names.append(name)
+        tool_descriptions = tool_to_markdown(assigned_tools)
+        prompt = f"# Tool descriptions:\n\n{tool_descriptions}\n# User query:\n\n{query_prompt}\n\n# Schema:\n\n{TOOL_CHOICE_SCHEMA_STR}"
+        system_message = f'Determine the best tool to choose based on each description and the needs of the user query. Return the name of the chosen tool in JSON format that matches the "Schema".'
+        # Ask llm to choose
+        response = await llm.text_completion(
+            prompt=prompt,
+            system_message=system_message,
+            stream=False,
+            request=self.request,
+            constrain_json_output=TOOL_CHOICE_JSON_SCHEMA,
+        )
+        content = [item async for item in response]
+        data = read_event_data(content)
+        # Parse out the json result using either regex or another llm call
+        arguments_response_str = data.get("text")
+        print(
+            f"{common.PRNT_API} Tool choice structured output:\n{arguments_response_str}"
+        )
+        try:
+            parsed_llm_response = parse_tool_response(
+                json_str=arguments_response_str, allowed_arguments=[KEY_TOOL_NAME]
+            )
+            # Handle no json block with re-prompt
+            if not parsed_llm_response:
+                raise Exception("No json found.")
+            chosen_tool: str = parsed_llm_response.get(KEY_TOOL_NAME, "")
+            print(f"{common.PRNT_API} Chosen tool: {chosen_tool}", flush=True)
+            return chosen_tool
+        except Exception as err:
+            # Try to recover by just looking in the response for any mention of an assigned tool
+            if assigned_tools:
+                chosen_tool = find_tool_in_response(
+                    response=arguments_response_str, tools=tool_names
+                )
+                if chosen_tool:
+                    return chosen_tool
+            return None
+
+    # Used by Agent
+    # @TODO May not be able to use constrained output since we dont know tool beforehand
+    async def choose_and_call(
+        self,
+        tool_defs: List[ToolDefinition],
+        llm: Type[LLAMA_CPP] = None,
+        query: str = "",
+    ):
+        tool_schemas = ""
+        tool_funcs = dict()
+        # Use json schema format for structured output
+        for tool_def in tool_defs:
+            name = tool_def.get("name")
+            tool_funcs[name] = tool_def
+            # @TODO Determine which format to feed tools to llm (json, xml, etc)
+            # if llm.tool_schema_type == TOOL_SCHEMA_TYPE.TYPESCRIPT.value:
+            def_json_str = tool_def.get("json_schema", "")
+            tool_schemas += f"\n\n{def_json_str}"
+        prompt = f"# Tool descriptions:{tool_schemas}\n# User query:\n\n{query}\n\n# Chosen tool schema:\n\n```json\n"
+        system_message = f"Determine if the user query contains a request or an expression of need for a tool and use the chosen tool schema to output in JSON format: {TOOL_OUTPUT_SCHEMA_STR}."
+        # Prompt the LLM for a response using the tool's schema.
+        # A lower temperature is better for tool use.
+        llm_tool_use_response = await llm.text_completion(
+            system_message=system_message,
+            prompt=prompt,
+            stream=False,
+            request=self.request,
+            # @TODO Cant constrain exactly since we dont yet know the chosen tool. Verify this is enough.
+            constrain_json_output=TOOL_OUTPUT_JSON_SCHEMA,
+        )
+        content: List[dict] = [item async for item in llm_tool_use_response]
+        data = read_event_data(content)
+        # Parse the output
+        arguments_response_str = data.get("text")
+        print(
+            f"{common.PRNT_API} Universal (Agent) tool call structured output:\n{arguments_response_str}",
+            flush=True,
+        )
+        parsed_llm_response = parse_json_block(arguments_response_str)
+        # Handle no json
+        if not parsed_llm_response:
+            return None
+        # Get chosen tool from response
+        chosen_tool_name = parsed_llm_response.get(KEY_TOOL_NAME)
+        tool_choice_def = tool_funcs[chosen_tool_name]
+        tool_params = tool_choice_def["params"]
+        tool_func = tool_choice_def["path"]
+        # Cleanup dict
+        allowed_args = get_llm_required_args(tool_params)
+        chosen_tool_params: dict = parsed_llm_response.get(KEY_TOOL_PARAMS)
+        filter_allowed_keys(schema=chosen_tool_params, allowed=allowed_args)
+        # Call function with arguments provided by the tool first
+        func_results = await _call_func_with_tool_params(
+            tool_def=tool_choice_def, prompt=query
+        )
+        if func_results:
+            return func_results
+        # Otherwise, Call function with arguments from llm
+        else:
+            func_call_result = await tool_func(**chosen_tool_params)
+            return dict(raw=func_call_result, text=str(func_call_result))
+
     # @TODO Work-in-progress. Difficulty getting Functionary to output args.
     async def native_call(
         self,
@@ -355,7 +372,9 @@ class Tool:
         llm: Type[LLAMA_CPP] = None,
         query: str = "",
     ) -> AgentOutput | None:
-        func_results = await call_func_with_tool_params(tool_def=tool_def, prompt=query)
+        func_results = await _call_func_with_tool_params(
+            tool_def=tool_def, prompt=query
+        )
         # Call function with arguments provided by the tool or llm
         if func_results:
             return func_results
@@ -392,11 +411,13 @@ class Tool:
             tool_prompt = tool_prompt.replace(TOOL_DESCRIPTION, tool_description_str)
             # Prompt the LLM for a response using the tool's schema.
             # A lower temperature is better for tool use.
+            print(f"constrain_json_output::{params_schema_dict}")
             llm_tool_use_response = await llm.text_completion(
                 prompt=tool_prompt,
                 system_message=system_message,
                 stream=False,
                 request=self.request,
+                constrain_json_output=params_schema_dict,  # @TODO not working at all, the schema is not quite right
             )
             content: List[dict] = [item async for item in llm_tool_use_response]
             data = read_event_data(content)
@@ -423,7 +444,7 @@ class Tool:
             return dict(raw=func_call_result, text=str(func_call_result))
 
 
-async def call_func_with_tool_params(tool_def: ToolDefinition, prompt: str):
+async def _call_func_with_tool_params(tool_def: ToolDefinition, prompt: str):
     """If tool requires llm params, then return nothing, otherwise return func result."""
     tool_params = tool_def.get("params", None)
     required_llm_arguments = get_llm_required_args(tool_params)
