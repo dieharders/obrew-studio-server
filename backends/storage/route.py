@@ -1,6 +1,7 @@
 import os
 import glob
 import json
+from typing import Optional
 from fastapi import APIRouter, Depends
 from tools.tool import Tool
 from core import classes, common
@@ -119,12 +120,14 @@ def delete_tool_definition_by_id(id: str) -> classes.EmptyToolSettingsResponse:
 
 # Return a schema from a specified python tool function
 @router.get("/tool-schema")
-def get_tool_schema(filename: str) -> classes.GetToolFunctionSchemaResponse:
+def get_tool_schema(
+    filename: str, tool_name: Optional[str] = None
+) -> classes.GetToolFunctionSchemaResponse:
     result = None
 
     try:
         tool = Tool()
-        result = tool.read_function(filename=filename)
+        result = tool.read_function(filename=filename, tool_name=tool_name)
     except Exception as err:
         return {
             "success": False,

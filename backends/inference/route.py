@@ -195,19 +195,21 @@ async def load_text_inference(
             unload_text_inference(request)
         # Load the config for the model
         model_config = get_model_install_config(model_id)
-        message_format_id = model_config["message_format"]
-        model_name = model_config["model_name"]
+        message_format_id = model_config.get("message_format")
+        model_name = model_config.get("model_name")
         tool_schema_type = model_config.get("tool_schema_type")
+        tags = model_config.get("tags") or []
         # Load the prompt formats
         message_template = get_prompt_formats(message_format_id)
         # Load the specified Ai model using a specific inference backend
+        is_tool_capable = "tool-calling" in tags
         app.state.llm = LLAMA_CPP(
             model_url=None,
             model_path=modelPath,
             model_name=model_name,
             model_id=model_id,
             tool_schema_type=tool_schema_type,
-            is_tool_capable="tool-calling" in model_config.get("tags", []),
+            is_tool_capable=is_tool_capable,
             # debug=True,  # For testing, @TODO Add a toggle in webui for this
             response_mode=data.responseMode,
             active_role=data.activeRole,
@@ -227,6 +229,7 @@ async def load_text_inference(
             "data": None,
         }
     except (Exception, KeyError) as error:
+        print(f"{common.PRNT_API} Failed loading model: {model_id}\n{error}")
         return {
             "message": f"Unable to load AI model [{model_id}]\nMake sure you have available system memory.\n{error}",
             "success": False,
@@ -434,6 +437,8 @@ async def generate_text(
 
     try:
         response_type = payload.responseMode  # conversation type
+        # how to handle response from tool
+        tool_response_type = payload.toolResponseMode
         streaming = payload.stream
         system_message = payload.systemMessage
         prompt = payload.prompt
@@ -477,6 +482,8 @@ async def generate_text(
             prompt_template=prompt_template,
             streaming=streaming,
             response_type=response_type,
+            active_role=llm.active_role,
+            tool_response_type=tool_response_type,
         )
         # Cleanup/complete request
         await complete_request(app)

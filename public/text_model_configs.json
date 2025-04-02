@@ -1,4 +1,11 @@
 {
+  "unsloth/DeepSeek-V3-0324-GGUF": {
+    "repoId": "unsloth/DeepSeek-V3-0324-GGUF",
+    "name": "DeepSeek v3",
+    "description": "A strong Mixture-of-Experts (MoE) language model with 671B total parameters with 37B activated for each token. To achieve efficient inference and cost-effective training, DeepSeek-V3 adopts Multi-head Latent Attention (MLA) and DeepSeekMoE architectures.",
+    "messageFormat": "deepseek-v3",
+    "tags": ["experimental_support"]
+  },
   "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF": {
     "repoId": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
     "name": "DeepSeek R1 Distilled Llama-8B (reasoning)",

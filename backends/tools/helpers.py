@@ -5,6 +5,7 @@ import importlib.util
 from typing import List, Optional
 from core import common
 from core.classes import ToolDefinition, ToolFunctionParameter
+from json_repair import repair_json
 
 TOOL_FUNCTION_NAME = "main"
 
@@ -85,41 +86,81 @@ def tool_to_markdown(tool_list: List[ToolDefinition], include_code=False):
     return markdown_string
 
 
-# Parse out the json from llm tool call response using either regex or another llm call
-def parse_structured_llm_response(
-    arguments_str: str, allowed_arguments: List[str]
-) -> dict:
-    pattern_object = r"({.*?})"
-    pattern_json_object = r"\`\`\`json\n({.*?})\n\`\`\`"
-    match_json_object = re.search(pattern_json_object, arguments_str, re.DOTALL)
-    match_object = re.search(pattern_object, arguments_str, re.DOTALL)
+# Filter out keys not in the allowed_keys set
+def filter_allowed_keys(schema: dict, allowed: List[str] = []):
+    filtered_json_object = None
+    # Filter out keys not in the allowed_keys set
+    if len(allowed) > 0:
+        filtered_json_object = {k: v for k, v in schema.items() if k in allowed}
+    return filtered_json_object
 
-    if match_json_object or match_object:
-        # Find first occurance
-        if match_json_object:
-            json_block = match_json_object.group(1)
-        elif match_object:
-            json_block = match_object.group(1)
-        # Remove single-line comments (//...)
-        json_block = re.sub(r"//.*", "", json_block)
-        # Remove multi-line comments (/*...*/)
-        json_block = re.sub(r"/\*.*?\*/", "", json_block, flags=re.DOTALL)
-        # Clean up any extra commas or trailing whitespace
-        json_block = re.sub(r",\s*(\}|\])", r"\1", json_block)
-        json_block = json_block.strip()
+
+def strip_extra_chars(text: str):
+    result = text.strip()
+    # Remove single-line comments (//...)
+    result = re.sub(r"//.*", "", text)
+    # Remove multi-line comments (/*...*/)
+    result = re.sub(r"/\*.*?\*/", "", result, flags=re.DOTALL)
+    # Clean up any extra commas or trailing whitespace
+    result = re.sub(r",\s*(\}|\])", r"\1", result)
+    result = result.strip()
+    return result
+
+
+# Parse out the json from llm tool call response using either regex or another llm call
+def parse_json_block(text: str):
+    json_str = text
+
+    # Try the raw response
+    try:
+        # Check if response starts/ends with {}
+        t = text.strip()
+        is_object = t.startswith("{") and t.endswith("}")
+        if is_object:
+            result_dict = repair_json(json_str, return_objects=True)
+            return result_dict
+    except:
+        pass
+
+    # Find all matches
+    pattern_json = r"```json\s*\n([\s\S]*?)\n\s*```"
+    pattern_ticks = r"```\s*(.*?)\s*```"  # Allow spaces between ticks and text
+    patterns = [pattern_json, pattern_ticks]
+    for pattern in patterns:
+        escaped_pattern = re.escape(pattern)
+        match = re.search(escaped_pattern, text, re.DOTALL)
+        if match:
+            json_str = match.group(1)
+
+    # If none of the above patterns worked, try a more aggressive approach
+    if json_str == text:
+        json_str = re.sub(
+            r"`{1,3}\s*json\s*\r?\n(.*?)`{1,3}", r"\1", text, flags=re.DOTALL
+        )
+
+    # Fail, send response back (llm may have reason for missing result)
+    if json_str == text:
+        print(f"{common.PRNT_API} No JSON block found.", flush=True)
+        return None
+
+    try:
+        # Clean up
+        json_str = strip_extra_chars(json_str)
         # Convert JSON block back to a dictionary to ensure it's valid JSON
-        try:
-            # Remove any unrelated keys from json
-            json_object: dict = json.loads(json_block)
-            # Filter out keys not in the allowed_keys set
-            filtered_json_object = {
-                k: v for k, v in json_object.items() if k in allowed_arguments
-            }
-            return filtered_json_object
-        except json.JSONDecodeError as e:
-            raise Exception("Invalid JSON.")
-    else:
-        raise Exception("No JSON block found!")
+        # https://github.com/mangiucugna/json_repair
+        json_object = repair_json(json_str, return_objects=True)
+        return json_object
+    except json.JSONDecodeError as e:
+        raise Exception("Invalid JSON.")
+
+
+# Parse out the json from llm tool call response using regex
+def parse_tool_response(json_str: str, allowed_arguments: List[str] = []):
+    json_dict = parse_json_block(json_str)
+    if not json_dict:
+        return None
+    # Remove any unrelated keys from json
+    return filter_allowed_keys(schema=json_dict, allowed=allowed_arguments)
 
 
 # Conversion func to translate our tool def to a native tool (openai compatible) json schema.
@@ -203,15 +244,16 @@ def get_required_schema(required: List[str], schema: dict) -> dict:
     return result
 
 
-def get_provided_args(args_str: str, tool_params: dict):
+def get_provided_args(prompt: str, tool_params: List[dict]):
     provided_arguments = dict()
-    for pname in tool_params:
-        value = tool_params[pname].get("value", None)
-        if pname == "prompt":
-            provided_arguments[pname] = args_str
+    for tool_def in tool_params:
+        param_name = tool_def.get("name")
+        value = tool_def.get("value", None)
+        if param_name == "prompt":
+            provided_arguments[param_name] = prompt
             continue
         if value:
-            provided_arguments[pname] = value
+            provided_arguments[param_name] = value
     return provided_arguments
 
 
@@ -228,11 +270,11 @@ def get_llm_required_args(tool_params: List[ToolFunctionParameter]) -> List[str]
 
 
 def find_tool_in_response(response: str, tools: List[str]) -> Optional[str]:
-    """Attempt to find any tool names in the given response text."""
+    """Attempt to find any tool names at the end of the given response text."""
     print(f"{common.PRNT_API} Searching in response for tools...{tools}", flush=True)
     for tool_name in tools:
-        match = re.search(re.escape(tool_name), response, re.DOTALL)
-        if match:
+        index = response.rfind(re.escape(tool_name))
+        if index != -1:
             print(f"{common.PRNT_API} Found tool:{tool_name}", flush=True)
-            return tool_name  # Return first match immediately
+            return tool_name  # Return first match
     return None  # Explicitly return None if no tool is found
