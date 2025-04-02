@@ -4,8 +4,18 @@ import importlib.util
 from fastapi import Request
 from typing import List, Optional, Type
 from pydantic import BaseModel
+from core import common
+from core.classes import ToolDefinition, ToolFunctionSchema
+from inference.llama_cpp import LLAMA_CPP
+from inference.classes import AgentOutput
 from tools.helpers import (
+    KEY_TOOL_NAME,
+    KEY_TOOL_PARAMS,
+    TOOL_CHOICE_JSON_SCHEMA,
+    TOOL_CHOICE_SCHEMA_STR,
     TOOL_FUNCTION_NAME,
+    TOOL_OUTPUT_JSON_SCHEMA,
+    TOOL_OUTPUT_SCHEMA_STR,
     filter_allowed_keys,
     find_tool_in_response,
     get_llm_required_args,
@@ -21,37 +31,10 @@ from tools.helpers import (
     tool_to_markdown,
     tool_to_typescript_schema,
 )
-from core import common
-from core.classes import ToolDefinition, ToolFunctionSchema
 from inference.helpers import (
     KEY_PROMPT_MESSAGE,
     read_event_data,
 )
-from inference.llama_cpp import LLAMA_CPP
-from inference.classes import AgentOutput
-
-# Structured output schemas (json)
-KEY_TOOL_NAME = "tool_choice"
-KEY_TOOL_PARAMS = "tool_parameters"
-TOOL_CHOICE_JSON_SCHEMA = {
-    "type": "object",
-    "properties": {
-        KEY_TOOL_NAME: {"type": "string"},
-    },
-    "required": [KEY_TOOL_NAME],
-}
-TOOL_CHOICE_SCHEMA = {KEY_TOOL_NAME: "name"}
-TOOL_CHOICE_SCHEMA_STR = f"```json\n{json.dumps(TOOL_CHOICE_SCHEMA, indent=4)}\n```"
-TOOL_OUTPUT_JSON_SCHEMA = {
-    "type": "object",
-    "properties": {
-        KEY_TOOL_NAME: {"type": "string"},
-        KEY_TOOL_PARAMS: {"type": "object", "properties": {}, "required": []},
-    },
-    "required": [KEY_TOOL_NAME, KEY_TOOL_PARAMS],
-}
-TOOL_OUTPUT_SCHEMA = {KEY_TOOL_NAME: "str", KEY_TOOL_PARAMS: "dict"}
-TOOL_OUTPUT_SCHEMA_STR = f"```json\n{json.dumps(TOOL_OUTPUT_SCHEMA, indent=4)}\n```"
 
 
 class TOOL_SCHEMA_TYPE(str, Enum):

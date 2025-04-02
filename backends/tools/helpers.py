@@ -8,6 +8,28 @@ from core.classes import ToolDefinition, ToolFunctionParameter
 from json_repair import repair_json
 
 TOOL_FUNCTION_NAME = "main"
+# Structured output schemas (json)
+KEY_TOOL_NAME = "tool_choice"
+KEY_TOOL_PARAMS = "tool_parameters"
+TOOL_CHOICE_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        KEY_TOOL_NAME: {"type": "string"},
+    },
+    "required": [KEY_TOOL_NAME],
+}
+TOOL_CHOICE_SCHEMA = {KEY_TOOL_NAME: "name"}
+TOOL_CHOICE_SCHEMA_STR = f"```json\n{json.dumps(TOOL_CHOICE_SCHEMA, indent=4)}\n```"
+TOOL_OUTPUT_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        KEY_TOOL_NAME: {"type": "string"},
+        KEY_TOOL_PARAMS: {"type": "object", "properties": {}, "required": []},
+    },
+    "required": [KEY_TOOL_NAME, KEY_TOOL_PARAMS],
+}
+TOOL_OUTPUT_SCHEMA = {KEY_TOOL_NAME: "str", KEY_TOOL_PARAMS: "dict"}
+TOOL_OUTPUT_SCHEMA_STR = f"```json\n{json.dumps(TOOL_OUTPUT_SCHEMA, indent=4)}\n```"
 
 
 def import_tool_function(filename: str):
