@@ -123,11 +123,7 @@ class Tool:
                     description=tool_description,
                     params=params,
                 ),
-                "json_schema": tool_to_json_schema(
-                    name=tool_schema_name,
-                    description=tool_description,
-                    params=params,
-                ),
+                "json_schema": tool_to_json_schema(params=params),
                 # The return type of the output
                 "output_type": output_types,
             }
@@ -249,6 +245,7 @@ class Tool:
 
     # Used by Agent
     # @TODO May not be able to use constrained output since we dont know tool beforehand
+    # @TODO Use this for native tool call only
     async def choose_and_call(
         self,
         tool_defs: List[ToolDefinition],
@@ -274,8 +271,8 @@ class Tool:
             prompt=prompt,
             stream=False,
             request=self.request,
-            # @TODO Cant constrain exactly since we dont yet know the chosen tool. Verify this is enough.
-            constrain_json_output=TOOL_OUTPUT_JSON_SCHEMA,
+            # Cant constrain exactly since we dont yet know the chosen tool. Verify this is enough.
+            # constrain_json_output=TOOL_OUTPUT_JSON_SCHEMA,
         )
         content: List[dict] = [item async for item in llm_tool_use_response]
         data = read_event_data(content)
@@ -362,45 +359,58 @@ class Tool:
         if func_results:
             return func_results
         else:
-            tool_params = tool_def.get("params", None)
-            required_llm_arguments = get_llm_required_args(tool_params)
-            system_message = 'You are given a name and description of a function along with the input argument schema it expects. Based on this info and the "QUESTION" you are expected to return a JSON formatted string that looks similar to the "SCHEMA EXAMPLE" but with the values replaced. Ensure the JSON is properly formatted and each value is the correct data type according to the "SCHEMA".'
-            universal_tool_template = "# Tool: {{tool_name_str}}\n\n## Description:\n\n{{tool_description_str}}\n\n## QUESTION:\n\n{{user_prompt}}\n\n## SCHEMA EXAMPLE:\n\n{{tool_example_str}}\n\n## SCHEMA:\n\n{{tool_arguments_str}}"
             TOOL_ARGUMENTS = "{{tool_arguments_str}}"
-            TOOL_EXAMPLE_ARGUMENTS = "{{tool_example_str}}"
+            # TOOL_EXAMPLE_ARGUMENTS = "{{tool_example_str}}"
             TOOL_NAME_STR = "{{tool_name_str}}"
             TOOL_DESCRIPTION = "{{tool_description_str}}"
+            OUTPUT_SCHEMA = "{{output_schema}}"
+            tool_params = tool_def.get("params", None)
+            required_llm_arguments = get_llm_required_args(tool_params)
+            system_message = f'# Tool\n\nYou are given a tool called "{TOOL_NAME_STR}" which does the following:\n{TOOL_DESCRIPTION}\n\n## Parameters\n\nA description of each parameter required by the tool.\n\n{TOOL_ARGUMENTS}\n\n## Instruction\n\nBased on this info and the user query, you are expected to return a JSON schema: {OUTPUT_SCHEMA}. Ensure the JSON is properly formatted and each parameter is the correct data type.'
+            tool_prompt = f"QUESTION:\n{KEY_PROMPT_MESSAGE}\n\nANSWER:\n"
             # Return schema for llm to respond with
             tool_name_str = tool_def.get("name", "Tool")
             tool_description_str = tool_def.get("description", "")
+            tool_json_schema_str = tool_def.get("json_schema", "")
             # Parse these to only include data from the required_llm_arguments list
             params_schema_dict = get_required_schema(
                 required=required_llm_arguments,
                 schema=tool_def.get("params_schema", dict()),
             )
-            params_example_dict = get_required_examples(
-                required=required_llm_arguments,
-                example=tool_def.get("params_example", dict()),
-            )
+            # params_example_dict = get_required_examples(
+            #     required=required_llm_arguments,
+            #     example=tool_def.get("params_example", dict()),
+            # )
+
             # Convert func arguments to machine readable strings
-            tool_example_json = json.dumps(params_example_dict, indent=4)
-            tool_example_str = f"```json\n{tool_example_json}\n```"
+            # tool_example_json = json.dumps(params_example_dict)
+            # tool_example_str = f"```json\n{tool_example_json}\n```"
             tool_args_str = schema_to_markdown(params_schema_dict)
-            # Inject template args into prompt template (Universal func calling)
-            tool_prompt = universal_tool_template.replace(KEY_PROMPT_MESSAGE, query)
-            tool_prompt = tool_prompt.replace(TOOL_ARGUMENTS, tool_args_str)
-            tool_prompt = tool_prompt.replace(TOOL_EXAMPLE_ARGUMENTS, tool_example_str)
-            tool_prompt = tool_prompt.replace(TOOL_NAME_STR, tool_name_str)
-            tool_prompt = tool_prompt.replace(TOOL_DESCRIPTION, tool_description_str)
+            # Inject template args into system message
+            tool_prompt = tool_prompt.replace(KEY_PROMPT_MESSAGE, query)
+            # tool_prompt = tool_prompt.replace(OUTPUT_SCHEMA, tool_json_schema_str)
+            tool_system_message = system_message.replace(TOOL_ARGUMENTS, tool_args_str)
+            # @TODO Do we need an example?
+            # tool_system_message = tool_system_message.replace(
+            #     TOOL_EXAMPLE_ARGUMENTS, tool_example_str
+            # )
+            tool_system_message = tool_system_message.replace(
+                OUTPUT_SCHEMA, tool_json_schema_str
+            )
+            tool_system_message = tool_system_message.replace(
+                TOOL_NAME_STR, tool_name_str
+            )
+            tool_system_message = tool_system_message.replace(
+                TOOL_DESCRIPTION, tool_description_str
+            )
             # Prompt the LLM for a response using the tool's schema.
             # A lower temperature is better for tool use.
-            print(f"constrain_json_output::{params_schema_dict}")
             llm_tool_use_response = await llm.text_completion(
                 prompt=tool_prompt,
-                system_message=system_message,
+                system_message=tool_system_message,
                 stream=False,
                 request=self.request,
-                constrain_json_output=params_schema_dict,  # @TODO not working at all, the schema is not quite right
+                constrain_json_output=json.loads(tool_json_schema_str),
             )
             content: List[dict] = [item async for item in llm_tool_use_response]
             data = read_event_data(content)
@@ -414,8 +424,12 @@ class Tool:
                 json_str=arguments_response_str,
                 allowed_arguments=required_llm_arguments,
             )
+            # Handle no json block with re-prompt at Agent level (but send back prev response for context)
+            if not parsed_llm_response and arguments_response_str:
+                # @TODO May want to trim the response so not to blow out context window
+                return dict(text=arguments_response_str)
             # Handle no json block with re-prompt at Agent level
-            if not parsed_llm_response:
+            if not arguments_response_str:
                 return None
             # Call the function with the arguments provided from the llm response, Return results
             print(

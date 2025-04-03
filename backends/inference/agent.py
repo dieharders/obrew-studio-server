@@ -43,7 +43,6 @@ class Agent:
         tool_response_type: str,
         active_role: str = None,
     ) -> AgentOutput | SSEResponse:
-        query_prompt = prompt
         tool_call_result = None
         tool_response_prompt = ""
         curr_active_role = active_role or self.active_role  # override allowed
@@ -79,13 +78,11 @@ class Agent:
                 elif curr_active_role == ACTIVE_ROLES.WORKER.value:
                     # @TODO Pass the desired tool as override "chosenTool" with request instead of querying llm in a prompt?
                     # Choose a tool explicitly or implicitly specified in the user query
-                    chosen_tool_name = await tool.choose_tool_from_query(
+                    chosen_tool_name = await tool.choose_tool_from_description(
                         llm=self.llm,
-                        query_prompt=query_prompt,
+                        query_prompt=prompt,
                         assigned_tools=assigned_tool_defs,
                     )
-                    # Choose the best tool based on each description and the needs of the prompt
-                    # chosen_tool_name = await tool.choose_tool_from_description(...)
                 # Get the function associated with the chosen tool name
                 assigned_tool = next(
                     (
@@ -103,37 +100,41 @@ class Agent:
             print(
                 f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4)}"
             )
-            # Handle tool responses
-            #
-            # If we get nothing from tool, answer back with failed response as context
-            if not tool_call_result:
-                # Apply the agent's template to the prompt along with original prompt and answer
-                if prompt_template:
-                    tool_response_prompt = f"\nFailed to use tool, no JSON block found. The last response comes from this context:\n{prompt}"
-            # Answer back with original prompt and tool result
-            elif tool_response_type == TOOL_RESPONSE_MODES.ANSWER.value:
-                # Apply the agent's template to prompt
-                if prompt_template:
-                    raw_answer = tool_call_result.get("raw")
-                    tool_response_prompt = f"\n{prompt}\n\nAnswer: {raw_answer}"
-                # Pass thru to "normal" generation logic below
-            else:
+            # Handle tool response
+            failed_tool_response = f"\nFailed to use tool, no JSON block found. The original query:\n{prompt}"
+            if tool_call_result:
+                raw_tool_result = tool_call_result.get("raw")
+                text_tool_result = tool_call_result.get("text")
+                # If we get nothing from tool but have a response, answer back with failed response as context.
+                if text_tool_result and not raw_tool_result:
+                    tool_response_prompt = f"\nFailed to use tool, no JSON block found. Original query:\n{prompt}\n\nThe last response comes from this context:\n{text_tool_result}"
+                # If no response from tool and llm, answer back with original prompt.
+                elif not text_tool_result and not raw_tool_result:
+                    tool_response_prompt = failed_tool_response
+                # Answer back with original prompt and tool result
+                elif tool_response_type == TOOL_RESPONSE_MODES.ANSWER.value:
+                    # Pass thru to "normal" generation logic below
+                    tool_response_prompt = f"\n{prompt}\n\nAnswer: {raw_tool_result}"
                 # Return raw value only
-                if streaming:
+                else:
+                    if streaming:
 
-                    async def payload_generator():
-                        payload = tool_payload(tool_call_result)
-                        yield json.dumps(payload)
+                        async def payload_generator():
+                            payload = tool_payload(tool_call_result)
+                            yield json.dumps(payload)
 
-                    return EventSourceResponse(payload_generator())
-                return tool_call_result
+                        return EventSourceResponse(payload_generator())
+                    return tool_call_result
+            else:
+                tool_response_prompt = failed_tool_response
 
         ###########################################
         # Or, Perform normal un-assisted generation
         ###########################################
+        p = tool_response_prompt if tool_response_prompt else prompt
+        query_prompt = p
         if prompt_template:
             # If a tool call failed handle its prompt, otherwise call normally
-            p = tool_response_prompt if tool_response_prompt else prompt
             # Apply the agent's template to the prompt
             query_prompt = prompt_template.replace(KEY_PROMPT_MESSAGE, p)
 
