@@ -38,7 +38,7 @@ class LLAMA_CPP:
         model_id: str,  #  id of model in config
         active_role: str,  # ACTIVE_ROLES
         response_mode: str,  # CHAT_MODES
-        raw: bool,  # user can send manually formatted messages
+        raw_input: bool,  # user can send manually formatted messages
         tool_schema_type: str = None,  # Determines which format of func definition should be applied
         # template converts messages to prompts
         message_format: Optional[dict] = {},
@@ -87,7 +87,7 @@ class LLAMA_CPP:
         self.message_format = message_format
         self.response_mode = response_mode
         self.active_role = active_role
-        self.raw = raw
+        self.raw_input = raw_input
         self.model_url = model_url
         self.model_name = model_name or "chatbot"  # human friendly name for display
         self.model_id = model_id
@@ -317,7 +317,7 @@ class LLAMA_CPP:
 
             # If format type provided pass input unchanged, llama.cpp will handle it?
             formatted_prompt = prompt.strip()
-            if not self.raw:
+            if not self.raw_input:
                 # Format prompt with model template
                 formatted_prompt = completion_to_prompt(
                     user_message=prompt,
