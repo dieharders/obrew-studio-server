@@ -6,10 +6,10 @@ from storage.route import get_all_tool_definitions
 from tools.tool import Tool
 from inference.helpers import KEY_PROMPT_MESSAGE, read_event_data, tool_payload
 from inference.classes import (
-    ACTIVE_ROLES,
     CHAT_MODES,
-    DEFAULT_ACTIVE_ROLE,
     TOOL_RESPONSE_MODES,
+    DEFAULT_TOOL_USE_MODE,
+    TOOL_USE_MODES,
     AgentOutput,
     SSEResponse,
 )
@@ -24,11 +24,11 @@ class Agent:
         self,
         llm: Type[LLAMA_CPP],
         tools: List[str],
-        active_role: ACTIVE_ROLES = None,
+        func_calling: TOOL_USE_MODES = None,
     ):
         self.llm = llm
         self.tools = tools
-        self.active_role = active_role or DEFAULT_ACTIVE_ROLE
+        self.func_calling = func_calling or DEFAULT_TOOL_USE_MODE
         self.has_tools = tools and len(tools) > 0
 
     # Perform the LLM's operation
@@ -41,11 +41,11 @@ class Agent:
         system_message: str,
         response_type: str,
         tool_response_type: str,
-        active_role: str = None,
+        func_calling: str = None,
     ) -> AgentOutput | SSEResponse:
         tool_call_result = None
         tool_response_prompt = ""
-        curr_active_role = active_role or self.active_role  # override allowed
+        curr_func_calling = func_calling or self.func_calling  # override allowed
 
         #########################################################
         # Return tool assisted response if any tools are assigned
@@ -65,7 +65,7 @@ class Agent:
                     llm=self.llm, tool_defs=assigned_tool_defs, query=prompt
                 )
             # Choose tool from list of schemas and output args in one-shot
-            elif curr_active_role == ACTIVE_ROLES.AGENT.value:
+            elif curr_func_calling == TOOL_USE_MODES.NATIVE.value:
                 tool_call_result = await tool.choose_and_call(
                     llm=self.llm, tool_defs=assigned_tool_defs, query=prompt
                 )
@@ -75,7 +75,7 @@ class Agent:
                 if len(self.tools) == 1:
                     chosen_tool_name = self.tools[0]
                 # Based on active_role, have LLM choose the appropriate tool based on their descriptions and prompt or explicit instruction within the prompt.
-                elif curr_active_role == ACTIVE_ROLES.WORKER.value:
+                elif curr_func_calling == TOOL_USE_MODES.UNIVERSAL.value:
                     # @TODO Pass the desired tool as override "chosenTool" with request instead of querying llm in a prompt?
                     # Choose a tool explicitly or implicitly specified in the user query
                     chosen_tool_name = await tool.choose_tool_from_description(

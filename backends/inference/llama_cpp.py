@@ -36,7 +36,7 @@ class LLAMA_CPP:
         model_path: str,  # Or, you can set the path to a pre-downloaded model file instead of model_url
         model_name: str,  # Friendly name
         model_id: str,  #  id of model in config
-        active_role: str,  # ACTIVE_ROLES
+        func_calling: str,  # Function calling method
         response_mode: str,  # CHAT_MODES
         raw_input: bool,  # user can send manually formatted messages
         tool_schema_type: str = None,  # Determines which format of func definition should be applied
@@ -86,7 +86,7 @@ class LLAMA_CPP:
         self.prompt_template = None  # structures the llm thoughts (thinking)
         self.message_format = message_format
         self.response_mode = response_mode
-        self.active_role = active_role
+        self.func_calling = func_calling
         self.raw_input = raw_input
         self.model_url = model_url
         self.model_name = model_name or "chatbot"  # human friendly name for display

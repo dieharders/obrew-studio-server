@@ -43,15 +43,20 @@ class TOOL_RESPONSE_MODES(str, Enum):
     RESULT = "result"
 
 
-class ACTIVE_ROLES(str, Enum):
-    WORKER = "worker"
-    AGENT = "agent"
+# class ACTIVE_ROLES(str, Enum):
+#     WORKER = "worker"
+#     AGENT = "agent"
+
+
+class TOOL_USE_MODES(str, Enum):
+    NATIVE = "native"
+    UNIVERSAL = "universal"
 
 
 DEFAULT_TEMPERATURE = 0.8
 DEFAULT_CHAT_MODE = CHAT_MODES.INSTRUCT.value
 DEFAULT_TOOL_RESPONSE_MODE = TOOL_RESPONSE_MODES.ANSWER.value
-DEFAULT_ACTIVE_ROLE = ACTIVE_ROLES.AGENT.value
+DEFAULT_TOOL_USE_MODE = TOOL_USE_MODES.UNIVERSAL.value
 DEFAULT_MAX_TOKENS = (
     -2
 )  # until end of context window @TODO may not be good for chat mode?
@@ -126,7 +131,7 @@ class LoadInferenceRequest(BaseModel):
     modelId: str
     raw: Optional[bool] = False  # user can send manually formatted messages
     responseMode: Optional[str] = DEFAULT_CHAT_MODE
-    activeRole: Optional[str] = DEFAULT_ACTIVE_ROLE
+    toolUseMode: Optional[str] = DEFAULT_TOOL_USE_MODE
     init: LoadTextInferenceInit
     call: LoadTextInferenceCall
     messages: Optional[List[ChatMessage]] = None

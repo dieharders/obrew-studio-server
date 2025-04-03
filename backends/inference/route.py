@@ -212,7 +212,7 @@ async def load_text_inference(
             is_tool_capable=is_tool_capable,
             # debug=True,  # For testing, @TODO Add a toggle in webui for this
             response_mode=data.responseMode,
-            active_role=data.activeRole,
+            func_calling=data.toolUseMode,
             raw_input=data.raw,
             message_format=message_template,
             generate_kwargs=data.call,
@@ -474,7 +474,7 @@ async def generate_text(
         await app.state.request_queue.put(request)
 
         # Assign Agent
-        agent = Agent(llm=llm, tools=assigned_tool_names, active_role=llm.active_role)
+        agent = Agent(llm=llm, tools=assigned_tool_names, func_calling=llm.func_calling)
         response = await agent.call(
             request=request,
             system_message=system_message,
@@ -482,7 +482,7 @@ async def generate_text(
             prompt_template=prompt_template,
             streaming=streaming,
             response_type=response_type,
-            active_role=llm.active_role,
+            func_calling=llm.func_calling,
             tool_response_type=tool_response_type,
         )
         # Cleanup/complete request

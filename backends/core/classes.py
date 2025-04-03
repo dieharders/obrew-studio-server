@@ -465,7 +465,7 @@ class AppSettingsInitData(BaseModel):
 class AttentionSettings(BaseModel):
     response_mode: str = None
     tool_response_mode: str = None
-    active_role: str = None
+    tool_use_mode: str = None
 
 
 class PerformanceSettings(BaseModel):
