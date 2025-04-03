@@ -59,24 +59,19 @@ class Agent:
             assigned_tool_defs = [
                 item for item in all_installed_tool_defs if item["name"] in self.tools
             ]
-            # If llm has native tool calling, allow it to choose from all assigned tools. Inject tool choices into prompt.
-            if self.llm.is_tool_capable:
+            # Use native tool calling, choose tool from list of schemas and output args in one-shot
+            if curr_func_calling == TOOL_USE_MODES.NATIVE.value:
                 tool_call_result = await tool.native_call(
                     llm=self.llm, tool_defs=assigned_tool_defs, query=prompt
                 )
-            # Choose tool from list of schemas and output args in one-shot
-            elif curr_func_calling == TOOL_USE_MODES.NATIVE.value:
-                tool_call_result = await tool.choose_and_call(
-                    llm=self.llm, tool_defs=assigned_tool_defs, query=prompt
-                )
-            # Choose a tool to use
+            # Choose a tool to use, then execute it
             else:
                 # Always use the first tool if only one is assigned
                 if len(self.tools) == 1:
                     chosen_tool_name = self.tools[0]
-                # Based on active_role, have LLM choose the appropriate tool based on their descriptions and prompt or explicit instruction within the prompt.
-                elif curr_func_calling == TOOL_USE_MODES.UNIVERSAL.value:
-                    # @TODO Pass the desired tool as override "chosenTool" with request instead of querying llm in a prompt?
+                # Use Universal tool calling
+                else:
+                    # elif curr_func_calling == TOOL_USE_MODES.UNIVERSAL.value:
                     # Choose a tool explicitly or implicitly specified in the user query
                     chosen_tool_name = await tool.choose_tool_from_description(
                         llm=self.llm,
@@ -115,7 +110,7 @@ class Agent:
                 elif tool_response_type == TOOL_RESPONSE_MODES.ANSWER.value:
                     # Pass thru to "normal" generation logic below
                     tool_response_prompt = f"\n{prompt}\n\nAnswer: {raw_tool_result}"
-                # Return raw value only
+                # Answer with raw value only
                 else:
                     if streaming:
 

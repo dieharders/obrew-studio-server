@@ -243,10 +243,8 @@ class Tool:
                     return chosen_tool
             return None
 
-    # Used by Agent
-    # @TODO May not be able to use constrained output since we dont know tool beforehand
-    # @TODO Use this for native tool call only
-    async def choose_and_call(
+    # @TODO Work-in-progress.
+    async def native_call(
         self,
         tool_defs: List[ToolDefinition],
         llm: Type[LLAMA_CPP] = None,
@@ -258,8 +256,12 @@ class Tool:
         for tool_def in tool_defs:
             name = tool_def.get("name")
             tool_funcs[name] = tool_def
-            # @TODO Determine which format to feed tools to llm (json, xml, etc)
-            # if llm.tool_schema_type == TOOL_SCHEMA_TYPE.TYPESCRIPT.value:
+            # Determine schema format to use for native func calling
+            if llm.tool_schema_type == TOOL_SCHEMA_TYPE.TYPESCRIPT.value:
+                def_str = tool_def.get("typescript_schema", "")
+            else:
+                def_str = tool_def.get("json_schema", "")
+            native_tool_defs += f"\n\n{def_str}"
             def_json_str = tool_def.get("json_schema", "")
             tool_schemas += f"\n\n{def_json_str}"
         prompt = f"# Tool descriptions:{tool_schemas}\n# User query:\n\n{query}\n\n# Chosen tool schema:\n\n```json\n"
@@ -271,6 +273,7 @@ class Tool:
             prompt=prompt,
             stream=False,
             request=self.request,
+            native_tool_defs=native_tool_defs,
             # Cant constrain exactly since we dont yet know the chosen tool. Verify this is enough.
             # constrain_json_output=TOOL_OUTPUT_JSON_SCHEMA,
         )
@@ -279,7 +282,7 @@ class Tool:
         # Parse the output
         arguments_response_str = data.get("text")
         print(
-            f"{common.PRNT_API} Universal (Agent) tool call structured output:\n{arguments_response_str}",
+            f"{common.PRNT_API} Native tool call structured output:\n{arguments_response_str}",
             flush=True,
         )
         parsed_llm_response = parse_json_block(arguments_response_str)
@@ -305,43 +308,6 @@ class Tool:
         else:
             func_call_result = await tool_func(**chosen_tool_params)
             return dict(raw=func_call_result, text=str(func_call_result))
-
-    # @TODO Work-in-progress. Difficulty getting Functionary to output args.
-    async def native_call(
-        self,
-        tool_defs: List[ToolDefinition],
-        llm: Type[LLAMA_CPP] = None,
-        query: str = "",
-    ):
-        native_tool_defs = ""
-        tool_func = load_function(tool_def.get("path", None))
-        for tool_def in tool_defs:
-            # Determine schema format to use for native func calling
-            if llm.tool_schema_type == TOOL_SCHEMA_TYPE.TYPESCRIPT.value:
-                def_str = tool_def.get("typescript_schema", "")
-            else:
-                def_str = tool_def.get("json_schema", "")
-            native_tool_defs += f"\n\n{def_str}"
-        # Prompt the LLM for a response using the tool's schema.
-        # A lower temperature is better for tool use.
-        llm_tool_use_response = await llm.text_completion(
-            prompt=query,
-            system_message="",
-            stream=False,
-            request=self.request,
-            native_tool_defs=native_tool_defs,
-        )
-        content: List[dict] = [item async for item in llm_tool_use_response]
-        data = read_event_data(content)
-        # Parse the output
-        arguments_response_str = data.get("text")
-        print(
-            f"{common.PRNT_API} Native tool call structured output:\n{arguments_response_str}",
-            flush=True,
-        )
-        parsed_llm_response = json.loads(arguments_response_str)
-        func_call_result = await tool_func(**parsed_llm_response)
-        return dict(raw=func_call_result, text=str(func_call_result))
 
     # Execute the tool function with the provided arguments (if any)
     # Tool defs are passed to llm are formatted as markdown text.
@@ -417,7 +383,7 @@ class Tool:
             # Parse out the json result using regex
             arguments_response_str = data.get("text")
             print(
-                f"{common.PRNT_API} Universal (Worker) tool call structured output:\n{arguments_response_str}",
+                f"{common.PRNT_API} Universal tool call structured output:\n{arguments_response_str}",
                 flush=True,
             )
             parsed_llm_response = parse_tool_response(

@@ -202,14 +202,12 @@ async def load_text_inference(
         # Load the prompt formats
         message_template = get_prompt_formats(message_format_id)
         # Load the specified Ai model using a specific inference backend
-        is_tool_capable = "function-calling" in tags
         app.state.llm = LLAMA_CPP(
             model_url=None,
             model_path=modelPath,
             model_name=model_name,
             model_id=model_id,
             tool_schema_type=tool_schema_type,
-            is_tool_capable=is_tool_capable,
             # debug=True,  # For testing, @TODO Add a toggle in webui for this
             response_mode=data.responseMode,
             func_calling=data.toolUseMode,
