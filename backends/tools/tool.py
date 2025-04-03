@@ -1,9 +1,9 @@
 import json
-from enum import Enum
 import importlib.util
 from fastapi import Request
 from typing import List, Optional, Type
 from pydantic import BaseModel
+from tools.classes import TOOL_SCHEMA_TYPES
 from core import common
 from core.classes import ToolDefinition, ToolFunctionSchema
 from inference.llama_cpp import LLAMA_CPP
@@ -14,13 +14,11 @@ from tools.helpers import (
     TOOL_CHOICE_JSON_SCHEMA,
     TOOL_CHOICE_SCHEMA_STR,
     TOOL_FUNCTION_NAME,
-    TOOL_OUTPUT_JSON_SCHEMA,
     TOOL_OUTPUT_SCHEMA_STR,
     filter_allowed_keys,
     find_tool_in_response,
     get_llm_required_args,
     get_provided_args,
-    get_required_examples,
     get_required_schema,
     import_tool_function,
     load_function,
@@ -35,11 +33,6 @@ from inference.helpers import (
     KEY_PROMPT_MESSAGE,
     read_event_data,
 )
-
-
-class TOOL_SCHEMA_TYPE(str, Enum):
-    TYPESCRIPT = "typescript"
-    JSON = "json"  # openai format
 
 
 # Handles reading, loading and execution of tool functions and their core deps (if any).
@@ -257,7 +250,7 @@ class Tool:
             name = tool_def.get("name")
             tool_funcs[name] = tool_def
             # Determine schema format to use for native func calling
-            if llm.tool_schema_type == TOOL_SCHEMA_TYPE.TYPESCRIPT.value:
+            if llm.tool_schema_type == TOOL_SCHEMA_TYPES.TYPESCRIPT.value:
                 def_str = tool_def.get("typescript_schema", "")
             else:
                 def_str = tool_def.get("json_schema", "")

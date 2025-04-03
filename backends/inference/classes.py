@@ -2,6 +2,7 @@ from enum import Enum
 from types import NoneType
 from typing import Any, List, Optional
 from pydantic import BaseModel
+from tools.classes import DEFAULT_TOOL_SCHEMA_TYPE
 
 
 class MessageRole(str, Enum):
@@ -129,9 +130,10 @@ class LoadTextInferenceInit(BaseModel):
 class LoadInferenceRequest(BaseModel):
     modelPath: str
     modelId: str
-    raw: Optional[bool] = False  # user can send manually formatted messages
+    raw_input: Optional[bool] = False  # user can send manually formatted messages
     responseMode: Optional[str] = DEFAULT_CHAT_MODE
     toolUseMode: Optional[str] = DEFAULT_TOOL_USE_MODE
+    toolSchemaType: Optional[str] = DEFAULT_TOOL_SCHEMA_TYPE
     init: LoadTextInferenceInit
     call: LoadTextInferenceCall
     messages: Optional[List[ChatMessage]] = None

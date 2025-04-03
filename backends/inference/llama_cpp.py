@@ -39,7 +39,7 @@ class LLAMA_CPP:
         func_calling: str,  # Function calling method
         response_mode: str,  # CHAT_MODES
         raw_input: bool,  # user can send manually formatted messages
-        tool_schema_type: str = None,  # Determines which format of func definition should be applied
+        tool_schema_type: str = None,  # Determines which format of func definition should be fed to prompt (currently only applies to native)
         # template converts messages to prompts
         message_format: Optional[dict] = {},
         verbose=False,

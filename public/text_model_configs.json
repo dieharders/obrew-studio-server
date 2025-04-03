@@ -179,7 +179,6 @@
     "name": "Functionary Small v3.2 (tool-calling)",
     "description": "Functionary is a language model that can interpret and execute functions/plugins.\n\nThe model determines when to execute functions, whether in parallel or serially, and can understand their outputs. It only triggers functions as needed. Function definitions are given as JSON Schema Objects, similar to OpenAI GPT function calls.",
     "messageFormat": "functionaryV3",
-    "toolSchemaType": "typescript",
     "tags": ["function-calling"]
   },
   "meetkai/functionary-7b-v2-GGUF": {
@@ -187,7 +186,6 @@
     "name": "Functionary 7B v2 (tool-calling)",
     "description": "Functionary is a language model that can interpret and execute functions/plugins.\n\nThe model determines when to execute functions, whether in parallel or serially, and can understand their outputs. It only triggers functions as needed. Function definitions are given as JSON Schema Objects, similar to OpenAI GPT function calls.",
     "messageFormat": "functionaryV2",
-    "toolSchemaType": "typescript",
     "tags": ["function-calling"]
   },
   "MadeAgents/Hammer2.1-1.5b": {
@@ -195,7 +193,6 @@
     "name": "Hammer 1.5B v2.1 (tool-calling)",
     "description": "Hammer refers to a series of lightweight Large Action Models. Currently, we are releasing Hammer 2.1 models (0.5B, 1.5B, 3B, and 7B) with strong function calling capability. These models are based on the Qwen 2.5 coder series and utilize function masking techniques and other advanced technologies. Hammer 2.1 series bring significant enhancements, while still maintaining the basic functionality of Hammer 2.0's Single-Turn interaction and further strengthening other capabilities.",
     "messageFormat": "hammer2",
-    "toolSchemaType": "json",
     "tags": ["function-calling", "coding"]
   },
   "Qwen/QwQ-32B-GGUF": {
