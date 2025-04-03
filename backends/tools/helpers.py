@@ -215,7 +215,7 @@ def tool_to_func_schema(name: str, description: str, params: List[dict]):
 
 
 # Conversion func to translate our tool def to a native tool (openai compatible) json schema.
-# Most models will likely use this, but some, like Functionary use other formats.
+# Used to constrain output to json. Most models will likely use this, but some, like Functionary use other formats.
 def tool_to_json_schema(params: List[dict]) -> str:
     # Construct parameters
     properties = {}
