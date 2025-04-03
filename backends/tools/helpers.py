@@ -8,6 +8,28 @@ from core.classes import ToolDefinition, ToolFunctionParameter
 from json_repair import repair_json
 
 TOOL_FUNCTION_NAME = "main"
+# Structured output schemas (json)
+KEY_TOOL_NAME = "tool_choice"
+KEY_TOOL_PARAMS = "tool_parameters"
+TOOL_CHOICE_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        KEY_TOOL_NAME: {"type": "string"},
+    },
+    "required": [KEY_TOOL_NAME],
+}
+TOOL_CHOICE_SCHEMA = {KEY_TOOL_NAME: "name"}
+TOOL_CHOICE_SCHEMA_STR = f"```json\n{json.dumps(TOOL_CHOICE_SCHEMA)}\n```"
+TOOL_OUTPUT_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        KEY_TOOL_NAME: {"type": "string"},
+        KEY_TOOL_PARAMS: {"type": "object", "properties": {}, "required": []},
+    },
+    "required": [KEY_TOOL_NAME, KEY_TOOL_PARAMS],
+}
+TOOL_OUTPUT_SCHEMA = {KEY_TOOL_NAME: "str", KEY_TOOL_PARAMS: "dict"}
+TOOL_OUTPUT_SCHEMA_STR = f"```json\n{json.dumps(TOOL_OUTPUT_SCHEMA)}\n```"
 
 
 def import_tool_function(filename: str):
@@ -163,9 +185,8 @@ def parse_tool_response(json_str: str, allowed_arguments: List[str] = []):
     return filter_allowed_keys(schema=json_dict, allowed=allowed_arguments)
 
 
-# Conversion func to translate our tool def to a native tool (openai compatible) json schema.
-# Most models will likely use this, but some, like Functionary use other formats.
-def tool_to_json_schema(name: str, description: str, params: List[dict]) -> str:
+# This makes a more descriptive schema but not technically json schema
+def tool_to_func_schema(name: str, description: str, params: List[dict]):
     # Construct parameters
     properties = {}
     required = []
@@ -174,11 +195,11 @@ def tool_to_json_schema(name: str, description: str, params: List[dict]) -> str:
         param_type = param["type"]
         param_description = param["description"]
         param_schema = {"type": param_type, "description": param_description}
+        # Assign param
         properties[param_name] = param_schema
         required.append(param_name)
-    # Construct new schema
     # @TODO Add output type
-    native_schema = {
+    func_constrained_schema = {
         "type": "function",
         "function": {
             "name": name,
@@ -190,7 +211,28 @@ def tool_to_json_schema(name: str, description: str, params: List[dict]) -> str:
             },
         },
     }
-    return json.dumps(native_schema)
+    return json.dumps(func_constrained_schema)
+
+
+# Conversion func to translate our tool def to a native tool (openai compatible) json schema.
+# Used to constrain output to json. Most models will likely use this, but some, like Functionary use other formats.
+def tool_to_json_schema(params: List[dict]) -> str:
+    # Construct parameters
+    properties = {}
+    required = []
+    for param in params:
+        param_name = param["name"]
+        param_schema = {"type": param["type"]}
+        # Assign param
+        properties[param_name] = param_schema
+        # Add param to required
+        required.append(param_name)
+    object_constrained_schema = {
+        "type": "object",
+        "properties": properties,
+        "required": required,
+    }
+    return json.dumps(object_constrained_schema)
 
 
 # Conversion func to translate our tool def to a native tool (typescript) schema
@@ -224,7 +266,7 @@ def schema_to_markdown(schema: dict) -> str:
             result += "\n\n"
         result += f"### {pname}\n\nDescription: {descr}\nData type: {data_type}"
         if allowed_values:
-            result += f"\nAllowed values: {allowed_values}"
+            result += f"\nAllowed values: {json.dumps(allowed_values)}"
     return result
 
 

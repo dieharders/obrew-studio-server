@@ -34,7 +34,6 @@ def get_model_install_config(model_id: str = None) -> dict:
             model_name = config["name"]
             tags = config.get("tags")
             repoId = config.get("repoId", "")
-            toolSchemaType = config.get("toolSchemaType", "")
             description = config.get("description", "")
             return dict(
                 message_format=message_format,
@@ -42,7 +41,6 @@ def get_model_install_config(model_id: str = None) -> dict:
                 id=repoId,
                 model_name=model_name,
                 models=text_models,
-                tool_schema_type=toolSchemaType,
                 tags=tags,
             )
     except Exception as err:
@@ -197,23 +195,20 @@ async def load_text_inference(
         model_config = get_model_install_config(model_id)
         message_format_id = model_config.get("message_format")
         model_name = model_config.get("model_name")
-        tool_schema_type = model_config.get("tool_schema_type")
         tags = model_config.get("tags") or []
         # Load the prompt formats
         message_template = get_prompt_formats(message_format_id)
         # Load the specified Ai model using a specific inference backend
-        is_tool_capable = "tool-calling" in tags
         app.state.llm = LLAMA_CPP(
             model_url=None,
             model_path=modelPath,
             model_name=model_name,
             model_id=model_id,
-            tool_schema_type=tool_schema_type,
-            is_tool_capable=is_tool_capable,
+            tool_schema_type=data.toolSchemaType,
             # debug=True,  # For testing, @TODO Add a toggle in webui for this
             response_mode=data.responseMode,
-            active_role=data.activeRole,
-            raw=data.raw,
+            func_calling=data.toolUseMode,
+            raw_input=data.raw_input,
             message_format=message_template,
             generate_kwargs=data.call,
             model_init_kwargs=data.init,
@@ -474,7 +469,7 @@ async def generate_text(
         await app.state.request_queue.put(request)
 
         # Assign Agent
-        agent = Agent(llm=llm, tools=assigned_tool_names, active_role=llm.active_role)
+        agent = Agent(llm=llm, tools=assigned_tool_names, func_calling=llm.func_calling)
         response = await agent.call(
             request=request,
             system_message=system_message,
@@ -482,7 +477,7 @@ async def generate_text(
             prompt_template=prompt_template,
             streaming=streaming,
             response_type=response_type,
-            active_role=llm.active_role,
+            func_calling=llm.func_calling,
             tool_response_type=tool_response_type,
         )
         # Cleanup/complete request

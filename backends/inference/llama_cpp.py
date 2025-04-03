@@ -9,7 +9,6 @@ from typing import List, Optional
 from core import common
 from inference.helpers import (
     FEEDING_PROMPT,
-    GENERATING_CONTENT,
     GENERATING_TOKENS,
     completion_to_prompt,
     event_payload,
@@ -37,13 +36,12 @@ class LLAMA_CPP:
         model_path: str,  # Or, you can set the path to a pre-downloaded model file instead of model_url
         model_name: str,  # Friendly name
         model_id: str,  #  id of model in config
-        active_role: str,  # ACTIVE_ROLES
+        func_calling: str,  # Function calling method
         response_mode: str,  # CHAT_MODES
-        raw: bool,  # user can send manually formatted messages
-        tool_schema_type: str = None,  # Determines which format of func definition should be applied
+        raw_input: bool,  # user can send manually formatted messages
+        tool_schema_type: str = None,  # Determines which format of func definition should be fed to prompt (currently only applies to native)
         # template converts messages to prompts
         message_format: Optional[dict] = {},
-        is_tool_capable=False,  # Whether model was trained for native func calling
         verbose=False,
         debug=False,  # Show logs
         model_init_kwargs: LoadTextInferenceInit = None,  # kwargs to pass when loading the model
@@ -77,7 +75,6 @@ class LLAMA_CPP:
             init_kwargs["--threads-batch"] = n_threads
         # Assign vars
         self.tool_schema_type = tool_schema_type
-        self.is_tool_capable = is_tool_capable
         self.max_empty = 100
         self.chat_history = None
         self.process: Process = None
@@ -87,8 +84,8 @@ class LLAMA_CPP:
         self.prompt_template = None  # structures the llm thoughts (thinking)
         self.message_format = message_format
         self.response_mode = response_mode
-        self.active_role = active_role
-        self.raw = raw
+        self.func_calling = func_calling
+        self.raw_input = raw_input
         self.model_url = model_url
         self.model_name = model_name or "chatbot"  # human friendly name for display
         self.model_id = model_id
@@ -131,6 +128,8 @@ class LLAMA_CPP:
         if stopwords:
             # Never use an empty string like [""] or empty array []
             kwargs.update({"--reverse-prompt": stopwords})
+        # @TODO This is the grammar string passed from webui, but we should pass a filename that loads a grammar file using --grammar-file
+        # Useful if we want only emojis or react code as output
         if grammar:
             kwargs.update({"--grammar": grammar})
         self._generate_kwargs = kwargs
@@ -224,6 +223,7 @@ class LLAMA_CPP:
         system_message: Optional[str] = None,
         stream: bool = False,
         override_args: Optional[dict] = None,
+        constrain_json_output: Optional[dict] = None,
     ):
         try:
             self.abort_requested = False
@@ -240,6 +240,11 @@ class LLAMA_CPP:
                 "--no-warmup",  # skip warming up the model with an empty run
                 "-cnv",  # conversation mode
             ]
+            # Add conditional args
+            if constrain_json_output:
+                # Constrain output using json schema
+                cmd_args.append("--json-schema")
+                cmd_args.append(json.dumps(constrain_json_output))
             # Configure args
             cmd_args.append("--in-prefix")
             cmd_args.append("")
@@ -303,13 +308,14 @@ class LLAMA_CPP:
         override_args: Optional[dict] = None,
         # tools for models trained for func calling
         native_tool_defs: Optional[str] = None,
+        constrain_json_output: Optional[dict] = None,
     ):
         try:
             self.abort_requested = False
 
             # If format type provided pass input unchanged, llama.cpp will handle it?
             formatted_prompt = prompt.strip()
-            if not self.raw:
+            if not self.raw_input:
                 # Format prompt with model template
                 formatted_prompt = completion_to_prompt(
                     user_message=prompt,
@@ -330,6 +336,11 @@ class LLAMA_CPP:
                 "--prompt",
                 formatted_prompt,
             ]
+            # Add conditional args
+            if constrain_json_output:
+                # Constrain output using json schema
+                cmd_args.append("--json-schema")
+                cmd_args.append(json.dumps(constrain_json_output))
             # Add stop words
             if self.generate_kwargs.get("--reverse-prompt"):
                 cmd_args.append("--reverse-prompt")
