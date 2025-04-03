@@ -4,7 +4,14 @@
     "name": "DeepSeek v3",
     "description": "A strong Mixture-of-Experts (MoE) language model with 671B total parameters with 37B activated for each token. To achieve efficient inference and cost-effective training, DeepSeek-V3 adopts Multi-head Latent Attention (MLA) and DeepSeekMoE architectures.",
     "messageFormat": "deepseek-v3",
-    "tags": ["experimental_support"]
+    "tags": [
+      "experimental_support",
+      "MoE",
+      "reasoning",
+      "webdev",
+      "lang-chinese",
+      "function-calling"
+    ]
   },
   "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF": {
     "repoId": "unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF",
@@ -17,7 +24,8 @@
     "repoId": "mradermacher/Janus-Pro-7B-LM-GGUF",
     "name": "DeepSeek Janus Pro 7B (multi-modal)",
     "description": "Janus-Pro is a novel autoregressive framework that unifies multimodal understanding and generation. It addresses the limitations of previous approaches by decoupling visual encoding into separate pathways, while still utilizing a single, unified transformer architecture for processing. The decoupling not only alleviates the conflict between the visual encoder's roles in understanding and generation, but also enhances the framework's flexibility. Janus-Pro surpasses previous unified model and matches or exceeds the performance of task-specific models. The simplicity, high flexibility, and effectiveness of Janus-Pro make it a strong candidate for next-generation unified multimodal models.",
-    "messageFormat": "deepseek-r1"
+    "messageFormat": "deepseek-r1",
+    "tags": ["multi-modal"]
   },
   "unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF": {
     "repoId": "unsloth/DeepSeek-R1-Distill-Qwen-1.5B-GGUF",
@@ -31,24 +39,25 @@
     "name": "Llama 3.2 3B (instruct)",
     "description": "The Llama 3.2 collection of multilingual large language models (LLMs) is a collection of pretrained and instruction-tuned generative models in 1B and 3B sizes (text in/text out).\n\nThe Llama 3.2 instruction-tuned text only models are optimized for multilingual dialogue use cases, including agentic retrieval and summarization tasks. They outperform many of the available open source and closed chat models on common industry benchmarks.\n\nSupported languages: English, German, French, Italian, Portuguese, Hindi, Spanish, and Thai are officially supported. Llama 3.2 has been trained on a broader collection of languages than these 8 supported languages.",
     "messageFormat": "chatml",
-    "tags": ["instruct"]
+    "tags": ["instruct", "multilingual"]
   },
   "TheBloke/deepseek-coder-6.7B-instruct-GGUF": {
     "repoId": "TheBloke/deepseek-coder-6.7B-instruct-GGUF",
     "name": "DeepSeek Coder 6.7B (instruct)",
     "description": "Deepseek Coder is composed of a series of code language models, each trained from scratch on 2T tokens, with a composition of 87% code and 13% natural language in both English and Chinese. We provide various sizes of the code model, ranging from 1B to 33B versions. Each model is pre-trained on project-level code corpus by employing a window size of 16K and a extra fill-in-the-blank task, to support project-level code completion and infilling. For coding capabilities, Deepseek Coder achieves state-of-the-art performance among open-source code models on multiple programming languages and various benchmarks.",
     "messageFormat": "deepseek-coder",
-    "tags": ["instruct", "coding"]
+    "tags": ["instruct", "coding", "long-context"]
   },
   "unsloth/phi-4-GGUF": {
     "repoId": "unsloth/phi-4-GGUF",
-    "name": "PHI 4 (instruct)",
+    "name": "PHI 4",
     "description": "phi-4 is a state-of-the-art open model built upon a blend of synthetic datasets, data from filtered public domain websites, and acquired academic books and Q&A datasets. The goal of this approach was to ensure that small capable models were trained with data focused on high quality and advanced reasoning.",
-    "messageFormat": "phi-4-instruct"
+    "messageFormat": "phi-4-instruct",
+    "tags": ["chat", "long-context"]
   },
   "TheBloke/Mistral-7B-v0.1-GGUF": {
     "repoId": "TheBloke/Mistral-7B-v0.1-GGUF",
-    "name": "Mistral 7B (chat)",
+    "name": "Mistral 7B",
     "description": "The Mistral-7B-v0.1 Large Language Model (LLM) is a pretrained generative text model with 7 billion parameters. Mistral-7B-v0.1 outperforms Llama 2 13B on all benchmarks we tested.",
     "messageFormat": "mistral-0.1",
     "tags": ["chat"]
@@ -58,7 +67,7 @@
     "name": "Mistral 7B v0.2 (instruct)",
     "description": "The Mistral-7B-Instruct-v0.2 Large Language Model (LLM) is an improved instruct fine-tuned version of Mistral-7B-Instruct-v0.1.",
     "messageFormat": "mistral-0.2-instruct",
-    "tags": ["instruct"]
+    "tags": ["instruct", "long-context"]
   },
   "TheBloke/Llama-2-13B-chat-GGUF": {
     "repoId": "TheBloke/Llama-2-13B-chat-GGUF",
@@ -72,58 +81,63 @@
     "name": "Llama 2 7B (chat) (uncensored)",
     "description": "Uncensored Llama 2 model by George Sung and Jarrad Hope. Llama 2 is a collection of pretrained and fine-tuned generative text models ranging in scale from 7 billion to 70 billion parameters. Our fine-tuned LLMs, called Llama-2-Chat, are optimized for dialogue use cases. Llama-2-Chat models outperform open-source chat models on most benchmarks we tested, and in our human evaluations for helpfulness and safety, are on par with some popular closed-source models like ChatGPT and PaLM",
     "messageFormat": "llama-2-7b-chat",
-    "tags": ["chat"]
+    "tags": ["chat", "uncensored"]
   },
   "TheBloke/Llama-2-7B-32K-Instruct-GGUF": {
     "repoId": "TheBloke/Llama-2-7B-32K-Instruct-GGUF",
-    "name": "Llama 2 7B 32k (instruct) (uncensored)",
+    "name": "Llama 2 7B 32k (instruct)",
     "description": "Llama-2-7B-32K-Instruct is an open-source, long-context chat model finetuned from Llama-2-7B-32K, over high-quality instruction and chat data. Llama-2-7B-32K-Instruct is fine-tuned over a combination of two parts: 1. 19K single- and multi-round conversations generated by human instructions and Llama-2-70B-Chat outputs. 2. Long-context Summarization and Long-context QA.",
     "messageFormat": "llama-2-7b-instruct",
-    "tags": ["instruct"]
+    "tags": ["instruct", "long-context"]
   },
   "TheBloke/CodeLlama-7B-GGUF": {
     "repoId": "TheBloke/CodeLlama-7B-GGUF",
     "name": "Code Llama 7B (coding)",
     "description": "Code Llama is a collection of pretrained and fine-tuned generative text models ranging in scale from 7 billion to 34 billion parameters. This is the repository for the base 7B version in the Hugging Face Transformers format. This model is designed for general code synthesis and understanding. Links to other models can be found in the index at the bottom.",
-    "messageFormat": "code-llama"
+    "messageFormat": "code-llama",
+    "tags": ["coding"]
   },
   "TheBloke/dolphin-2.6-mistral-7B-GGUF": {
     "repoId": "TheBloke/dolphin-2.6-mistral-7B-GGUF",
     "name": "Dolphin Mistral 7B (uncensored)",
     "description": "This model is based on Mistral-7b. The base model has 16k context. This Dolphin is really good at coding, I trained with a lot of coding data. It is very obedient but it is not DPO tuned - so you still might need to encourage it in the system prompt as I show in the below examples.",
     "messageFormat": "dolphin-2.6-mistral",
-    "tags": ["coding", "uncensored"]
+    "tags": ["coding", "uncensored", "long-context"]
   },
   "TheBloke/dolphin-2.7-mixtral-8x7b-GGUF": {
     "repoId": "TheBloke/dolphin-2.7-mixtral-8x7b-GGUF",
     "name": "Dolphin Mixtral 8x7b v2.7 (instruct) (uncensored)",
     "description": "This model is based on Mixtral-8x7b. The base model has 32k context, finetuned with 16k. This Dolphin is really good at coding, I trained with a lot of coding data. It is very obedient but it is not DPO tuned - so you still might need to encourage it in the system prompt as I show in the below examples.\n\n`trust_remote_code` is required. This model is uncensored. I have filtered the dataset to remove alignment and bias. This makes the model highly compliant to any requests, even unethical ones.",
     "messageFormat": "mistral-0.2-instruct",
-    "tags": ["coding", "uncensored"]
+    "tags": ["coding", "uncensored", "MoE", "long-context"]
   },
   "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF": {
     "repoId": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
     "name": "Mixtral 8x7B Instruct (MoE)",
     "description": "The Mixtral-8x7B Large Language Model (LLM) is a pretrained generative Sparse Mixture of Experts. The Mistral-8x7B outperforms Llama 2 70B on most benchmarks we tested.",
-    "messageFormat": "mixtral-8x7b-instruct"
+    "messageFormat": "mixtral-8x7b-instruct",
+    "tags": ["instruct", "MoE"]
   },
   "TheBloke/WizardCoder-Python-13B-V1.0-GGUF": {
     "repoId": "TheBloke/WizardCoder-Python-13B-V1.0-GGUF",
     "name": "WizardCoder 13B Python",
     "description": "Wizardlm: Empowering large language models to follow complex instructions. A StarCoder fine-tuned model using Evol-Instruct method specifically for coding tasks. Use this for code generation, also good at logical reasoning skills.",
-    "messageFormat": "izardcoder-python"
+    "messageFormat": "wizardcoder-python",
+    "tags": ["instruct", "coding"]
   },
   "TheBloke/Luna-AI-Llama2-Uncensored-GGUF": {
     "repoId": "TheBloke/Luna-AI-Llama2-Uncensored-GGUF",
     "name": "Luna AI Llama2 (uncensored)",
     "description": "Wizardlm: Empowering large language models to follow complex instructions. A StarCoder fine-tuned model using Evol-Instruct method specifically for coding tasks. Use this for code generation, also good at logical reasoning skills.",
-    "messageFormat": "luna-ai-llama2"
+    "messageFormat": "luna-ai-llama2",
+    "tags": ["uncensored", "chat"]
   },
   "TheBloke/openbuddy-openllama-7B-v12-bf16-GGUF": {
     "repoId": "TheBloke/openbuddy-openllama-7B-v12-bf16-GGUF",
     "name": "OpenBuddy 7B",
     "description": "OpenBuddy.ai - Open Multilingual Chatbot for Everyone. OpenBuddy is a powerful chatbot model with a focus on conversational AI and seamless multilingual capabilities. Built on top of the Falcon model from Tii, and the LLaMA model from Facebook, OpenBuddy offers enhanced performance and capabilities to handle complex conversational tasks.",
-    "messageFormat": "openbuddy-openllama"
+    "messageFormat": "openbuddy-openllama",
+    "tags": ["multilingual", "uncensored"]
   },
   "TheBloke/Wizard-Vicuna-13B-Uncensored-GGUF": {
     "repoId": "TheBloke/Wizard-Vicuna-13B-Uncensored-GGUF",
@@ -136,7 +150,8 @@
     "repoId": "TheBloke/law-LLM-GGUF",
     "name": "Law LLM (chat)",
     "description": "Adapting Large Language Models via Reading Comprehension. We explore continued pre-training on domain-specific corpora for large language models. While this approach enriches LLMs with domain knowledge, it significantly hurts their prompting ability for question answering. Inspired by human learning via reading comprehension, we propose a simple method to transform large-scale pre-training corpora into reading comprehension texts, consistently improving prompting performance across tasks in biomedicine, finance, and law domains.",
-    "messageFormat": "mistral-0.1"
+    "messageFormat": "mistral-0.1",
+    "tags": ["law"]
   },
   "TheBloke/orca_mini_v3_7B-GGUF": {
     "repoId": "TheBloke/orca_mini_v3_7B-GGUF",
@@ -165,7 +180,7 @@
     "description": "Functionary is a language model that can interpret and execute functions/plugins.\n\nThe model determines when to execute functions, whether in parallel or serially, and can understand their outputs. It only triggers functions as needed. Function definitions are given as JSON Schema Objects, similar to OpenAI GPT function calls.",
     "messageFormat": "functionaryV3",
     "toolSchemaType": "typescript",
-    "tags": ["tool-calling"]
+    "tags": ["function-calling"]
   },
   "meetkai/functionary-7b-v2-GGUF": {
     "repoId": "meetkai/functionary-7b-v2-GGUF",
@@ -173,7 +188,7 @@
     "description": "Functionary is a language model that can interpret and execute functions/plugins.\n\nThe model determines when to execute functions, whether in parallel or serially, and can understand their outputs. It only triggers functions as needed. Function definitions are given as JSON Schema Objects, similar to OpenAI GPT function calls.",
     "messageFormat": "functionaryV2",
     "toolSchemaType": "typescript",
-    "tags": ["tool-calling"]
+    "tags": ["function-calling"]
   },
   "MadeAgents/Hammer2.1-1.5b": {
     "repoId": "MadeAgents/Hammer2.1-1.5b",
@@ -181,7 +196,7 @@
     "description": "Hammer refers to a series of lightweight Large Action Models. Currently, we are releasing Hammer 2.1 models (0.5B, 1.5B, 3B, and 7B) with strong function calling capability. These models are based on the Qwen 2.5 coder series and utilize function masking techniques and other advanced technologies. Hammer 2.1 series bring significant enhancements, while still maintaining the basic functionality of Hammer 2.0's Single-Turn interaction and further strengthening other capabilities.",
     "messageFormat": "hammer2",
     "toolSchemaType": "json",
-    "tags": ["tool-calling"]
+    "tags": ["function-calling", "coding"]
   },
   "Qwen/QwQ-32B-GGUF": {
     "repoId": "Qwen/QwQ-32B-GGUF",
@@ -195,34 +210,34 @@
     "name": "Qwen 2 VL 7B (vision, instruct)",
     "description": "SoTA understanding of images of various resolution & ratio. Understanding videos of 20min+. Agent that can operate your mobiles, robots, etc. Multilingual Support.",
     "messageFormat": "qwen",
-    "tags": ["vision", "instruct"]
+    "tags": ["vision", "instruct", "multilingual"]
   },
   "bartowski/Qwen2-VL-2B-Instruct-GGUF": {
     "repoId": "bartowski/Qwen2-VL-2B-Instruct-GGUF",
     "name": "Qwen 2 VL 2B (vision, instruct)",
     "description": "SoTA understanding of images of various resolution & ratio. Understanding videos of 20min+. Agent that can operate your mobiles, robots, etc. Multilingual Support.",
     "messageFormat": "qwen",
-    "tags": ["vision", "instruct"]
+    "tags": ["vision", "instruct", "multilingual"]
   },
   "unsloth/gemma-3-1b-it-GGUF": {
     "repoId": "unsloth/gemma-3-1b-it-GGUF",
     "name": "Gemma 3 1B (vision, instruct)",
     "description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.\n\nGemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants.Gemma 3 has a large, 128K context window, multilingual support in over 140 languages, and is available in more sizes than previous versions.\n\nGemma 3 models are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure.",
     "messageFormat": "gemma3",
-    "tags": ["vision", "instruct"]
+    "tags": ["vision", "instruct", "multilingual", "long-context"]
   },
   "unsloth/gemma-3-4b-it-GGUF": {
     "repoId": "unsloth/gemma-3-4b-it-GGUF",
     "name": "Gemma 3 4B (vision, instruct)",
     "description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.\n\nGemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants.Gemma 3 has a large, 128K context window, multilingual support in over 140 languages, and is available in more sizes than previous versions.\n\nGemma 3 models are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure.",
     "messageFormat": "gemma3",
-    "tags": ["vision", "instruct"]
+    "tags": ["vision", "instruct", "multilingual", "long-context"]
   },
   "unsloth/gemma-3-12b-it-GGUF": {
     "repoId": "unsloth/gemma-3-12b-it-GGUF",
     "name": "Gemma 3 12B (vision, instruct)",
     "description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.\n\nGemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants.Gemma 3 has a large, 128K context window, multilingual support in over 140 languages, and is available in more sizes than previous versions.\n\nGemma 3 models are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure.",
     "messageFormat": "gemma3",
-    "tags": ["vision", "instruct"]
+    "tags": ["vision", "instruct", "multilingual", "long-context"]
   }
 }

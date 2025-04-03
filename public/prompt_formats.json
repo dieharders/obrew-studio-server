@@ -57,7 +57,7 @@
   },
   "luna-ai-llama2": {
     "system": "",
-    "user": "USER: {{user_message}}\nASSISTANT:"
+    "user": "USER: {{user_message}}\n\nASSISTANT:"
   },
   "openbuddy-openllama": {
     "system": "You can speak fluently in many languages, for example: English, Chinese.\nYour vast knowledge is cutoff: 2021-09.{{system_message}}\n\n",
