@@ -213,7 +213,7 @@ async def load_text_inference(
             # debug=True,  # For testing, @TODO Add a toggle in webui for this
             response_mode=data.responseMode,
             active_role=data.activeRole,
-            raw=data.raw,
+            raw_input=data.raw,
             message_format=message_template,
             generate_kwargs=data.call,
             model_init_kwargs=data.init,
