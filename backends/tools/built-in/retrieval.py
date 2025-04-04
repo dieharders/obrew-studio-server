@@ -8,7 +8,7 @@ from embeddings.response_synthesis import Response_Mode
 # `options` can be used to manually inline a set of options for selection on frontend.
 class Params(BaseModel):
     # Required - A description is needed for prompt injection
-    """Ask a specialized LLM to perform an information lookup and retrieval using a list memories available."""
+    """Ask a specialized knowledge agent to perform information lookup and retrieval from a data source."""
     prompt: str = Field(
         ...,
         description="The user query that is asking the agent for contextual information.",
