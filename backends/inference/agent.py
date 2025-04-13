@@ -22,10 +22,12 @@ from core.classes import ToolDefinition
 class Agent:
     def __init__(
         self,
+        app,
         llm: Type[LLAMA_CPP],
         tools: List[str],
         func_calling: TOOL_USE_MODES = None,
     ):
+        self.app = app
         self.llm = llm
         self.tools = tools
         self.func_calling = func_calling or DEFAULT_TOOL_USE_MODE
@@ -51,7 +53,7 @@ class Agent:
         # Return tool assisted response if any tools are assigned
         #########################################################
         if self.has_tools:
-            tool = Tool(request)
+            tool = Tool(app=self.app, request=request)
             assigned_tool: ToolDefinition = None
             all_installed_tool_defs: List[ToolDefinition] = (
                 get_all_tool_definitions().get("data")

@@ -68,6 +68,7 @@ class bcolors:
 
 PRNT_APP = f"{bcolors.HEADER}[OBREW]{bcolors.ENDC}"
 PRNT_API = f"{bcolors.HEADER}[API]{bcolors.ENDC}"
+PRNT_RAG = f"{bcolors.OKGREEN}[RAG]{bcolors.ENDC}"
 PRNT_LLAMA = f"{bcolors.HEADER}[LLAMA]{bcolors.ENDC}"
 PRNT_LLAMA_LOG = f"{bcolors.HEADER}[LLAMA_LOG]{bcolors.ENDC}"
 PRNT_EMBED = f"{bcolors.OKCYAN}[EMBEDDING]{bcolors.ENDC}"

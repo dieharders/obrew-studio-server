@@ -469,7 +469,9 @@ async def generate_text(
         await app.state.request_queue.put(request)
 
         # Assign Agent
-        agent = Agent(llm=llm, tools=assigned_tool_names, func_calling=llm.func_calling)
+        agent = Agent(
+            app=app, llm=llm, tools=assigned_tool_names, func_calling=llm.func_calling
+        )
         response = await agent.call(
             request=request,
             system_message=system_message,
