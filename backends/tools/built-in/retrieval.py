@@ -78,7 +78,7 @@ class Params(BaseModel):
     }
 
 
-# @TODO Should this pass all model_init_kwargs and generate_kwargs from Agent?
+# @TODO All tools should have their agent's data passed: "model", memories, etc. Just pass one big "agent" dict.
 # Or should we use the same llm as the agent?
 async def main(**kwargs: Params) -> str:
     # @TODO Apply template

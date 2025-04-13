@@ -38,7 +38,7 @@ def get_collection_sources(collection: Collection) -> List[classes.SourceMetadat
 
 
 # Create a ChromaDB client singleton
-def get_vector_db_client(app) -> ClientAPI:
+def get_vector_db_client(app: classes.FastAPIApp) -> ClientAPI:
     if app.state.db_client == None:
         # if app.state.is_prod:
         #     # Recommended

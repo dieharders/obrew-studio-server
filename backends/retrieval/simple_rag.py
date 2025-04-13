@@ -1,5 +1,4 @@
-import uuid
-from typing import List, Callable, Optional
+from typing import List, Callable
 from embeddings.storage import get_vector_db_client
 
 # import chromadb
@@ -19,15 +18,6 @@ class SimpleRAG:
         self.client = get_vector_db_client(app)
         # @TODO loop thru and search each collection
         self.collection = self.client.get_or_create_collection(name=collection_names[0])
-
-    # @TODO Use this for knowledge base actions when uploading documents
-    def add_documents(self, docs: List[str], metadata: Optional[List[dict]] = None):
-        ids = [str(uuid.uuid4()) for _ in docs]
-        embeddings = [self.embed_fn(doc) for doc in docs]
-        metadatas = metadata if metadata else [None for _ in docs]
-        self.collection.add(
-            documents=docs, embeddings=embeddings, metadatas=metadatas, ids=ids
-        )
 
     def query(self, question: str, top_k: int = 5) -> str:
         query_embedding = self.embed_fn(question)
