@@ -5,26 +5,19 @@ from llama_index.core import (
     Document,
     Settings,
 )
-from llama_index.core.callbacks import CallbackManager, LlamaDebugHandler  # CBEventType
+from llama_index.core.callbacks import CallbackManager, LlamaDebugHandler
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core import StorageContext
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.storage.docstore import SimpleDocumentStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from core.classes import FastAPIApp
 from core import common
-from .storage import (
-    get_vector_db_client,
-    add_chunks_to_collection,
-    update_collection_sources,
-)
+from embeddings.vector_storage import Vector_Storage
 from .file_parsers import process_documents
 from .text_splitters import markdown_heading_split, markdown_document_split
 from .chunking import chunks_from_documents, create_source_record
 from .file_loaders import documents_from_sources
-
-# from chromadb.utils import embedding_functions
-# from llama_index.core.response_synthesizers import ResponseMode
-# from llama_index.core.indices import load_index_from_storage, load_indices_from_storage
 
 embedding_model_names = dict(
     BAAI_Small="BAAI/bge-small-en-v1.5",
@@ -57,7 +50,7 @@ def embed_pipeline(parser, vector_store, documents: List[Document]):
 # Define a specific embedding method globally
 # @TODO Allow user to determine which model to use.
 # @TODO Use the embedder recorded in the metadata (when retrieving)
-def define_embedding_model(app: Any):
+def define_embedding_model(app: FastAPIApp):
     # from transformers import AutoModel, AutoTokenizer
     print(f"{common.PRNT_EMBED} Initializing embed model...", flush=True)
     embed_model = "local"
@@ -91,26 +84,21 @@ def create_index_callback_manager() -> CallbackManager:
 
 # Load collection of document embeddings from disk
 # @TODO Cleanup args, some (context_window, num_output, chunk_size, prompts) should be updated before a query is called
-def load_embedding(app: dict, collection_name: str) -> VectorStoreIndex:
+def load_embedding(app: FastAPIApp, collection_name: str) -> VectorStoreIndex:
     vector_index = None
     try:
         # Initialize embedding func
         define_embedding_model(app)
-        # Initialize client
-        db = get_vector_db_client(app)
+        # Initialize storage
+        vector_storage = Vector_Storage(app)
         # Get collection
-        collection = db.get_or_create_collection(name=collection_name)
-        # Assign chroma as the vector store of the context
-        vector_store = ChromaVectorStore(chroma_collection=collection)
-        storage_context = StorageContext.from_defaults(vector_store=vector_store)
-        # Load index from stored vectors
-        vector_index = VectorStoreIndex.from_vector_store(
-            vector_store,
-            storage_context=storage_context,
-            show_progress=True,
-            callback_manager=create_index_callback_manager(),
-            # store_nodes_override=True,  # this populates docstore.json with chunk nodes
-        )
+        collection = vector_storage.get_collection(name=collection_name)
+        if collection:
+            vector_index = vector_storage.add_chunks_to_collection(
+                collection=collection,
+                nodes=[],  # empty since we're just loading
+                callback_manager=create_index_callback_manager(),
+            )
     except Exception as e:
         print(f"{common.PRNT_EMBED} Failed to load vector index: {e}", flush=True)
     return vector_index
@@ -118,7 +106,7 @@ def load_embedding(app: dict, collection_name: str) -> VectorStoreIndex:
 
 # Create nodes from a single source Document
 async def create_index_nodes(
-    app: dict,
+    app: FastAPIApp,
     input_file: dict,
     form: dict,
 ) -> List[Document]:
@@ -166,7 +154,7 @@ async def create_index_nodes(
 def create_new_embedding(
     nodes: List[Document],
     form: dict,
-    app: Any,
+    app: FastAPIApp,
 ):
     try:
         print(f"{common.PRNT_EMBED} Creating embeddings...", flush=True)
@@ -204,20 +192,24 @@ def create_new_embedding(
             define_embedding_model(app)
             # Create/load a vector index, add chunks and persist to storage
             print(f"{common.PRNT_EMBED} Adding chunks to collection...", flush=True)
-            db = get_vector_db_client(app)
-            collection = db.get_collection(name=collection_name)
-            vector_index = add_chunks_to_collection(
-                collection=collection,
-                nodes=chunk_nodes,
-                callback_manager=create_index_callback_manager(),
-            )
-            # Add/update `collection.metadata.sources` list
-            print(f"{common.PRNT_EMBED} Updating collection metadata...", flush=True)
-            update_collection_sources(
-                collection=collection,
-                sources=[source_record],
-                mode="add",
-            )
+
+            vector_storage = Vector_Storage(app)
+            collection = vector_storage.get_collection(name=collection_name)
+            if collection:
+                vector_index = vector_storage.add_chunks_to_collection(
+                    collection=collection,
+                    nodes=chunk_nodes,
+                    callback_manager=create_index_callback_manager(),
+                )
+                # Add/update `collection.metadata.sources` list
+                print(
+                    f"{common.PRNT_EMBED} Updating collection metadata...", flush=True
+                )
+                vector_storage.update_collection_sources(
+                    collection=collection,
+                    sources=[source_record],
+                    mode="add",
+                )
         print(f"{common.PRNT_EMBED} Embedding succeeded!", flush=True)
     except (Exception, KeyError) as e:
         msg = f"Embedding failed: {e}"

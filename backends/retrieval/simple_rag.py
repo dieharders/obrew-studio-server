@@ -1,23 +1,22 @@
 from typing import List, Callable
-from embeddings.storage import get_vector_db_client
-
-# import chromadb
-# from chromadb.config import Settings
+from chromadb.api import ClientAPI
 
 
 class SimpleRAG:
     def __init__(
         self,
-        app,
+        client: ClientAPI,
         collection_names: List[str],
         embed_fn: Callable[[str], List[float]],
         llm_fn: Callable[[str], str],
     ):
         self.embed_fn = embed_fn
         self.llm_fn = llm_fn
-        self.client = get_vector_db_client(app)
+        self.db_client = client
         # @TODO loop thru and search each collection
-        self.collection = self.client.get_or_create_collection(name=collection_names[0])
+        self.collection = self.db_client.get_or_create_collection(
+            name=collection_names[0]
+        )
 
     def query(self, question: str, top_k: int = 5) -> str:
         query_embedding = self.embed_fn(question)

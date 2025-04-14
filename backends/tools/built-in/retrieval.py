@@ -3,8 +3,8 @@ from pydantic import BaseModel, Field
 from core import common
 from core.classes import FastAPIApp
 from retrieval.simple_rag import SimpleRAG
-from embeddings.main import EMBEDDING_MODEL_CACHE_PATH
-from embeddings.embedder_model import EMBEDDER_MODEL
+from embeddings.vector_storage import Vector_Storage
+from embeddings.embedder import Embedder, EMBEDDING_MODEL_CACHE_PATH
 from embeddings.response_synthesis import Response_Mode
 from inference.helpers import read_event_data
 
@@ -86,11 +86,12 @@ async def main(**kwargs: Params) -> str:
 
     # Setup embedding llm
     # @TODO Pass in the model based on the metadata from the target collection. For now we always use same model.
-    embedder = EMBEDDER_MODEL(cache_path=EMBEDDING_MODEL_CACHE_PATH)
+    embedder = Embedder(cache_path=EMBEDDING_MODEL_CACHE_PATH)
 
     # Setup "query engine"
     similarity_top_k = kwargs["similarity_top_k"]
     app: FastAPIApp = kwargs["app"]
+    vector_storage = Vector_Storage(app=app)
 
     # @TODO Load a seperate context for RAG
     llm = app.state.llm
@@ -107,7 +108,7 @@ async def main(**kwargs: Params) -> str:
 
     # @TODO Use the RAG methodology based on "strategy" (SimpleRAG, RankerRAG, etc.) borrow code from llama-index implementation
     retriever = SimpleRAG(
-        app=app,
+        client=vector_storage.db_client,
         # @TODO Agent or Orchestrator could determine which memory to search in before calling tool
         collection_names=kwargs["memories"],
         embed_fn=embedder.embed,

@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 # Custom
-from embeddings import storage as vector_storage
+from embeddings.vector_storage import Vector_Storage
 from core import common, classes
 from services.route import router as services
 from embeddings.route import router as embeddings
@@ -211,7 +211,8 @@ class ApiServer:
         @app.get("/v1/ping")
         def ping() -> classes.PingResponse:
             try:
-                db = vector_storage.get_vector_db_client(self.app)
+                vector_storage = Vector_Storage(app=self.app)
+                db = vector_storage.db_client
                 db.heartbeat()
                 return {"success": True, "message": "pong"}
             except Exception as e:
