@@ -1,9 +1,10 @@
 import os
 import glob
 import shutil
-from nanoid import generate as generate_uuid
-from typing import Any, List, Optional
 import hashlib
+from typing import List, Optional
+from nanoid import generate as generate_uuid
+from core.classes import FastAPIApp
 from core import common
 from fastapi import UploadFile
 from llama_index.core import Document
@@ -119,7 +120,7 @@ def process_documents(nodes: List[Document]) -> List[Document]:
 
 
 async def copy_file_to_disk(
-    app: Any,
+    app: FastAPIApp,
     url_path: str,  # web, could be a file or html
     text_input: str,  # text from client
     file: UploadFile,  # file from client
