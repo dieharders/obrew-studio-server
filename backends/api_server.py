@@ -90,7 +90,6 @@ class ApiServer:
             app.state.request_queue = asyncio.Queue()
             app.state.db_client = None
             app.state.llm = None  # Set each time user loads a model
-            app.state.embed_model = None
             # https://www.python-httpx.org/quickstart/
             app.state.requests_client = httpx.Client()
 
