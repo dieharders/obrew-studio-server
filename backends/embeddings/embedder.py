@@ -1,19 +1,21 @@
 import os
-from typing import List
+from typing import List, TYPE_CHECKING
 from fastapi import BackgroundTasks, UploadFile
 from sentence_transformers import SentenceTransformer
 from core import common
-from core.classes import EmbedDocumentRequest, FastAPIApp, SourceMetadata
+from core.classes import EmbedDocumentRequest, FastAPIApp
 from llama_index.core import VectorStoreIndex, Document
 from llama_index.core.callbacks import CallbackManager, LlamaDebugHandler
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.storage.docstore import SimpleDocumentStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-from embeddings.vector_storage import Vector_Storage
 from .file_parsers import copy_file_to_disk, create_parsed_id, process_documents
 from .text_splitters import markdown_heading_split, markdown_document_split
 from .chunking import chunks_from_documents, create_source_record
 from .file_loaders import documents_from_sources
+
+if TYPE_CHECKING:
+    from embeddings.vector_storage import Vector_Storage
 
 # from llama_index.vector_stores.chroma import ChromaVectorStore
 # from llama_index.core import StorageContext
@@ -54,6 +56,7 @@ class Embedder:
     # We create one source per upload
     def _create_new_embedding(
         self,
+        vector_storage: "Vector_Storage",
         nodes: List[Document],
         form: dict,
     ):
@@ -92,7 +95,6 @@ class Embedder:
                 # Create/load a vector index, add chunks and persist to storage
                 print(f"{common.PRNT_EMBED} Adding chunks to collection...", flush=True)
 
-                vector_storage = Vector_Storage(self.app, embed_model=self.embed_model)
                 collection = vector_storage.get_collection(name=collection_name)
                 if collection:
                     vector_index = vector_storage.add_chunks_to_collection(
@@ -136,6 +138,7 @@ class Embedder:
 
     async def modify_document(
         self,
+        vector_storage: "Vector_Storage",
         form: EmbedDocumentRequest,
         file: UploadFile,
         background_tasks: BackgroundTasks,
@@ -195,13 +198,18 @@ class Embedder:
             raise Exception("Invalid value for 'tags' input.")
         # If updating, Remove specified source(s) from database
         if is_update:
-            vector_storage = Vector_Storage(app=self.app)
             collection = vector_storage.get_collection(name=collection_name)
             sources_to_delete = vector_storage.get_sources_from_ids(
                 collection=collection, source_ids=[prev_document_id]
             )
-            self.delete_sources(
-                collection_name=collection_name, sources=sources_to_delete
+            vector_index = self.load_embedding(
+                collection_name=collection_name, vector_storage=vector_storage
+            )
+            vector_storage.delete_sources(
+                collection_name=collection_name,
+                sources=sources_to_delete,
+                vector_storage=vector_storage,
+                vector_index=vector_index,
             )
         # Write uploaded file to disk temporarily
         input_file = await copy_file_to_disk(
@@ -226,16 +234,17 @@ class Embedder:
             self._create_new_embedding,
             nodes=nodes,
             form=form_data,
+            vector_storage=vector_storage,
         )
         return path_to_parsed_file
 
     # Load collection of document embeddings from disk
     # @TODO Cleanup args, some (context_window, num_output, chunk_size, prompts) should be updated before a query is called
-    def load_embedding(self, collection_name: str) -> VectorStoreIndex:
+    def load_embedding(
+        self, collection_name: str, vector_storage: "Vector_Storage"
+    ) -> VectorStoreIndex:
         vector_index = None
         try:
-            # Initialize storage
-            vector_storage = Vector_Storage(self.app)
             # Get collection
             collection = vector_storage.get_collection(name=collection_name)
             if collection:
@@ -247,29 +256,6 @@ class Embedder:
         except Exception as e:
             print(f"{common.PRNT_EMBED} Failed to load vector index: {e}", flush=True)
         return vector_index
-
-    # Given source(s), delete all associated document chunks, metadata and files
-    def delete_sources(self, collection_name: str, sources: List[SourceMetadata]):
-        vector_storage = Vector_Storage(app=self.app)
-        collection = vector_storage.get_collection(name=collection_name)
-        vector_index = self.load_embedding(collection_name)
-        # Delete each source chunk and parsed file
-        for source in sources:
-            chunk_ids = source.get("chunkIds")
-            # Delete all chunks
-            vector_storage.delete_chunks(
-                collection=collection,
-                vector_index=vector_index,
-                chunk_ids=chunk_ids,
-            )
-            # Delete associated files
-            vector_storage.delete_source_files(source)
-        # Update collection metadata.sources to remove this source
-        vector_storage.update_collection_sources(
-            collection=collection,
-            sources=sources,
-            mode="delete",
-        )
 
     # Create nodes from a single source Document
     async def create_index_nodes(

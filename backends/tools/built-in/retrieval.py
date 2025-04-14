@@ -4,7 +4,7 @@ from core import common
 from core.classes import FastAPIApp
 from retrieval.simple_rag import SimpleRAG
 from embeddings.vector_storage import Vector_Storage
-from embeddings.embedder import Embedder, EMBEDDING_MODEL_CACHE_PATH
+from embeddings.embedder import Embedder
 from embeddings.response_synthesis import Response_Mode
 from inference.helpers import read_event_data
 
@@ -90,7 +90,7 @@ async def main(**kwargs: Params) -> str:
     vector_storage = Vector_Storage(app=app)
 
     # Setup embedding llm
-    # @TODO Pass in the model based on the metadata from the target collection. For now we always use same model.
+    # @TODO Pass in the embed model based on the metadata from the target collection. For now we always use same model.
     embedder = Embedder(app=app)
 
     # @TODO Load a seperate context for RAG
@@ -107,10 +107,15 @@ async def main(**kwargs: Params) -> str:
         return data
 
     # @TODO Use the RAG methodology based on "strategy" (SimpleRAG, RankerRAG, etc.) borrow code from llama-index implementation
+    collection_names = kwargs["memories"]
+    collections = []
+    for name in collection_names:
+        collection = vector_storage.db_client.get_collection(name=name)
+        collections.append(collection)
+
     retriever = SimpleRAG(
-        client=vector_storage.db_client,
         # @TODO Agent or Orchestrator could determine which memory to search in before calling tool
-        collection_names=kwargs["memories"],
+        collections=collections,
         embed_fn=embedder.embed_text,
         llm_fn=llm_func,
     )

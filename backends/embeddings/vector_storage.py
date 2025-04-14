@@ -189,6 +189,33 @@ class Vector_Storage:
         for c_id in chunk_ids:
             vector_index.delete(c_id)
 
+    # Given source(s), delete all associated document chunks, metadata and files
+    def delete_sources(
+        self,
+        collection_name: str,
+        sources: List[classes.SourceMetadata],
+        vector_storage: "Vector_Storage",
+        vector_index: VectorStoreIndex,
+    ):
+        collection = vector_storage.get_collection(name=collection_name)
+        # Delete each source chunk and parsed file
+        for source in sources:
+            chunk_ids = source.get("chunkIds")
+            # Delete all chunks
+            vector_storage.delete_chunks(
+                collection=collection,
+                vector_index=vector_index,
+                chunk_ids=chunk_ids,
+            )
+            # Delete associated files
+            vector_storage.delete_source_files(source)
+        # Update collection metadata.sources to remove this source
+        vector_storage.update_collection_sources(
+            collection=collection,
+            sources=sources,
+            mode="delete",
+        )
+
     def delete_source_files(self, source: classes.SourceMetadata):
         """Delete all files and references associated with embedded docs"""
         source_file_path = source.get("filePath")

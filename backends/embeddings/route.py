@@ -72,7 +72,9 @@ async def create_memory(
 
     try:
         embedder = Embedder(app=app)
+        vector_storage = Vector_Storage(app=app, embed_model=embedder.embed_model)
         tmp_input_file_path = await embedder.modify_document(
+            vector_storage=vector_storage,
             form=form,
             file=file,
             background_tasks=background_tasks,
@@ -113,7 +115,9 @@ async def update_memory(
 
     try:
         embedder = Embedder(app=app)
+        vector_storage = Vector_Storage(app=app, embed_model=embedder.embed_model)
         tmp_input_file_path = await embedder.modify_document(
+            vector_storage=vector_storage,
             form=form,
             file=file,
             background_tasks=background_tasks,
@@ -256,16 +260,22 @@ def delete_document_sources(
         collection_name = params.collection_id
         source_ids = params.document_ids
         num_documents = len(source_ids)
+        embedder = Embedder(app=app)
         # Find source data
-        vector_storage = Vector_Storage(app=app)
+        vector_storage = Vector_Storage(app=app, embed_model=embedder.embed_model)
         collection = vector_storage.get_collection(name=collection_name)
         sources_to_delete = vector_storage.get_sources_from_ids(
             collection=collection, source_ids=source_ids
         )
         # Remove specified source(s)
-        embedder = Embedder(app=app)
-        embedder.delete_sources(
-            collection_name=collection_name, sources=sources_to_delete
+        vector_index = embedder.load_embedding(
+            collection_name=collection_name, vector_storage=vector_storage
+        )
+        vector_storage.delete_sources(
+            collection_name=collection_name,
+            sources=sources_to_delete,
+            vector_storage=vector_storage,
+            vector_index=vector_index,
         )
 
         return {
@@ -290,14 +300,22 @@ def delete_collection(
 
     try:
         collection_id = params.collection_id
-        vector_storage = Vector_Storage(app=app)
+        embedder = Embedder(app=app)
+        vector_storage = Vector_Storage(app=app, embed_model=embedder.embed_model)
         db = vector_storage.db_client
         collection = db.get_collection(collection_id)
         # Remove all the sources in this collection
         sources = vector_storage.get_collection_sources(collection)
         # Remove all associated source files
-        embedder = Embedder(app=app)
-        embedder.delete_sources(collection_name=collection_id, sources=sources)
+        vector_index = embedder.load_embedding(
+            collection_name=collection_id, vector_storage=vector_storage
+        )
+        vector_storage.delete_sources(
+            collection_name=collection_id,
+            sources=sources,
+            vector_storage=vector_storage,
+            vector_index=vector_index,
+        )
         # Remove the collection
         db.delete_collection(name=collection_id)
         # Remove persisted vector index from disk
@@ -325,7 +343,8 @@ def wipe_all_memories(
 
     try:
         # Delete all db values
-        vector_storage = Vector_Storage(app=app)
+        embedder = Embedder(app=app)
+        vector_storage = Vector_Storage(app=app, embed_model=embedder.embed_model)
         db = vector_storage.db_client
         db.reset()
         # Delete all parsed files in /memories

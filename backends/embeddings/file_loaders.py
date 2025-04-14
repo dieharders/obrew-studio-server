@@ -313,12 +313,14 @@ def simple_image_loader(
     return document_results
 
 
+# @TODO Find a local only replacement
 # https://github.com/run-llama/llama_index/blob/40913847ba47d435b40b7fac3ae83eba89b56bb9/llama-index-integrations/readers/llama-index-readers-file/llama_index/readers/file/image_vision_llm/base.py
 def image_vision_loader():
     return []
 
 
 # Requires OpenAI models
+# @TODO Find a local only replacement
 # https://github.com/run-llama/llama_index/tree/40913847ba47d435b40b7fac3ae83eba89b56bb9/llama-index-integrations/readers/llama-index-readers-file/llama_index/readers/file/video_audio
 def simple_audio_video_loader(
     sources: str,
