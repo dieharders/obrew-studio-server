@@ -2,7 +2,7 @@ import os
 from typing import List, Optional
 from pathlib import Path
 from dotenv import load_dotenv
-from llama_index.core import SimpleDirectoryReader, Document
+from llama_index.core.readers import SimpleDirectoryReader, Document
 from llama_index.readers.file import (
     PyMuPDFReader,
     DocxReader,

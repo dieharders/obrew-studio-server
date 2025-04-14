@@ -8,13 +8,13 @@ from llama_index.core import VectorStoreIndex, Document
 from llama_index.core.callbacks import CallbackManager, LlamaDebugHandler
 from llama_index.core.ingestion import IngestionPipeline
 from llama_index.core.storage.docstore import SimpleDocumentStore
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from embeddings.vector_storage import Vector_Storage
 from .file_parsers import copy_file_to_disk, create_parsed_id, process_documents
 from .text_splitters import markdown_heading_split, markdown_document_split
 from .chunking import chunks_from_documents, create_source_record
 from .file_loaders import documents_from_sources
 
-# from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 # from llama_index.vector_stores.chroma import ChromaVectorStore
 # from llama_index.core import StorageContext
 
@@ -44,10 +44,11 @@ class Embedder:
 
     def __init__(self, app: FastAPIApp, model: str = None, cache_path: str = None):
         self.app = app
-        self.model = (
-            model or embedding_model_names["gte_base"]
-        )  # @TODO set to multilingual_large
         self.cache = cache_path or EMBEDDING_MODEL_CACHE_PATH
+        self.embed_model_name = model or embedding_model_names["multilingual_large"]
+        self.embed_model = HuggingFaceEmbedding(
+            self.embed_model_name, cache_folder=self.cache
+        )
 
     # Create embeddings for one file (input) at a time
     # We create one source per upload
@@ -55,7 +56,6 @@ class Embedder:
         self,
         nodes: List[Document],
         form: dict,
-        app: FastAPIApp,
     ):
         try:
             print(f"{common.PRNT_EMBED} Creating embeddings...", flush=True)
@@ -92,7 +92,7 @@ class Embedder:
                 # Create/load a vector index, add chunks and persist to storage
                 print(f"{common.PRNT_EMBED} Adding chunks to collection...", flush=True)
 
-                vector_storage = Vector_Storage(app)
+                vector_storage = Vector_Storage(self.app, embed_model=self.embed_model)
                 collection = vector_storage.get_collection(name=collection_name)
                 if collection:
                     vector_index = vector_storage.add_chunks_to_collection(
@@ -127,8 +127,11 @@ class Embedder:
 
     def embed_text(self, text: str) -> List[float]:
         """Create vector embeddings from text."""
-        # embedding_model = HuggingFaceEmbedding(self.model, cache_folder=self.cache)
-        embedding_model = SentenceTransformer(self.model, cache_folder=self.cache)
+        # embedding_model = HuggingFaceEmbedding(self.embed_model_name, cache_folder=self.cache)
+        # Or
+        embedding_model = SentenceTransformer(
+            self.embed_model_name, cache_folder=self.cache
+        )
         return embedding_model.encode(text, normalize_embeddings=True).tolist()
 
     async def modify_document(
@@ -162,7 +165,7 @@ class Embedder:
             "document_id": source_id,
             "description": description,
             "tags": tags,
-            "embedder": self.model,
+            "embedder": self.embed_model_name,
             "chunk_size": chunk_size,
             "chunk_overlap": chunk_overlap,
             "chunk_strategy": chunk_strategy,
@@ -223,7 +226,6 @@ class Embedder:
             self._create_new_embedding,
             nodes=nodes,
             form=form_data,
-            app=self.app,
         )
         return path_to_parsed_file
 

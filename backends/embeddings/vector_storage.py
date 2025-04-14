@@ -2,7 +2,8 @@ import os
 import glob
 import json
 import uuid
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Type
+from core import common, classes
 from chromadb import Collection, PersistentClient
 from chromadb.api import ClientAPI
 from chromadb.config import Settings
@@ -10,7 +11,8 @@ from llama_index.core.schema import IndexNode
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core import VectorStoreIndex, StorageContext
 from llama_index.core.callbacks import CallbackManager
-from core import common, classes
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+
 
 VECTOR_DB_FOLDER = "chromadb"
 VECTOR_STORAGE_PATH = common.app_path(VECTOR_DB_FOLDER)
@@ -19,8 +21,11 @@ VECTOR_STORAGE_PATH = common.app_path(VECTOR_DB_FOLDER)
 class Vector_Storage:
     """Handles document storage and retrieval using ChromaDB (currently via llama-index wrapper)"""
 
-    def __init__(self, app: classes.FastAPIApp):
+    def __init__(
+        self, app: classes.FastAPIApp, embed_model: Type[HuggingFaceEmbedding] = None
+    ):
         self.app = app
+        self.embed_model = embed_model
         self.db_client = self._get_vector_db_client()
 
     def _get_vector_db_client(self) -> ClientAPI:
@@ -87,6 +92,7 @@ class Vector_Storage:
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
         index = VectorStoreIndex(
+            embed_model=self.embed_model,
             nodes=nodes,
             storage_context=storage_context,
             show_progress=True,

@@ -231,6 +231,7 @@ async def load_text_inference(
             "data": None,
         }
     except (FileNotFoundError, json.JSONDecodeError) as error:
+        print(f"{common.PRNT_API} Failed loading model: {model_id}\n{error}")
         return {
             "message": f"Unable to load AI model [{model_id}]\nError: Invalid JSON format or file not found.\n{error}",
             "success": False,

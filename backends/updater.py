@@ -52,11 +52,11 @@ def get_gpu_details() -> List[Dict]:
 
     # Debug
     for gpu in results:
-        print(f"GPU Name: {gpu.get("gpu_name")}", flush=True)
+        print(f"GPU Name: {gpu.get('gpu_name')}", flush=True)
         print("GPU ID:", gpu.get("id"))
-        print(f"Driver Version: {gpu.get("driver_ver")}", flush=True)
-        print(f"Manufacturer: {gpu.get("manufacturer")}", flush=True)
-        print(f"Type: {gpu.get("gpu_type")}", flush=True)
+        print(f"Driver Version: {gpu.get('driver_ver')}", flush=True)
+        print(f"Manufacturer: {gpu.get('manufacturer')}", flush=True)
+        print(f"Type: {gpu.get('gpu_type')}", flush=True)
         print("Total VRAM:", gpu.get("vram_total"), "MB")
         print("Used VRAM:", gpu.get("vram_used"), "MB")
         print("Free VRAM:", gpu.get("vram_free"), "MB")
