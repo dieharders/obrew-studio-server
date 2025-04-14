@@ -81,4 +81,4 @@ yarn version --major
 
 https://github.com/[github-user]/[project-name]/releases/latest/download/[installer-file-name]
 
-[Back to main README](../README.md)
+[Back to README](../README.md)

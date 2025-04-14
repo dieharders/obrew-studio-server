@@ -54,4 +54,4 @@ and here https://github.com/abetlen/llama-cpp-python/blob/main/README.md#install
 
 for steps to compile to other targets.
 
-[Back to main README](../README.md)
+[Back to README](../README.md)

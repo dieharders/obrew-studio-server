@@ -74,4 +74,4 @@ You can choose from curated open-source models to download from HuggingFace and 
 
 It is very much meant to be "hackable" as all data is output into plain text (json or otherwise) and new tools can be added simply by adding files to the appropriate folder on your local disk.
 
-[Back to main README](../README.md)
+[Back to README](../README.md)
