@@ -40,7 +40,6 @@ class AppState(dict):
     db_client: Type[ClientAPI] | None
     api: Type[ApiServerClass] | None
     llm: LLAMA_CPP | None
-    embed_model: str | None
 
 
 class FastAPIApp(FastAPI):
