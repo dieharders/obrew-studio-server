@@ -8,7 +8,6 @@ from typing import List, Optional, Union, Type
 from pydantic import BaseModel
 from chromadb import Collection
 from chromadb.api import ClientAPI
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from inference.llama_cpp import LLAMA_CPP
 from collections.abc import Callable
 
@@ -41,7 +40,7 @@ class AppState(dict):
     db_client: Type[ClientAPI] | None
     api: Type[ApiServerClass] | None
     llm: LLAMA_CPP | None
-    embed_model: Type[HuggingFaceEmbedding] | str | None
+    embed_model: str | None
 
 
 class FastAPIApp(FastAPI):

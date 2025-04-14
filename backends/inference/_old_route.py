@@ -10,7 +10,8 @@ from inference.classes import (
 )
 from inference import agent
 from storage import route as storage_route
-from embeddings import main, query
+from embeddings import query
+from embeddings.embedder import Embedder
 from inference import text_llama_index
 from core import classes, common
 from huggingface_hub import (
@@ -112,7 +113,8 @@ def load_text_inference(
         model_id = data.modelId
         responseMode = data.responseMode
         modelPath = data.modelPath
-        callback_manager = main.create_index_callback_manager()
+        embedder = Embedder(app)
+        callback_manager = embedder.create_index_callback_manager()
         # Record model's save path
         app.state.model_id = model_id
         app.state.path_to_model = modelPath
@@ -472,11 +474,9 @@ async def text_inference(
             # Update LLM generation options
             # app.state.llm.generate_kwargs.update(options)
 
-            # Load embedding model for context retrieval
-            main.define_embedding_model(app)
-
             # Load the vector index. @TODO Load multiple collections
-            vector_index = main.load_embedding(app, collection_name)
+            embedder = Embedder(app)
+            vector_index = embedder.load_embedding(collection_name)
 
             # Call LLM query engine
             res = query.query_embedding(

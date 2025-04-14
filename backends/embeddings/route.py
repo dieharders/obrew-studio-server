@@ -3,9 +3,9 @@ import json
 from datetime import datetime, timezone
 from core import classes, common
 from fastapi import APIRouter, Request, Depends, File, BackgroundTasks, UploadFile
-from embeddings.vector_storage import Vector_Storage
+from embeddings.vector_storage import VECTOR_STORAGE_PATH, Vector_Storage
+from embeddings.embedder import Embedder
 from . import file_parsers
-from embeddings.embedder import modify_document, delete_sources
 
 router = APIRouter()
 
@@ -71,8 +71,8 @@ async def create_memory(
     app = request.app
 
     try:
-        tmp_input_file_path = await modify_document(
-            app=app,
+        embedder = Embedder(app=app)
+        tmp_input_file_path = await embedder.modify_document(
             form=form,
             file=file,
             background_tasks=background_tasks,
@@ -112,8 +112,8 @@ async def update_memory(
     app = request.app
 
     try:
-        tmp_input_file_path = await modify_document(
-            app=app,
+        embedder = Embedder(app=app)
+        tmp_input_file_path = await embedder.modify_document(
             form=form,
             file=file,
             background_tasks=background_tasks,
@@ -263,8 +263,9 @@ def delete_document_sources(
             collection=collection, source_ids=source_ids
         )
         # Remove specified source(s)
-        delete_sources(
-            app=app, collection_name=collection_name, sources=sources_to_delete
+        embedder = Embedder(app=app)
+        embedder.delete_sources(
+            collection_name=collection_name, sources=sources_to_delete
         )
 
         return {
@@ -295,11 +296,14 @@ def delete_collection(
         # Remove all the sources in this collection
         sources = vector_storage.get_collection_sources(collection)
         # Remove all associated source files
-        delete_sources(app=app, collection_name=collection_id, sources=sources)
+        embedder = Embedder(app=app)
+        embedder.delete_sources(collection_name=collection_id, sources=sources)
         # Remove the collection
         db.delete_collection(name=collection_id)
         # Remove persisted vector index from disk
-        common.delete_vector_store(collection_id, vector_storage.VECTOR_STORAGE_PATH)
+        common.delete_vector_store(
+            target_file_path=collection_id, folder_path=VECTOR_STORAGE_PATH
+        )
         return {
             "success": True,
             "message": f"Removed collection [{collection_id}]",

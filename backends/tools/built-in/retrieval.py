@@ -84,14 +84,14 @@ async def main(**kwargs: Params) -> str:
     # @TODO Apply template
     # prompt = apply_template(kwargs.prompt_template, kwargs.prompt)
 
-    # Setup embedding llm
-    # @TODO Pass in the model based on the metadata from the target collection. For now we always use same model.
-    embedder = Embedder(cache_path=EMBEDDING_MODEL_CACHE_PATH)
-
     # Setup "query engine"
     similarity_top_k = kwargs["similarity_top_k"]
     app: FastAPIApp = kwargs["app"]
     vector_storage = Vector_Storage(app=app)
+
+    # Setup embedding llm
+    # @TODO Pass in the model based on the metadata from the target collection. For now we always use same model.
+    embedder = Embedder(app=app)
 
     # @TODO Load a seperate context for RAG
     llm = app.state.llm
@@ -111,7 +111,7 @@ async def main(**kwargs: Params) -> str:
         client=vector_storage.db_client,
         # @TODO Agent or Orchestrator could determine which memory to search in before calling tool
         collection_names=kwargs["memories"],
-        embed_fn=embedder.embed,
+        embed_fn=embedder.embed_text,
         llm_fn=llm_func,
     )
 
