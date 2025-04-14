@@ -55,7 +55,7 @@ jobs:
         id: restore-cache
         uses: actions/cache/restore@v4
         with:
-          key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.release.txt') }}
+          key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.txt') }}
           path: .venv
 
       # 4. Create virtual environment, Install package manager and dependencies for Python
@@ -69,13 +69,13 @@ jobs:
           # Install pip and Python deps
           .venv/Scripts/python --version
           .venv/Scripts/python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
-          .venv/Scripts/python -m pip install -r requirements.release.txt # install deps, use --prefer-binary to install from wheels instead of source
+          .venv/Scripts/python -m pip install -r requirements.txt # install deps, use --prefer-binary to install from wheels instead of source
 
       # 5. Cache python virtual environment for later runs
       - name: Save cached venv
         uses: actions/cache/save@v4
         with:
-          key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.release.txt') }}
+          key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.txt') }}
           path: .venv
 
       # - name: List contents of GitHub workspace
