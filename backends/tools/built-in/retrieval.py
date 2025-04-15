@@ -35,7 +35,7 @@ class Params(BaseModel):
     )
     similarity_top_k: int = Field(
         ...,
-        description="Number of top results from knowledge base to use when ranking similarity.",
+        description="Specify the number of top results from the knowledge base to use when ranking similarity.",
         input_type="text",
         min_value=1,
         default_value=3,
@@ -43,7 +43,7 @@ class Params(BaseModel):
     )
     strategy: str = Field(
         ...,
-        description="The method to use when synthesizing an answer from the retrieved context.",
+        description="Choose the method to use when synthesizing an answer from the retrieved context.",
         input_type="options-sel",
         placeholder="Select strategy",
         default_value="refine",
@@ -53,7 +53,7 @@ class Params(BaseModel):
     # @TODO Remove options_source, keep field
     memories: List[str] = Field(
         ...,
-        description="Access the agent's knowledge-base collections to retrieve context information from.",
+        description="Access the agent's knowledge base collections to retrieve context information from.",
         input_type="options-multi",
         options_source="memories",
         llm_not_required=True,
