@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List
 from pydantic import BaseModel, Field
 from core import common
 from core.classes import FastAPIApp
@@ -27,7 +27,7 @@ class Params(BaseModel):
     )
     prompt_template: str = Field(
         ...,
-        description="The template structures the agent's response and influences what information is retrieved from the provided context.",
+        description="The agent's prompt template is used to structure its' response and influence what information is retrieved from the provided context.",
         # input_type="options-sel",
         # placeholder="Select a template",
         # options_source="retrieval-template",
