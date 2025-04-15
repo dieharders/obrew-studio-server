@@ -17,12 +17,12 @@ There are two shortcuts installed, the normal executable and one for "headless" 
 
 Install dependencies for python listed in requirements.txt file:
 
-Be sure to run this command with admin privileges. This command is optional and is also run on each `yarn build`.
+Be sure to run this command with admin privileges. This command is optional and is also run on each `pnpm build`.
 
 ```bash
 pip install -r requirements.txt
 # or
-yarn python-deps
+pnpm python-deps
 ```
 
 ### Install yarn | npm | pnpm | etc.
@@ -40,21 +40,21 @@ Or
 python backends/main.py
 ```
 
-Or using yarn (recommended)
+Or using a package manager
 
 ```bash
-yarn server:dev
+pnpm server:dev
 # or
-yarn server:prod
+pnpm server:prod
 # or to run headless (production)
-yarn server:headless-prod
+pnpm server:headless-prod
 # or to run headless (development)
-yarn server:headless-dev
+pnpm server:headless-dev
 ```
 
 The Obrew api server will be running on [https://localhost:8008](https://localhost:8008)
 
-\*_Note_ if the server fails to start be sure to run `yarn makecert` command to create certificate files necessary for https (these go into `_deps/public` folder).
+\*_Note_ if the server fails to start be sure to run `pnpm makecert` command to create certificate files necessary for https (these go into `_deps/public` folder).
 
 ## Managing Python dependencies
 
@@ -126,4 +126,4 @@ source .virtualenvs/myvenv/bin/activate
 pip install -r requirements.txt
 ```
 
-[Back to main README](../README.md)
+[Back to README](../README.md)

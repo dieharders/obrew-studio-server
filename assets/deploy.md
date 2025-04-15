@@ -20,4 +20,4 @@ yarn makecert
 
 This should be enough for any webapp served over https to access the server. If you see "Warning: Potential Security Risk Ahead" in your browser when using the webapp, you can ignore it by clicking `advanced` then `Accept the Risk` button to continue.
 
-[Back to main README](../README.md)
+[Back to README](../README.md)

@@ -106,5 +106,9 @@
   "qwq": {
     "system": "",
     "user": "<|im_start|>user\n{{user_message}}<|im_end|>\n<|im_start|>assistant\n<think>\n"
+  },
+  "deepcoder": {
+    "system": "<｜begin_of_sentence｜>{system_message}",
+    "user": "<｜User｜>{user_message}<｜Assistant｜><｜end_of_sentence｜><｜Assistant｜><think>"
   }
 }

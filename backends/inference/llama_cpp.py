@@ -17,6 +17,8 @@ from inference.helpers import (
     sanitize_kwargs,
 )
 from inference.classes import (
+    CHAT_MODES,
+    TOOL_USE_MODES,
     ChatMessage,
     InferenceRequest,
     LoadTextInferenceCall,
@@ -32,16 +34,15 @@ class LLAMA_CPP:
 
     def __init__(
         self,
-        model_url: str,  # Provide a url to download a model from
         model_path: str,  # Or, you can set the path to a pre-downloaded model file instead of model_url
         model_name: str,  # Friendly name
         model_id: str,  #  id of model in config
-        func_calling: str,  # Function calling method
-        response_mode: str,  # CHAT_MODES
-        raw_input: bool,  # user can send manually formatted messages
+        response_mode: CHAT_MODES,  # CHAT_MODES
+        model_url: str = None,  # Provide a url to download a model from
+        raw_input: bool = None,  # user can send manually formatted messages
+        func_calling: TOOL_USE_MODES = None,  # Function calling method (TOOL_USE_MODES)
         tool_schema_type: str = None,  # Determines which format of func definition should be fed to prompt (currently only applies to native)
-        # template converts messages to prompts
-        message_format: Optional[dict] = {},
+        message_format: Optional[dict] = {},  # template converts messages to prompts
         verbose=False,
         debug=False,  # Show logs
         model_init_kwargs: LoadTextInferenceInit = None,  # kwargs to pass when loading the model
@@ -56,11 +57,11 @@ class LLAMA_CPP:
         n_threads = model_init_kwargs.n_threads
         n_gpu_layers = model_init_kwargs.n_gpu_layers
         if model_init_kwargs.n_gpu_layers == -1:
-            n_gpu_layers = 100  # all
+            n_gpu_layers = 100  # all @TODO lower this to 40?
 
         init_kwargs = {
-            "--n_gpu_layers": n_gpu_layers,
-            "--no_mmap": not model_init_kwargs.use_mmap,
+            "--n-gpu-layers": n_gpu_layers,
+            "--no-mmap": not model_init_kwargs.use_mmap,
             "--mlock": model_init_kwargs.use_mlock,
             "--seed": model_init_kwargs.seed,
             "--ctx-size": n_ctx,  # 0=loaded from model
@@ -85,7 +86,7 @@ class LLAMA_CPP:
         self.message_format = message_format
         self.response_mode = response_mode
         self.func_calling = func_calling
-        self.raw_input = raw_input
+        self.raw_input = raw_input or False
         self.model_url = model_url
         self.model_name = model_name or "chatbot"  # human friendly name for display
         self.model_id = model_id
@@ -445,8 +446,9 @@ class LLAMA_CPP:
         content += decoder.decode(b"", final=True)
         content = content.rstrip(eos_llama_token).strip()
         if not content:
+            # @TODO Should we throw exception to display a toast msg on frontend?
             print(
-                f"{common.PRNT_LLAMA} No response from model. Check available memory or try offloading to CPU only."
+                f"{common.PRNT_LLAMA} No response from model. Check available memory, try to lower amount of GPU Layers or offload to CPU only."
             )
         payload = content_payload(content)
         if stream:

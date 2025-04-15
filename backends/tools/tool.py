@@ -1,11 +1,11 @@
 import json
 import importlib.util
 from fastapi import Request
-from typing import List, Optional, Type
+from typing import Any, List, Optional, Type
 from pydantic import BaseModel
 from tools.classes import TOOL_SCHEMA_TYPES
 from core import common
-from core.classes import ToolDefinition, ToolFunctionSchema
+from core.classes import FastAPIApp, ToolDefinition, ToolFunctionSchema
 from inference.llama_cpp import LLAMA_CPP
 from inference.classes import AgentOutput
 from tools.helpers import (
@@ -49,7 +49,8 @@ class Tool:
     4. Finally, return the function's results along with a text version.
     """
 
-    def __init__(self, request: Optional[Request] = None):
+    def __init__(self, app: FastAPIApp = None, request: Optional[Request] = None):
+        self.app = app
         self.request = request
         self.filename: str = None
 
@@ -293,13 +294,15 @@ class Tool:
         filter_allowed_keys(schema=chosen_tool_params, allowed=allowed_args)
         # Call function with arguments provided by the tool first
         func_results = await _call_func_with_tool_params(
-            tool_def=tool_choice_def, prompt=query
+            app=self.app, request=self.request, tool_def=tool_choice_def, prompt=query
         )
         if func_results:
             return func_results
         # Otherwise, Call function with arguments from llm
         else:
-            func_call_result = await tool_func(**chosen_tool_params)
+            func_call_result = await tool_func(
+                **chosen_tool_params, app=self.app, request=self.request
+            )
             return dict(raw=func_call_result, text=str(func_call_result))
 
     # Execute the tool function with the provided arguments (if any)
@@ -312,7 +315,7 @@ class Tool:
         query: str = "",
     ) -> AgentOutput | None:
         func_results = await _call_func_with_tool_params(
-            tool_def=tool_def, prompt=query
+            app=self.app, request=self.request, tool_def=tool_def, prompt=query
         )
         # Call function with arguments provided by the tool or llm
         if func_results:
@@ -396,11 +399,17 @@ class Tool:
                 flush=True,
             )
             tool_func = load_function(tool_def.get("path", None))
-            func_call_result = await tool_func(**parsed_llm_response)
+            func_call_result = await tool_func(
+                **parsed_llm_response,
+                app=self.app,
+                request=self.request,
+            )
             return dict(raw=func_call_result, text=str(func_call_result))
 
 
-async def _call_func_with_tool_params(tool_def: ToolDefinition, prompt: str):
+async def _call_func_with_tool_params(
+    app: FastAPIApp, request: Request, tool_def: ToolDefinition, prompt: str
+):
     """If tool requires llm params, then return nothing, otherwise return func result."""
     tool_params = tool_def.get("params", None)
     required_llm_arguments = get_llm_required_args(tool_params)
@@ -414,6 +423,6 @@ async def _call_func_with_tool_params(tool_def: ToolDefinition, prompt: str):
             raise Exception("No function found.")
         # Call function with arguments provided by the tool and/or prompt
         func_arguments = get_provided_args(prompt=prompt, tool_params=tool_params)
-        func_call_result = await tool_func(**func_arguments)
+        func_call_result = await tool_func(**func_arguments, app=app, request=request)
         # Return results
         return dict(raw=func_call_result, text=str(func_call_result))

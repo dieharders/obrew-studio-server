@@ -34,4 +34,4 @@ Installed App: Put your .env file in `_deps` folder in the executable's root dir
 
 If you do not wish to save a .env file you can also set .env vars from the app start page under "settings".
 
-[Back to main README](../README.md)
+[Back to README](../README.md)

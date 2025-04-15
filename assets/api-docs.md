@@ -8,4 +8,4 @@ A complete list of endpoint documentation can be found at [http://localhost:8000
 
 There is currently a javascript library under development and being used by [Obrew Studio WebUI](https://github.com/dieharders/brain-dump). Once the project becomes stable, it will be broken out into its own module and repo. Stay tuned.
 
-[Back to main README](../README.md)
+[Back to README](../README.md)

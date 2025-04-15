@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
 from core import classes
-from embeddings.main import CHUNKING_STRATEGIES
+from embeddings.embedder import CHUNKING_STRATEGIES
 from embeddings.response_synthesis import Response_Mode
 
 # from llama_index.core.response_synthesizers import ResponseMode

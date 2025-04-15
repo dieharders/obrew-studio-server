@@ -231,6 +231,7 @@ async def load_text_inference(
             "data": None,
         }
     except (FileNotFoundError, json.JSONDecodeError) as error:
+        print(f"{common.PRNT_API} Failed loading model: {model_id}\n{error}")
         return {
             "message": f"Unable to load AI model [{model_id}]\nError: Invalid JSON format or file not found.\n{error}",
             "success": False,
@@ -469,7 +470,9 @@ async def generate_text(
         await app.state.request_queue.put(request)
 
         # Assign Agent
-        agent = Agent(llm=llm, tools=assigned_tool_names, func_calling=llm.func_calling)
+        agent = Agent(
+            app=app, llm=llm, tools=assigned_tool_names, func_calling=llm.func_calling
+        )
         response = await agent.call(
             request=request,
             system_message=system_message,
