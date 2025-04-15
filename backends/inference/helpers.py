@@ -1,4 +1,5 @@
 from typing import Optional
+from llama_index_client import Document
 from typing_extensions import TypedDict
 from typing import List, Optional, Sequence
 from core import common
@@ -39,6 +40,38 @@ def sanitize_kwargs(kwargs: dict) -> list[str]:
         else:
             arr.extend([f"{key}", str(value)])
     return arr
+
+
+def apply_query_template(
+    template: str,
+    query: str,
+    context_list: List[Document] = [],
+    new_chunk_text: str = "",
+    schema: str = "",
+    dialect: str = "",
+    existing_answer: str = "",
+    instruction_str: str = "",
+    max_knowledge_triplets: int = 1,
+    branching_factor: int = 1,
+    max_keywords: int = 1,
+    num_chunks: int = 1,
+):
+    """Return question text for retrieval (RAG)"""
+
+    result = template.replace("{{query_str}}", query)
+    if len(context_list) != 0:
+        context_str = "\n".join(context_list)
+        result = result.replace("{{context_str}}", context_str)
+    result = result.replace("{{num_chunks}}", str(num_chunks))
+    result = result.replace("{{max_keywords}}", str(max_keywords))
+    result = result.replace("{{new_chunk_text}}", new_chunk_text)
+    result = result.replace("{{branching_factor}}", str(branching_factor))
+    result = result.replace("{{schema}}", schema)
+    result = result.replace("{{dialect}}", dialect)
+    result = result.replace("{{existing_answer}}", existing_answer)
+    result = result.replace("{{max_knowledge_triplets}}", str(max_knowledge_triplets))
+    result = result.replace("{{instruction_str}}", instruction_str)
+    return result
 
 
 # This assumes one turn convo (question/answer) so system msg is included. Feed result to /completion.

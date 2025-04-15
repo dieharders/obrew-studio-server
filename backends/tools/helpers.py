@@ -226,7 +226,8 @@ def tool_to_json_schema(params: List[dict]) -> str:
         # Assign param
         properties[param_name] = param_schema
         # Add param to required
-        required.append(param_name)
+        if not param.get("llm_not_required"):
+            required.append(param_name)
     object_constrained_schema = {
         "type": "object",
         "properties": properties,
@@ -241,6 +242,9 @@ def tool_to_typescript_schema(name: str, description: str, params: List[dict]) -
     properties = ""
     output_type = "any"  # @TODO Define output type
     for param in params:
+        # We ignore specific params if its always provided
+        if param.get("llm_not_required"):
+            continue
         param_name = param["name"]
         param_type = param["type"]
         param_description = param["description"]
@@ -302,11 +306,13 @@ def get_provided_args(prompt: str, tool_params: List[dict]):
 # Determine allowed arg names (arguments that llm needs to fill in)
 def get_llm_required_args(tool_params: List[ToolFunctionParameter]) -> List[str]:
     result = []
-    # Check each `value` exists, if not then the llm needs to send it,
-    # we ignore "prompt" since its always provided.
     for param in tool_params:
         pname = param.get("name", None)
-        if pname and pname != "prompt" and not param.get("value", None):
+        val = param.get("value", None)
+        is_required = not param.get("llm_not_required")
+        # Check each `value` exists, if not then the llm needs to send it.
+        # We ignore specific params if its always provided
+        if pname and not val and is_required:
             result.append(pname)
     return result
 

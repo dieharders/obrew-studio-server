@@ -17,15 +17,21 @@ class Params(BaseModel):
     """Ask a specialized knowledge agent to perform information lookup and retrieval from a data source."""
     prompt: str = Field(
         ...,
-        description="The user query that is asking the agent for contextual information.",
+        description="The user prompt that asks the agent for contextual information.",
+        llm_not_required=True,
     )
-    # @TODO Remove options_source, keep field
+    system_message: str = Field(
+        ...,
+        description="The agent's system message instructs it how to handle the contextual information provided.",
+        llm_not_required=True,
+    )
     prompt_template: str = Field(
         ...,
-        description="Name of the template to use when prompting the agent.",
-        input_type="options-sel",
-        placeholder="Select a template",
-        options_source="retrieval-template",
+        description="The template structures the agent's response and influences what information is retrieved from the provided context.",
+        # input_type="options-sel",
+        # placeholder="Select a template",
+        # options_source="retrieval-template",
+        llm_not_required=True,
     )
     similarity_top_k: int = Field(
         ...,
@@ -33,30 +39,32 @@ class Params(BaseModel):
         input_type="text",
         min_value=1,
         default_value=3,
+        llm_not_required=True,
     )
     strategy: str = Field(
         ...,
-        description="Name of the method to use when synthesizing an answer from contextual results.",
+        description="The method to use when synthesizing an answer from the retrieved context.",
         input_type="options-sel",
         placeholder="Select strategy",
         default_value="refine",
         options=list(Response_Mode.__members__.values()),
+        llm_not_required=True,
     )
     # @TODO Remove options_source, keep field
     memories: List[str] = Field(
         ...,
-        description="A list of collections to retrieve context information from.",
+        description="A list of collections of knowledge to retrieve context information from.",
         input_type="options-multi",
         options_source="memories",
+        llm_not_required=True,
     )
-    # @TODO Remove options_source, keep field
-    model: Tuple[str, str] = Field(
-        ...,
-        description="The LLM model to use for retrieval.",
-        input_type="options-sel",
-        placeholder="Select model",
-        options_source="installed-models",
-    )
+    # model: Tuple[str, str] = Field(
+    #     ...,
+    #     description="Use the agent's LLM model for retrieval.",
+    #     input_type="options-sel",
+    #     placeholder="Select model",
+    #     options_source="installed-models",
+    # )
 
     # Used to tell LLM how to structure its response for using this tool.
     # Only include params that the LLM is expected to fill out, the rest
@@ -67,29 +75,31 @@ class Params(BaseModel):
                 # first example for display in UI/documentation
                 {
                     "prompt": "Find me contact info for the head of HR.",
+                    "system_message": "Only use knowledge taken from the provided context.",
                     "prompt_template": "{{user_prompt}}",
                     "strategy": "summarize",
                     "similarity_top_k": 3,
                     "memories": ["company_data"],
-                    "model": ["llama2", "llama2_7b_Q4.gguf"],
+                    # "model": ["llama2", "llama2_7b_Q4.gguf"],
                 },
             ]
         }
     }
 
 
-# @TODO All tools should have their agent's data passed: "model", memories, etc. Just pass one big "agent" dict.
-# Or should we use the same llm as the agent?
 async def main(**kwargs: Params) -> str:
-    # @TODO Apply template
-    # prompt = apply_template(kwargs.prompt_template, kwargs.prompt)
-
-    # Setup "query engine"
-    similarity_top_k = kwargs["similarity_top_k"]
-    app: FastAPIApp = kwargs["app"]
-    vector_storage = Vector_Storage(app=app)
+    # generate_kwargs = kwargs.get("generate_kwargs")  # optional
+    # model_init_kwargs = kwargs.get("model_init_kwargs")  # optional
+    app: FastAPIApp = kwargs.get("app")
+    query = kwargs.get("prompt")
+    template = kwargs.get("prompt_template")
+    system_message = kwargs.get("system_message")
+    similarity_top_k = kwargs.get("similarity_top_k")
+    collection_names = kwargs.get("memories")
+    strategy = kwargs.get("strategy")
 
     # Setup embedding llm
+    vector_storage = Vector_Storage(app=app)
     # @TODO Pass in the embed model based on the metadata from the target collection. For now we always use same model.
     embedder = Embedder(app=app)
 
@@ -97,22 +107,24 @@ async def main(**kwargs: Params) -> str:
     llm = app.state.llm
 
     # Create a curried func, always non-streamed
-    async def llm_func(prompt: str):
-        print(f"{common.PRNT_RAG} Context: {prompt}", flush=True)
-        # @TODO Add a system message to induce RAG behavior (dont use your internal knowledge, etc.)
-        response = await llm.text_completion(request=kwargs["request"], prompt=prompt)
+    async def llm_func(prompt: str, system_message: str):
+        print(f"{common.PRNT_RAG} Context:\n{prompt}", flush=True)
+        response = await llm.text_completion(
+            request=kwargs.get("request"), prompt=prompt, system_message=system_message
+        )
         # Return complete response
         content = [item async for item in response]
         data = read_event_data(content)
         return data
 
-    # @TODO Use the RAG methodology based on "strategy" (SimpleRAG, RankerRAG, etc.) borrow code from llama-index implementation
-    collection_names = kwargs["memories"]
+    # Gather list of collections from names
     collections = []
     for name in collection_names:
         collection = vector_storage.db_client.get_collection(name=name)
         collections.append(collection)
 
+    # @TODO Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
+    # Setup query engine
     retriever = SimpleRAG(
         # @TODO Agent or Orchestrator could determine which memory to search in before calling tool
         collections=collections,
@@ -121,9 +133,11 @@ async def main(**kwargs: Params) -> str:
     )
 
     # Query
-    # @TODO Replace "What is in the documents?" with kwargs["prompt"]
     result = await retriever.query(
-        question="What is in the documents?", top_k=similarity_top_k
+        question=query,
+        system_message=system_message,
+        template=template,
+        top_k=similarity_top_k,
     )
     answer = result.get("text")
     return answer

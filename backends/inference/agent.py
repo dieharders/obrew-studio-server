@@ -64,7 +64,11 @@ class Agent:
             # Use native tool calling, choose tool from list of schemas and output args in one-shot
             if curr_func_calling == TOOL_USE_MODES.NATIVE.value:
                 tool_call_result = await tool.native_call(
-                    llm=self.llm, tool_defs=assigned_tool_defs, query=prompt
+                    llm=self.llm,
+                    tool_defs=assigned_tool_defs,
+                    query=prompt,
+                    prompt_template=prompt_template,
+                    system_message=system_message,
                 )
             # Choose a tool to use, then execute it
             else:
@@ -73,7 +77,6 @@ class Agent:
                     chosen_tool_name = self.tools[0]
                 # Use Universal tool calling
                 else:
-                    # elif curr_func_calling == TOOL_USE_MODES.UNIVERSAL.value:
                     # Choose a tool explicitly or implicitly specified in the user query
                     chosen_tool_name = await tool.choose_tool_from_description(
                         llm=self.llm,
@@ -92,7 +95,11 @@ class Agent:
                 # Execute the tool. For now tool use is limited to one chosen tool.
                 # @TODO In future we could have MultiTool(tools=tools) which can execute multiple chained tools.
                 tool_call_result = await tool.universal_call(
-                    llm=self.llm, tool_def=assigned_tool, query=prompt
+                    llm=self.llm,
+                    tool_def=assigned_tool,
+                    query=prompt,
+                    prompt_template=prompt_template,
+                    system_message=system_message,
                 )
             print(
                 f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4)}"

@@ -525,7 +525,10 @@ class ToolFunctionParameter(BaseModel):
     value: Optional[str | int | float | dict | list] = None
     min_value: Optional[int | float | str] = None
     max_value: Optional[int | float | str] = None
-    options_source: Optional[str] = None
+    options_source: Optional[str] = (
+        None  # ["retrieval-template", "memories", "installed-models"]
+    )
+    llm_not_required: bool = None
     options: Optional[List[str]] = None
     items: Optional[dict] = None
 
