@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 from pydantic import BaseModel, Field
 from core import common
 from core.classes import FastAPIApp
@@ -58,13 +58,14 @@ class Params(BaseModel):
         options_source="memories",
         llm_not_required=True,
     )
-    # model: Tuple[str, str] = Field(
-    #     ...,
-    #     description="Use the agent's LLM model for retrieval.",
-    #     input_type="options-sel",
-    #     placeholder="Select model",
-    #     options_source="installed-models",
-    # )
+    model: Tuple[str, str] = Field(
+        ...,
+        description="Use the agent's LLM model [model_name, model_file_name] for retrieval.",
+        # input_type="options-sel",
+        # placeholder="Select model",
+        # options_source="installed-models",
+        llm_not_required=True,
+    )
 
     # Used to tell LLM how to structure its response for using this tool.
     # Only include params that the LLM is expected to fill out, the rest
@@ -80,7 +81,7 @@ class Params(BaseModel):
                     "strategy": "summarize",
                     "similarity_top_k": 3,
                     "memories": ["company_data"],
-                    # "model": ["llama2", "llama2_7b_Q4.gguf"],
+                    "model": ["llama2", "llama2_7b_Q4.gguf"],
                 },
             ]
         }
