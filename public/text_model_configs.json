@@ -264,5 +264,12 @@
     "description": "OpenHands LM is built on the foundation of Qwen Coder 2.5 Instruct 32B, leveraging its powerful base capabilities for coding tasks. What sets OpenHands LM apart is our specialized fine-tuning process. It features a 128K token context window, ideal for handling large codebases and long-horizon software engineering tasks.",
     "messageFormat": "qwen",
     "tags": ["instruct", "agent", "coding", "multimodal"]
+  },
+  "bartowski/agentica-org_DeepCoder-14B-Preview-GGUF": {
+    "repoId": "bartowski/agentica-org_DeepCoder-14B-Preview-GGUF",
+    "name": "DeepCoder 14B (coding)",
+    "description": "DeepCoder-14B-Preview is a code reasoning LLM fine-tuned from DeepSeek-R1-Distilled-Qwen-14B using distributed reinforcement learning (RL) to scale up to long context lengths. Supports a context length of 128k tokens.",
+    "messageFormat": "deepcoder",
+    "tags": ["coding", "reasoning"]
   }
 }
