@@ -1,7 +1,6 @@
 import os
 from typing import List, TYPE_CHECKING
 from fastapi import BackgroundTasks, UploadFile
-from sentence_transformers import SentenceTransformer
 from core import common
 from core.classes import EmbedDocumentRequest, FastAPIApp
 from llama_index.core import VectorStoreIndex, Document
@@ -128,13 +127,17 @@ class Embedder:
         pipeline.run(documents=documents)
 
     def embed_text(self, text: str) -> List[float]:
-        """Create vector embeddings from text."""
-        # embedding_model = HuggingFaceEmbedding(self.embed_model_name, cache_folder=self.cache)
-        # Or
-        embedding_model = SentenceTransformer(
+        """Create vector embeddings from query text."""
+        embedding_model = HuggingFaceEmbedding(
             self.embed_model_name, cache_folder=self.cache
         )
-        return embedding_model.encode(text, normalize_embeddings=True).tolist()
+        # Both work
+        return embedding_model.get_text_embedding(text)
+        # Or
+        # embedding_model = SentenceTransformer(
+        #     self.embed_model_name, cache_folder=self.cache
+        # )
+        # return embedding_model.encode(text, normalize_embeddings=True).tolist()
 
     async def modify_document(
         self,
