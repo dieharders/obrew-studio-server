@@ -53,7 +53,7 @@ class Params(BaseModel):
     # @TODO Remove options_source, keep field
     memories: List[str] = Field(
         ...,
-        description="A list of collections of knowledge to retrieve context information from.",
+        description="Access the agent's knowledge-base collections to retrieve context information from.",
         input_type="options-multi",
         options_source="memories",
         llm_not_required=True,
