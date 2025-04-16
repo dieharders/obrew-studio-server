@@ -59,7 +59,6 @@ def chunks_from_documents(
 def create_source_record(document: Document) -> dict:
     doc_metadata = document.metadata
     total_pages = doc_metadata.get("total_pages")
-    print(f"doc_metadata::{doc_metadata}")
     modified_last = (
         doc_metadata.get("last_modified_date")
         or doc_metadata.get("modified_last")

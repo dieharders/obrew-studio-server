@@ -161,10 +161,9 @@ class Embedder:
         chunk_strategy = form.chunkStrategy or list(CHUNKING_STRATEGIES.keys())[0]
         parsing_method = form.parsingMethod
         new_document_id = create_parsed_id(collection_name=collection_name)
+        source_id = new_document_id
         if is_update:
             source_id = prev_document_id
-        else:
-            source_id = new_document_id
         # Verify input values
         if (
             file == None  # file from client
@@ -244,7 +243,6 @@ class Embedder:
             "file_size": file_size,  # bytes
             "created_at": created_at,
         }
-        print(f"metadata::{metadata}")
         # Read in files and create index nodes
         nodes = await self.create_index_nodes(metadata=metadata)
         # Create embeddings
