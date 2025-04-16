@@ -16,7 +16,7 @@ class GetChatThreadResponse(BaseModel):
                     "data": [
                         {
                             "id": "06ufWDF",
-                            "createdAt": "Monday January 21, 2012",
+                            "created_at": "Monday January 21, 2012",
                             "title": "World's tallest buildings",
                             "summary": "A discussion about all the different buildings around the world that are the tallest.",
                             "numMessages": 1,
@@ -25,7 +25,7 @@ class GetChatThreadResponse(BaseModel):
                                     "id": "shdaDoWj92D501jaufWDFiW",
                                     "content": "What is the tallest building in the world?",
                                     "role": "user",
-                                    "createdAt": "Monday, January 21, 2012",
+                                    "created_at": "Monday, January 21, 2012",
                                     "order": 0,
                                 }
                             ],

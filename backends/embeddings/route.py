@@ -31,7 +31,7 @@ def create_memory_collection(
         # Create payload. ChromaDB only accepts strings, numbers, bools.
         metadata = {
             "icon": form.icon or "",
-            "createdAt": datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S"),
+            "created_at": datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S"),
             "tags": parsed_tags,
             "description": form.description,
             "sources": json.dumps([]),
