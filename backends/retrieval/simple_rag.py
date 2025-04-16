@@ -1,5 +1,6 @@
 from typing import List, Callable
 from chromadb import Collection
+from inference.helpers import apply_query_template
 
 
 class SimpleRAG:
@@ -13,13 +14,15 @@ class SimpleRAG:
         self.llm_fn = llm_fn
         self.collections = collections
 
-    def query(self, question: str, top_k: int = 5) -> str:
+    def query(
+        self, question: str, system_message: str, template: str, top_k: int = 5
+    ) -> str:
         query_embedding = self.embed_fn(question)
         # @TODO loop thru and search each collection (query_embeddings)
         collection = self.collections[0]
         results = collection.query(query_embeddings=[query_embedding], n_results=top_k)
         documents = results.get("documents", [[]])[0]
-        context_str = "\n".join(documents)
-        # @TODO Use the prompt_template here
-        prompt = f"Answer the question using the context below:\n\n{context_str}\n\nQuestion: {question}\nAnswer:"
-        return self.llm_fn(prompt)
+        prompt = apply_query_template(
+            template=template, query=question, context_list=documents
+        )
+        return self.llm_fn(prompt, system_message)

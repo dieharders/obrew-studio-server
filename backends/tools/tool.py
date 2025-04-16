@@ -1,13 +1,13 @@
 import json
 import importlib.util
 from fastapi import Request
-from typing import Any, List, Optional, Type
+from typing import List, Optional, Type
 from pydantic import BaseModel
 from tools.classes import TOOL_SCHEMA_TYPES
 from core import common
 from core.classes import FastAPIApp, ToolDefinition, ToolFunctionSchema
 from inference.llama_cpp import LLAMA_CPP
-from inference.classes import AgentOutput
+from inference.classes import AgentOutput, LoadTextInferenceCall, LoadTextInferenceInit
 from tools.helpers import (
     KEY_TOOL_NAME,
     KEY_TOOL_PARAMS,
@@ -243,6 +243,8 @@ class Tool:
         tool_defs: List[ToolDefinition],
         llm: Type[LLAMA_CPP] = None,
         query: str = "",
+        prompt_template: str = None,
+        system_message: str = None,
     ):
         tool_schemas = ""
         tool_funcs = dict()
@@ -259,11 +261,11 @@ class Tool:
             def_json_str = tool_def.get("json_schema", "")
             tool_schemas += f"\n\n{def_json_str}"
         prompt = f"# Tool descriptions:{tool_schemas}\n# User query:\n\n{query}\n\n# Chosen tool schema:\n\n```json\n"
-        system_message = f"Determine if the user query contains a request or an expression of need for a tool and use the chosen tool schema to output in JSON format: {TOOL_OUTPUT_SCHEMA_STR}."
+        tool_system_message = f"Determine if the user query contains a request or an expression of need for a tool and use the chosen tool schema to output in JSON format: {TOOL_OUTPUT_SCHEMA_STR}."
         # Prompt the LLM for a response using the tool's schema.
         # A lower temperature is better for tool use.
         llm_tool_use_response = await llm.text_completion(
-            system_message=system_message,
+            system_message=tool_system_message,
             prompt=prompt,
             stream=False,
             request=self.request,
@@ -294,7 +296,14 @@ class Tool:
         filter_allowed_keys(schema=chosen_tool_params, allowed=allowed_args)
         # Call function with arguments provided by the tool first
         func_results = await _call_func_with_tool_params(
-            app=self.app, request=self.request, tool_def=tool_choice_def, prompt=query
+            app=self.app,
+            request=self.request,
+            tool_def=tool_choice_def,
+            prompt=query,
+            prompt_template=prompt_template,
+            system_message=system_message,
+            model_init_kwargs=llm.model_init_kwargs,
+            generate_kwargs=llm.generate_kwargs,
         )
         if func_results:
             return func_results
@@ -313,9 +322,18 @@ class Tool:
         tool_def: ToolDefinition,
         llm: Type[LLAMA_CPP] = None,
         query: str = "",
+        prompt_template: str = None,
+        system_message: str = None,
     ) -> AgentOutput | None:
         func_results = await _call_func_with_tool_params(
-            app=self.app, request=self.request, tool_def=tool_def, prompt=query
+            app=self.app,
+            request=self.request,
+            tool_def=tool_def,
+            prompt=query,
+            prompt_template=prompt_template,
+            system_message=system_message,
+            model_init_kwargs=llm.model_init_kwargs,
+            generate_kwargs=llm.generate_kwargs,
         )
         # Call function with arguments provided by the tool or llm
         if func_results:
@@ -328,7 +346,7 @@ class Tool:
             OUTPUT_SCHEMA = "{{output_schema}}"
             tool_params = tool_def.get("params", None)
             required_llm_arguments = get_llm_required_args(tool_params)
-            system_message = f'# Tool\n\nYou are given a tool called "{TOOL_NAME_STR}" which does the following:\n{TOOL_DESCRIPTION}\n\n## Parameters\n\nA description of each parameter required by the tool.\n\n{TOOL_ARGUMENTS}\n\n## Instruction\n\nBased on this info and the user query, you are expected to return a JSON schema: {OUTPUT_SCHEMA}. Ensure the JSON is properly formatted and each parameter is the correct data type.'
+            tool_instruction = f'# Tool\n\nYou are given a tool called "{TOOL_NAME_STR}" which does the following:\n{TOOL_DESCRIPTION}\n\n## Parameters\n\nA description of each parameter required by the tool.\n\n{TOOL_ARGUMENTS}\n\n## Instruction\n\nBased on this info and the user query, you are expected to return a JSON schema: {OUTPUT_SCHEMA}. Ensure the JSON is properly formatted and each parameter is the correct data type.'
             tool_prompt = f"QUESTION:\n{KEY_PROMPT_MESSAGE}\n\nANSWER:\n"
             # Return schema for llm to respond with
             tool_name_str = tool_def.get("name", "Tool")
@@ -351,7 +369,9 @@ class Tool:
             # Inject template args into system message
             tool_prompt = tool_prompt.replace(KEY_PROMPT_MESSAGE, query)
             # tool_prompt = tool_prompt.replace(OUTPUT_SCHEMA, tool_json_schema_str)
-            tool_system_message = system_message.replace(TOOL_ARGUMENTS, tool_args_str)
+            tool_system_message = tool_instruction.replace(
+                TOOL_ARGUMENTS, tool_args_str
+            )
             # @TODO Do we need an example?
             # tool_system_message = tool_system_message.replace(
             #     TOOL_EXAMPLE_ARGUMENTS, tool_example_str
@@ -408,11 +428,19 @@ class Tool:
 
 
 async def _call_func_with_tool_params(
-    app: FastAPIApp, request: Request, tool_def: ToolDefinition, prompt: str
+    app: FastAPIApp,
+    request: Request,
+    tool_def: ToolDefinition,
+    prompt: str,
+    prompt_template: str,
+    system_message: str,
+    model_init_kwargs: LoadTextInferenceInit,
+    generate_kwargs: LoadTextInferenceCall,
 ):
     """If tool requires llm params, then return nothing, otherwise return func result."""
     tool_params = tool_def.get("params", None)
     required_llm_arguments = get_llm_required_args(tool_params)
+    # @TODO Allow mixing required llm/tool params
     # If llm params are required, you need the llm to give a struct response...
     if len(required_llm_arguments) > 0:
         return None
@@ -423,6 +451,14 @@ async def _call_func_with_tool_params(
             raise Exception("No function found.")
         # Call function with arguments provided by the tool and/or prompt
         func_arguments = get_provided_args(prompt=prompt, tool_params=tool_params)
-        func_call_result = await tool_func(**func_arguments, app=app, request=request)
+        func_call_result = await tool_func(
+            **func_arguments,
+            app=app,
+            request=request,
+            model_init_kwargs=model_init_kwargs,
+            generate_kwargs=generate_kwargs,
+            prompt_template=prompt_template,
+            system_message=system_message,
+        )
         # Return results
         return dict(raw=func_call_result, text=str(func_call_result))
