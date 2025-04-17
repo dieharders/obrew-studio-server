@@ -1,6 +1,4 @@
-import os
 from nanoid import generate as generate_uuid
-from datetime import datetime, timezone
 from typing import List, Tuple
 from llama_index.core import Document
 from llama_index.core.schema import IndexNode, TextNode
@@ -59,36 +57,18 @@ def chunks_from_documents(
 # Create a document record for a Collection to track
 # @TODO Perhaps we can do the same with a `docstore` ?
 def create_source_record(document: Document) -> dict:
-    metadata = document.metadata
-    file_name = metadata.get("fileName") or ""
-    extension = os.path.splitext(file_name)[1]
-    file_type = extension[1:] or ""  # Remove the dot from the extension
-    name = metadata.get("name") or ""
-    description = (
-        metadata.get("description") or ""
-    )  # "Summarization of source contents."
-    tags = metadata.get("tags") or ""
-    checksum = metadata.get("checksum") or ""
-    file_path = metadata.get("filePath") or ""
-    file_size = metadata.get("fileSize") or 0
-    total_pages = metadata.get("total_pages")
-    created_at = datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S") or ""
+    doc_metadata = document.metadata
+    total_pages = doc_metadata.get("total_pages")
     modified_last = (
-        metadata.get("last_modified_date") or metadata.get("modifiedLast") or ""
+        doc_metadata.get("last_modified_date")
+        or doc_metadata.get("modified_last")
+        or ""
     )
     # Create an object to store metadata
     source_record = dict(
-        id=document.id_,
-        checksum=checksum,  # the hash of the parsed file
-        fileType=file_type,  # type of the source (ingested) file
-        filePath=file_path,  # path to parsed file
-        fileName=file_name,  # name of parsed file
-        fileSize=file_size,  # bytes
-        name=name,  # document name
-        description=description,
-        tags=tags,
-        createdAt=created_at,
-        modifiedLast=modified_last,
+        **doc_metadata,
+        id=document.id_,  # @TODO do we need this?
+        modified_last=modified_last,
         chunkIds=[],  # filled in after chunks created
     )
     if total_pages:

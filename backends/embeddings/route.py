@@ -14,6 +14,7 @@ router = APIRouter()
 def create_memory_collection(
     request: Request,
     form: classes.AddCollectionRequest = Depends(),
+    # @TODO Add a param for embedding_model if user wants to specify
 ) -> classes.AddCollectionResponse:
     app = request.app
 
@@ -29,12 +30,14 @@ def create_memory_collection(
                 "Invalid collection name. No '--', uppercase, spaces or special chars allowed."
             )
         # Create payload. ChromaDB only accepts strings, numbers, bools.
+        embedder = Embedder(app=app)
         metadata = {
             "icon": form.icon or "",
-            "createdAt": datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S"),
+            "created_at": datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S"),
             "tags": parsed_tags,
             "description": form.description,
             "sources": json.dumps([]),
+            "embedding_model": embedder.embed_model_name,
         }
         vector_storage = Vector_Storage(app=app)
         vector_storage.db_client.create_collection(
@@ -71,7 +74,11 @@ async def create_memory(
     app = request.app
 
     try:
-        embedder = Embedder(app=app)
+        collection_name = form.collectionName
+        vector_storage = Vector_Storage(app=app)
+        collection = vector_storage.get_collection(name=collection_name)
+        embed_model = collection.metadata.get("embedding_model")
+        embedder = Embedder(app=app, embed_model=embed_model)
         vector_storage = Vector_Storage(app=app, embed_model=embedder.embed_model)
         tmp_input_file_path = await embedder.modify_document(
             vector_storage=vector_storage,
@@ -114,7 +121,11 @@ async def update_memory(
     app = request.app
 
     try:
-        embedder = Embedder(app=app)
+        collection_name = form.collectionName
+        vector_storage = Vector_Storage(app=app)
+        collection = vector_storage.get_collection(name=collection_name)
+        embed_model = collection.metadata.get("embedding_model")
+        embedder = Embedder(app=app, embed_model=embed_model)
         vector_storage = Vector_Storage(app=app, embed_model=embedder.embed_model)
         tmp_input_file_path = await embedder.modify_document(
             vector_storage=vector_storage,

@@ -34,7 +34,7 @@ chromadb==0.5.0
 sentence-transformers==2.6.1
 # For building single exe python
 pyinstaller==6.11.1
-python-multipart==0.0.6
+python-multipart==0.0.18
 # GPU Profiling
 WMI==1.5.1
 GPUtil==1.4.0

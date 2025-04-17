@@ -354,15 +354,15 @@ class GetDocumentResponse(BaseModel):
 class SourceMetadata(dict):
     id: str
     checksum: str
-    fileType: str  # type of the source (ingested) file
-    filePath: str  # path to parsed file
-    fileName: str  # name of parsed file
-    fileSize: int  # bytes
+    file_type: str  # type of the source (ingested) file
+    file_path: str  # path to parsed file
+    file_name: str  # name of parsed file
+    file_size: int  # bytes
     name: str  # document name
     description: str
     tags: str
-    createdAt: str
-    modifiedLast: str
+    created_at: str
+    modified_last: str
     chunkIds = List[str]
 
 

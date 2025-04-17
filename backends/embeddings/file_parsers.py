@@ -129,6 +129,8 @@ async def copy_file_to_disk(
 ) -> dict:
     try:
         file_name = ""
+        source_file_name = ""
+        source_file_path = ""
         tmp_input_file_path = ""
         tmp_folder = TMP_DOCUMENT_PATH
         # Save temp files to disk first
@@ -145,6 +147,7 @@ async def copy_file_to_disk(
                 )
                 # Download the file and save to disk
                 file_name = create_file_name(id=id, input_file_name=url_path)
+                source_file_path = url_path
                 tmp_input_file_path = os.path.join(tmp_folder, file_name)
                 await common.get_file_from_url(url_path, tmp_input_file_path, app)
             else:
@@ -159,6 +162,8 @@ async def copy_file_to_disk(
                 os.makedirs(tmp_folder)
             # Write to file
             file_name = create_file_name(id=id, input_file_name="content.txt")
+            source_file_name = "content"
+            source_file_path = "content.txt"
             tmp_input_file_path = os.path.join(tmp_folder, file_name)
             with open(tmp_input_file_path, "w") as f:
                 f.write(text_input)
@@ -172,6 +177,8 @@ async def copy_file_to_disk(
                 raise Exception("Unsupported file format.")
             # Copy the file to the destination folder
             file_name = create_file_name(id=id, input_file_name=file_path)
+            source_file_name = os.path.basename(file_path)
+            source_file_path = file_path
             tmp_input_file_path = os.path.join(tmp_folder, file_name)
             if not os.path.exists(tmp_folder):
                 os.makedirs(tmp_folder)
@@ -185,6 +192,8 @@ async def copy_file_to_disk(
                 raise Exception("Unsupported file format.")
             # Read the uploaded file in chunks of 1mb
             file_name = create_file_name(id=id, input_file_name=file.filename)
+            # fname = file.filename.rsplit(".", 1)[0]
+            source_file_name = file.filename
             tmp_input_file_path = os.path.join(tmp_folder, file_name)
             with open(tmp_input_file_path, "wb") as f:
                 while contents := file.file.read(1024 * 1024):
@@ -196,6 +205,8 @@ async def copy_file_to_disk(
             "document_id": id,
             "file_name": file_name,
             "path_to_file": tmp_input_file_path,
+            "source_file_name": source_file_name,
+            "source_file_path": source_file_path,
             "checksum": create_checksum(tmp_input_file_path),
         }
     except Exception as err:

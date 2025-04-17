@@ -16,7 +16,6 @@ def get_gpu_details() -> List[Dict]:
     w = wmi.WMI()
     gpus = w.Win32_VideoController()
     results = []
-
     # Get details
     for gpu in gpus:
         gpu_name = gpu.Name
@@ -24,13 +23,11 @@ def get_gpu_details() -> List[Dict]:
         manufacturer = gpu.AdapterCompatibility
         dac_type = gpu.AdapterDACType
         pnp_device_id = gpu.PNPDeviceID
-
         # Heuristic to determine discrete vs integrated GPU
         if "Intel" in manufacturer or "UMA" in dac_type or "VEN_8086" in pnp_device_id:
             gpu_type = "Integrated (Onboard)"
         else:
             gpu_type = "Discrete (Dedicated)"
-
         results.append(
             dict(
                 gpu_type=gpu_type,
@@ -41,7 +38,11 @@ def get_gpu_details() -> List[Dict]:
                 pnp_device_id=pnp_device_id,
             )
         )
-
+        # Debug
+        print(f"GPU Name: {gpu_name}", flush=True)
+        print(f"Driver Version: {driver_ver}", flush=True)
+        print(f"Manufacturer: {manufacturer}", flush=True)
+        print(f"Type: {gpu_type}", flush=True)
     # Get extra details
     gpus = GPUtil.getGPUs()
     for index, gpu in enumerate(gpus):
@@ -49,17 +50,11 @@ def get_gpu_details() -> List[Dict]:
         results[index]["vram_total"] = gpu.memoryTotal
         results[index]["vram_used"] = gpu.memoryUsed
         results[index]["vram_free"] = gpu.memoryFree
-
-    # Debug
-    for gpu in results:
-        print(f"GPU Name: {gpu.get('gpu_name')}", flush=True)
-        print("GPU ID:", gpu.get("id"))
-        print(f"Driver Version: {gpu.get('driver_ver')}", flush=True)
-        print(f"Manufacturer: {gpu.get('manufacturer')}", flush=True)
-        print(f"Type: {gpu.get('gpu_type')}", flush=True)
-        print("Total VRAM:", gpu.get("vram_total"), "MB")
-        print("Used VRAM:", gpu.get("vram_used"), "MB")
-        print("Free VRAM:", gpu.get("vram_free"), "MB")
+        # Debug
+        print(f"GPU ID: {gpu.id}")
+        print(f"Total VRAM: {gpu.memoryTotal}MB")
+        print(f"Used VRAM: {gpu.memoryUsed}MB")
+        print(f"Free VRAM: {gpu.memoryFree}MB")
 
     return results
 

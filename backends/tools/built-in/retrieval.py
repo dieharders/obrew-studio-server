@@ -1,4 +1,5 @@
 from typing import List, Tuple
+from chromadb import Collection
 from pydantic import BaseModel, Field
 from core import common
 from core.classes import FastAPIApp
@@ -60,7 +61,7 @@ class Params(BaseModel):
     )
     model: Tuple[str, str] = Field(
         ...,
-        description="Use the agent's LLM model [model_name, model_file_name] for retrieval.",
+        description="Use the agent's LLM model [model id, model filename] for retrieval.",
         # input_type="options-sel",
         # placeholder="Select model",
         # options_source="installed-models",
@@ -101,8 +102,6 @@ async def main(**kwargs: Params) -> str:
 
     # Setup embedding llm
     vector_storage = Vector_Storage(app=app)
-    # @TODO Pass in the embed model based on the metadata from the target collection. For now we always use same model.
-    embedder = Embedder(app=app)
 
     # @TODO Load a seperate context for RAG
     llm = app.state.llm
@@ -119,16 +118,24 @@ async def main(**kwargs: Params) -> str:
         return data
 
     # Gather list of collections from names
-    collections = []
+    collections: List[Collection] = []
     for name in collection_names:
         collection = vector_storage.db_client.get_collection(name=name)
         collections.append(collection)
 
+    # @TODO Agent or Orchestrator could loop thru each collection's metadata and determine which one to select before calling tool
+    # OR
+    # We could make embeddings from each collection's metadata and compare those with query embedding to determine which is closest (most relevant).
+    collection = collections[0]
+
+    # Pass in the embed model based on the metadata from the target collection
+    embed_model_name = collection.metadata.get("embedding_model")
+    embedder = Embedder(app=app, embed_model=embed_model_name)
+
     # @TODO Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
     # Setup query engine
     retriever = SimpleRAG(
-        # @TODO Agent or Orchestrator could determine which memory to search in before calling tool
-        collections=collections,
+        collection=collection,
         embed_fn=embedder.embed_text,
         llm_fn=llm_func,
     )

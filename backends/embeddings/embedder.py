@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 from typing import List, TYPE_CHECKING
 from fastapi import BackgroundTasks, UploadFile
 from core import common
@@ -30,6 +31,7 @@ embedding_model_names = dict(
     multilingual_large="intfloat/multilingual-e5-large-instruct",  # currently top of leaderboard
 )
 
+DEFAULT_EMBEDDING_MODEL_NAME = embedding_model_names["multilingual_large"]
 EMBEDDING_MODEL_CACHE_PATH = common.app_path("embed_models")
 CHUNKING_STRATEGIES = {
     "MARKDOWN_HEADING_SPLIT": markdown_heading_split,
@@ -43,10 +45,12 @@ CHUNKING_STRATEGIES = {
 class Embedder:
     """Handle vector embeddings."""
 
-    def __init__(self, app: FastAPIApp, model: str = None, cache_path: str = None):
+    def __init__(
+        self, app: FastAPIApp, embed_model: str = None, cache_path: str = None
+    ):
         self.app = app
         self.cache = cache_path or EMBEDDING_MODEL_CACHE_PATH
-        self.embed_model_name = model or embedding_model_names["multilingual_large"]
+        self.embed_model_name = embed_model or DEFAULT_EMBEDDING_MODEL_NAME
         self.embed_model = HuggingFaceEmbedding(
             self.embed_model_name, cache_folder=self.cache
         )
@@ -57,23 +61,19 @@ class Embedder:
         self,
         vector_storage: "Vector_Storage",
         nodes: List[Document],
-        form: dict,
+        chunk_size,
+        chunk_overlap,
+        chunk_strategy,
+        collection_name,
     ):
         try:
             print(f"{common.PRNT_EMBED} Creating embeddings...", flush=True)
-            # File attributes
-            chunk_size: int = form["chunk_size"] or 300
-            chunk_overlap: int = form["chunk_overlap"] or 0
-            chunk_strategy: str = (
-                form["chunk_strategy"] or list(CHUNKING_STRATEGIES.keys())[0]
-            )
-            text_splitter = CHUNKING_STRATEGIES[chunk_strategy]
-            collection_name: str = form["collection_name"]
             # Loop through each file
             for node in nodes:
                 # Create source document records for Collection metadata
                 source_record = create_source_record(document=node)
                 # Split document texts
+                text_splitter = CHUNKING_STRATEGIES[chunk_strategy]
                 splitter = text_splitter(
                     chunk_size=chunk_size,
                     chunk_overlap=chunk_overlap,
@@ -156,27 +156,14 @@ class Embedder:
         url_path = form.urlPath
         local_file_path = form.filePath
         text_input = form.textInput
-        chunk_size = form.chunkSize
-        chunk_overlap = form.chunkOverlap
-        chunk_strategy = form.chunkStrategy
+        chunk_size = form.chunkSize or 300
+        chunk_overlap = form.chunkOverlap or 0
+        chunk_strategy = form.chunkStrategy or list(CHUNKING_STRATEGIES.keys())[0]
         parsing_method = form.parsingMethod
         new_document_id = create_parsed_id(collection_name=collection_name)
+        source_id = new_document_id
         if is_update:
             source_id = prev_document_id
-        else:
-            source_id = new_document_id
-        form_data = {
-            "collection_name": collection_name,
-            "document_name": document_name,
-            "document_id": source_id,
-            "description": description,
-            "tags": tags,
-            "embedder": self.embed_model_name,
-            "chunk_size": chunk_size,
-            "chunk_overlap": chunk_overlap,
-            "chunk_strategy": chunk_strategy,
-            "parsing_method": parsing_method,
-        }
         # Verify input values
         if (
             file == None  # file from client
@@ -215,6 +202,7 @@ class Embedder:
                 vector_index=vector_index,
             )
         # Write uploaded file to disk temporarily
+        # @TODO Is there a way to pass this in memory so we dont have to write the file to disk.
         input_file = await copy_file_to_disk(
             app=self.app,
             url_path=url_path,
@@ -223,23 +211,54 @@ class Embedder:
             file=file,
             id=source_id,
         )
-        path_to_parsed_file = input_file.get("path_to_file")
+        # Metadata
+        checksum: str = input_file.get("checksum") or ""
+        file_name = input_file.get("file_name")
+        source_file_name = input_file.get("source_file_name")
+        source_file_path = input_file.get("source_file_path")
+        extension = os.path.splitext(file_name)[1]  # Remove the dot from the extension
+        file_type = extension[1:] or ""
+        file_path: str = input_file.get("path_to_file")
+        created_at = datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S") or ""
+        file_size = 0
+        is_file = os.path.isfile(file_path)
+        if is_file:
+            file_size = os.path.getsize(file_path)
+        metadata = {
+            "collection_name": collection_name,
+            "document_name": document_name,
+            "document_id": source_id,
+            "embedding_model": self.embed_model_name,
+            "description": description,
+            "checksum": checksum,  # the hash of the parsed file
+            "tags": tags,
+            "chunk_size": chunk_size,
+            "chunk_overlap": chunk_overlap,
+            "chunk_strategy": chunk_strategy,
+            "parsing_method": parsing_method,
+            "source_file_name": source_file_name,  # name of the original source file that was parsed
+            "source_file_path": source_file_path,
+            "file_path": file_path,
+            "file_type": file_type,  # type of the source (ingested) file
+            "file_size": file_size,  # bytes
+            "created_at": created_at,
+        }
         # Read in files and create index nodes
-        nodes = await self.create_index_nodes(
-            input_file=input_file,
-            form=form_data,
-        )
+        nodes = await self.create_index_nodes(metadata=metadata)
         # Create embeddings
         # @TODO Note that you must NOT perform CPU intensive computations in the background_tasks of the app,
         # because it runs in the same async event loop that serves the requests and it will stall your app.
         # Instead submit them to a thread pool or a process pool.
         background_tasks.add_task(
             self._create_new_embedding,
-            nodes=nodes,
-            form=form_data,
             vector_storage=vector_storage,
+            nodes=nodes,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            chunk_strategy=chunk_strategy,
+            collection_name=collection_name,
         )
-        return path_to_parsed_file
+        return file_path
 
     # Load collection of document embeddings from disk
     # @TODO Cleanup args, some (context_window, num_output, chunk_size, prompts) should be updated before a query is called
@@ -263,39 +282,20 @@ class Embedder:
     # Create nodes from a single source Document
     async def create_index_nodes(
         self,
-        input_file: dict,
-        form: dict,
+        metadata: dict,
     ) -> List[Document]:
         print(f"{common.PRNT_EMBED} Creating nodes...", flush=True)
         # File attributes
-        checksum: str = input_file.get("checksum")
-        file_name = input_file.get("file_name")
-        source_file_path: str = input_file.get("path_to_file")
-        document_id: str = form["document_id"]
-        document_name: str = form["document_name"]
-        description: str = form["description"]
-        tags: str = form["tags"]
-        parsing_method: str = form["parsing_method"]
-        is_file = os.path.isfile(source_file_path)
-        file_size = 0
-        if is_file:
-            file_size = os.path.getsize(source_file_path)
+        file_path: str = metadata.get("file_path")
+        document_id: str = metadata.get("document_id")
+        parsing_method: str = metadata.get("parsing_method")
         # Read in source files and build documents
-        source_paths = [source_file_path]
-        source_metadata = dict(
-            name=document_name,
-            description=description,
-            checksum=checksum,
-            fileName=file_name,
-            filePath=source_file_path,
-            fileSize=file_size,
-            tags=tags,
-        )
+        source_paths = [file_path]
         file_nodes = await documents_from_sources(
             app=self.app,
             sources=source_paths,
             source_id=document_id,
-            source_metadata=source_metadata,
+            source_metadata=metadata,
             parsing_method=parsing_method,
         )
         # Optional step, Post-Process source text for optimal embedding/retrieval for LLM

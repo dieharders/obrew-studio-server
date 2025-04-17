@@ -218,7 +218,7 @@ class Vector_Storage:
 
     def delete_source_files(self, source: classes.SourceMetadata):
         """Delete all files and references associated with embedded docs"""
-        source_file_path = source.get("filePath")
+        source_file_path = source.get("file_path")
         source_id = source.get("id")
         if os.path.exists(source_file_path):
             print(f"{common.PRNT_API} Remove file {source_id} from {source_file_path}")
