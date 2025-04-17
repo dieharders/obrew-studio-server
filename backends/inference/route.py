@@ -440,6 +440,7 @@ async def generate_text(
         prompt = payload.prompt
         prompt_template = payload.promptTemplate
         assigned_tool_names = payload.tools
+        collections = payload.memory.ids or []
         # messages = payload.messages # @TODO Implement...
 
         # We can re-use llm for multi-turn conversations
@@ -482,6 +483,7 @@ async def generate_text(
             response_type=response_type,
             func_calling=llm.func_calling,
             tool_response_type=tool_response_type,
+            collections=collections,
         )
         # Cleanup/complete request
         await complete_request(app)

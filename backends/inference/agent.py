@@ -43,6 +43,7 @@ class Agent:
         system_message: str,
         response_type: str,
         tool_response_type: str,
+        collections: List[str] = None,
         func_calling: str = None,
     ) -> AgentOutput | SSEResponse:
         tool_call_result = None
@@ -69,6 +70,7 @@ class Agent:
                     query=prompt,
                     prompt_template=prompt_template,
                     system_message=system_message,
+                    collections=collections,
                 )
             # Choose a tool to use, then execute it
             else:
@@ -100,6 +102,7 @@ class Agent:
                     query=prompt,
                     prompt_template=prompt_template,
                     system_message=system_message,
+                    collections=collections,
                 )
             print(
                 f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4)}"

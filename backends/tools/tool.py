@@ -245,6 +245,7 @@ class Tool:
         query: str = "",
         prompt_template: str = None,
         system_message: str = None,
+        collections: List[str] = [],
     ):
         tool_schemas = ""
         tool_funcs = dict()
@@ -304,6 +305,7 @@ class Tool:
             system_message=system_message,
             model_init_kwargs=llm.model_init_kwargs,
             generate_kwargs=llm.generate_kwargs,
+            collections=collections,
         )
         if func_results:
             return func_results
@@ -324,6 +326,7 @@ class Tool:
         query: str = "",
         prompt_template: str = None,
         system_message: str = None,
+        collections: List[str] = [],
     ) -> AgentOutput | None:
         func_results = await _call_func_with_tool_params(
             app=self.app,
@@ -332,6 +335,7 @@ class Tool:
             prompt=query,
             prompt_template=prompt_template,
             system_message=system_message,
+            collections=collections,
             model_init_kwargs=llm.model_init_kwargs,
             generate_kwargs=llm.generate_kwargs,
         )
@@ -357,6 +361,7 @@ class Tool:
                 required=required_llm_arguments,
                 schema=tool_def.get("params_schema", dict()),
             )
+
             # params_example_dict = get_required_examples(
             #     required=required_llm_arguments,
             #     example=tool_def.get("params_example", dict()),
@@ -436,6 +441,7 @@ async def _call_func_with_tool_params(
     system_message: str,
     model_init_kwargs: LoadTextInferenceInit,
     generate_kwargs: LoadTextInferenceCall,
+    collections: List[str] = [],
 ):
     """If tool requires llm params, then return nothing, otherwise return func result."""
     tool_params = tool_def.get("params", None)
@@ -459,6 +465,7 @@ async def _call_func_with_tool_params(
             generate_kwargs=generate_kwargs,
             prompt_template=prompt_template,
             system_message=system_message,
+            memories=collections,
         )
         # Return results
         return dict(raw=func_call_result, text=str(func_call_result))

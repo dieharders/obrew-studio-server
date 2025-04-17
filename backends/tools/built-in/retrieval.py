@@ -24,6 +24,7 @@ class Params(BaseModel):
     system_message: str = Field(
         ...,
         description="The agent's system message instructs it how to handle the contextual information provided.",
+        # @TODO Maybe we can allow user to specify this
         llm_not_required=True,
     )
     prompt_template: str = Field(
@@ -51,12 +52,11 @@ class Params(BaseModel):
         options=list(Response_Mode.__members__.values()),
         llm_not_required=True,
     )
-    # @TODO Remove options_source, keep field
     memories: List[str] = Field(
         ...,
-        description="Access the agent's knowledge base collections to retrieve context information from.",
-        input_type="options-multi",
-        options_source="memories",
+        description="Access the agent's memories to retrieve context information.",
+        # input_type="options-multi",
+        # options_source="memories",
         llm_not_required=True,
     )
     model: Tuple[str, str] = Field(
@@ -81,7 +81,7 @@ class Params(BaseModel):
                     "prompt_template": "{{user_prompt}}",
                     "strategy": "summarize",
                     "similarity_top_k": 3,
-                    "memories": ["company_data"],
+                    "memories": ["private_data"],
                     "model": ["llama2", "llama2_7b_Q4.gguf"],
                 },
             ]
@@ -97,13 +97,15 @@ async def main(**kwargs: Params) -> str:
     template = kwargs.get("prompt_template")
     system_message = kwargs.get("system_message")
     similarity_top_k = kwargs.get("similarity_top_k")
-    collection_names = kwargs.get("memories")
+    collection_names = kwargs.get("memories", [])
+    if len(collection_names) == 0:
+        raise Exception("No collection names specified.")
     strategy = kwargs.get("strategy")
 
     # Setup embedding llm
     vector_storage = Vector_Storage(app=app)
 
-    # @TODO Load a seperate context for RAG
+    # @TODO Load a separate context for RAG
     llm = app.state.llm
 
     # Create a curried func, always non-streamed
@@ -126,16 +128,17 @@ async def main(**kwargs: Params) -> str:
     # @TODO Agent or Orchestrator could loop thru each collection's metadata and determine which one to select before calling tool
     # OR
     # We could make embeddings from each collection's metadata and compare those with query embedding to determine which is closest (most relevant).
-    collection = collections[0]
+    selected_collection = collections[0]
 
     # Pass in the embed model based on the metadata from the target collection
-    embed_model_name = collection.metadata.get("embedding_model")
+    embed_model_name = selected_collection.metadata.get("embedding_model")
     embedder = Embedder(app=app, embed_model=embed_model_name)
 
     # @TODO Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
+    # @TODO "strategy" should also select (from rag options in prompt-templates.json) and override the appropriate prompt_template when calling llm
     # Setup query engine
     retriever = SimpleRAG(
-        collection=collection,
+        collection=selected_collection,
         embed_fn=embedder.embed_text,
         llm_fn=llm_func,
     )
