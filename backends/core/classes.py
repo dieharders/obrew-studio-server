@@ -8,8 +8,11 @@ from typing import List, Optional, Union, Type
 from pydantic import BaseModel
 from chromadb import Collection
 from chromadb.api import ClientAPI
-from inference.llama_cpp import LLAMA_CPP
+from typing import TYPE_CHECKING
 from collections.abc import Callable
+
+if TYPE_CHECKING:
+    from inference.llama_cpp import LLAMA_CPP
 
 
 class ApiServerClass(dict):
@@ -39,7 +42,7 @@ class AppState(dict):
     request_queue: Type[asyncio.Queue] | None
     db_client: Type[ClientAPI] | None
     api: Type[ApiServerClass] | None
-    llm: LLAMA_CPP | None
+    llm: "LLAMA_CPP"
 
 
 class FastAPIApp(FastAPI):
@@ -498,8 +501,7 @@ class PromptSettings(BaseModel):
 
 
 class KnowledgeSettings(BaseModel):
-    type: str = None
-    index: List[str | None] = None
+    ids: List[str | None] = None
 
 
 # @TODO Extend this from the other dupes
@@ -608,6 +610,7 @@ class BotSettings(BaseModel):
     model: ModelSettings = None
     prompt: PromptSettings = None
     response: ResponseSettings = None
+    memory: KnowledgeSettings = None
 
 
 class BotSettingsResponse(BaseModel):

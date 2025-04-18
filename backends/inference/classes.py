@@ -2,6 +2,7 @@ from enum import Enum
 from types import NoneType
 from typing import Any, List, Optional
 from pydantic import BaseModel
+from core.classes import KnowledgeSettings
 from tools.classes import DEFAULT_TOOL_SCHEMA_TYPE
 
 
@@ -177,6 +178,7 @@ class InferenceRequest(BaseModel):
     seed: Optional[int] = DEFAULT_SEED
     # homebrew server specific args
     tools: Optional[List[str]] = None
+    memory: Optional[KnowledgeSettings] = None
     responseMode: Optional[str] = DEFAULT_CHAT_MODE
     toolResponseMode: Optional[str] = DEFAULT_TOOL_RESPONSE_MODE
     systemMessage: Optional[str] = None
@@ -186,11 +188,9 @@ class InferenceRequest(BaseModel):
     prompt: str
     messages: Optional[List[ChatMessage]] = None
     stream: Optional[bool] = True
-    # suffix: Optional[str] = ""
     temperature: Optional[float] = 0.0  # precise
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
-    # Stops generation when string encountered
-    stop: Optional[str] = None
+    stop: Optional[str] = None  # Stops generation when string encountered
     echo: Optional[bool] = False
     model: Optional[str] = (
         "local"  # The name to use for the model in the completion object
@@ -219,7 +219,7 @@ class InferenceRequest(BaseModel):
             "examples": [
                 {
                     "prompt": "Why does mass conservation break down?",
-                    "collectionNames": ["science"],
+                    "memory": {"ids": ["science"]},
                     "tools": ["calculator"],
                     "responseMode": DEFAULT_CHAT_MODE,
                     "systemMessage": "You are a helpful Ai assistant.",
