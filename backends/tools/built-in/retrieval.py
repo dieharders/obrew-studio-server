@@ -3,7 +3,7 @@ from chromadb import Collection
 from pydantic import BaseModel, Field
 from core import common
 from core.classes import FastAPIApp
-from retrieval.simple_rag import SimpleRAG
+from retrieval.rag import SimpleRAG
 from embeddings.vector_storage import Vector_Storage
 from embeddings.embedder import Embedder
 from embeddings.response_synthesis import Response_Mode
