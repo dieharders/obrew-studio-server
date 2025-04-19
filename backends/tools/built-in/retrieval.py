@@ -91,12 +91,12 @@ class Params(BaseModel):
 
 # prompt_template and system_message are overriden by RAG implementations
 async def main(**kwargs: Params) -> str:
-    # generate_kwargs = kwargs.get("generate_kwargs")  # optional
-    # model_init_kwargs = kwargs.get("model_init_kwargs")  # optional
-    app: FastAPIApp = kwargs.get("app")
-    query = kwargs.get("prompt")
+    generate_kwargs = kwargs.get("generate_kwargs")
+    model_init_kwargs = kwargs.get("model_init_kwargs")
     template = kwargs.get("prompt_template")
     system_message = kwargs.get("system_message")
+    app: FastAPIApp = kwargs.get("app")
+    query = kwargs.get("prompt")
     similarity_top_k = kwargs.get("similarity_top_k")
     collection_names = kwargs.get("memories", [])
     if len(collection_names) == 0:
