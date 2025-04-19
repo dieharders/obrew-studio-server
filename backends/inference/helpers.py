@@ -60,6 +60,7 @@ def apply_query_template(
     """Return question text for retrieval (RAG)"""
 
     result = template.replace(QUERY_MESSAGE, query)
+    result = result.replace(KEY_PROMPT_MESSAGE, query)
     if len(context_list) != 0:
         context_str = "\n".join(context_list)
         result = result.replace(KEY_CONTEXT_MESSAGE, context_str)

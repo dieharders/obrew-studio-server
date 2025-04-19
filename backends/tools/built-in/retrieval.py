@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List
 from chromadb import Collection
 from pydantic import BaseModel, Field
 from core import common
@@ -153,8 +153,8 @@ async def main(**kwargs: Params) -> str:
     # Query
     result = await retriever.query(
         question=query,
-        # system_message=system_message, # for override
-        # template=template, # for override
+        # system_message=system_message, # overridden internally
+        # template=template, # overridden internally
         top_k=similarity_top_k,
     )
     answer = result.get("text")
