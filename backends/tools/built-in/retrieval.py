@@ -1,9 +1,9 @@
-from typing import List, Tuple
+from typing import List
 from chromadb import Collection
 from pydantic import BaseModel, Field
 from core import common
 from core.classes import FastAPIApp
-from retrieval.simple_rag import SimpleRAG
+from retrieval.rag import SimpleRAG
 from embeddings.vector_storage import Vector_Storage
 from embeddings.embedder import Embedder
 from embeddings.response_synthesis import Response_Mode
@@ -16,25 +16,26 @@ from inference.helpers import read_event_data
 class Params(BaseModel):
     # Required - A description is needed for prompt injection
     """Ask a specialized knowledge agent to perform information lookup and retrieval from a data source."""
-    prompt: str = Field(
-        ...,
-        description="The user prompt that asks the agent for contextual information.",
-        llm_not_required=True,
-    )
-    system_message: str = Field(
-        ...,
-        description="The agent's system message instructs it how to handle the contextual information provided.",
-        # @TODO Maybe we can allow user to specify this
-        llm_not_required=True,
-    )
-    prompt_template: str = Field(
-        ...,
-        description="The agent's prompt template is used to structure its' response and influence what information is retrieved from the provided context.",
-        # input_type="options-sel",
-        # placeholder="Select a template",
-        # options_source="retrieval-template",
-        llm_not_required=True,
-    )
+
+    # prompt: str = Field(
+    #     ...,
+    #     description="The user prompt that asks the agent for contextual information.",
+    #     llm_not_required=True,
+    # )
+    # system_message: str = Field(
+    #     ...,
+    #     description="The agent's system message instructs it how to handle the contextual information provided.",
+    #     # @TODO Maybe we can allow user to specify this?
+    #     llm_not_required=True,
+    # )
+    # prompt_template: str = Field(
+    #     ...,
+    #     description="The agent's prompt template is used to structure its' response and influence what information is retrieved from the provided context.",
+    #     input_type="options-sel",
+    #     placeholder="Select a template",
+    #     options_source="retrieval-template",
+    #     llm_not_required=True,
+    # )
     similarity_top_k: int = Field(
         ...,
         description="Specify the number of top results from the knowledge base to use when ranking similarity.",
@@ -52,21 +53,21 @@ class Params(BaseModel):
         options=list(Response_Mode.__members__.values()),
         llm_not_required=True,
     )
-    memories: List[str] = Field(
-        ...,
-        description="Access the agent's memories to retrieve context information.",
-        # input_type="options-multi",
-        # options_source="memories",
-        llm_not_required=True,
-    )
-    model: Tuple[str, str] = Field(
-        ...,
-        description="Use the agent's LLM model [model id, model filename] for retrieval.",
-        # input_type="options-sel",
-        # placeholder="Select model",
-        # options_source="installed-models",
-        llm_not_required=True,
-    )
+    # memories: List[str] = Field(
+    #     ...,
+    #     description="Access the agent's memories to retrieve context information.",
+    #     # input_type="options-multi",
+    #     # options_source="memories",
+    #     llm_not_required=True,
+    # )
+    # model: Tuple[str, str] = Field(
+    #     ...,
+    #     description="Use the agent's LLM model [model id, model filename] for retrieval.",
+    #     # input_type="options-sel",
+    #     # placeholder="Select model",
+    #     # options_source="installed-models",
+    #     llm_not_required=True,
+    # )
 
     # Used to tell LLM how to structure its response for using this tool.
     # Only include params that the LLM is expected to fill out, the rest
@@ -74,28 +75,28 @@ class Params(BaseModel):
     model_config = {
         "json_schema_extra": {
             "examples": [
-                # first example for display in UI/documentation
                 {
-                    "prompt": "Find me contact info for the head of HR.",
-                    "system_message": "Only use knowledge taken from the provided context.",
-                    "prompt_template": "{{user_prompt}}",
+                    # "prompt": "Find me contact info for the head of HR.",
+                    # "system_message": "Only use knowledge taken from the provided context.",
+                    # "prompt_template": "{{user_prompt}}",
                     "strategy": "summarize",
                     "similarity_top_k": 3,
-                    "memories": ["private_data"],
-                    "model": ["llama2", "llama2_7b_Q4.gguf"],
+                    # "memories": ["private_data"],
+                    # "model": ["llama2", "llama2_7b_Q4.gguf"],
                 },
             ]
         }
     }
 
 
+# prompt_template and system_message are overriden by RAG implementations
 async def main(**kwargs: Params) -> str:
-    # generate_kwargs = kwargs.get("generate_kwargs")  # optional
-    # model_init_kwargs = kwargs.get("model_init_kwargs")  # optional
-    app: FastAPIApp = kwargs.get("app")
-    query = kwargs.get("prompt")
+    generate_kwargs = kwargs.get("generate_kwargs")
+    model_init_kwargs = kwargs.get("model_init_kwargs")
     template = kwargs.get("prompt_template")
     system_message = kwargs.get("system_message")
+    app: FastAPIApp = kwargs.get("app")
+    query = kwargs.get("prompt")
     similarity_top_k = kwargs.get("similarity_top_k")
     collection_names = kwargs.get("memories", [])
     if len(collection_names) == 0:
@@ -134,20 +135,26 @@ async def main(**kwargs: Params) -> str:
     embed_model_name = selected_collection.metadata.get("embedding_model")
     embedder = Embedder(app=app, embed_model=embed_model_name)
 
-    # @TODO Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
-    # @TODO "strategy" should also select (from rag options in prompt-templates.json) and override the appropriate prompt_template when calling llm
-    # Setup query engine
-    retriever = SimpleRAG(
-        collection=selected_collection,
-        embed_fn=embedder.embed_text,
-        llm_fn=llm_func,
-    )
+    # Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
+    match strategy:
+        case Response_Mode.CONTEXT_ONLY:
+            retriever = SimpleRAG(
+                collection=selected_collection,
+                embed_fn=embedder.embed_text,
+                llm_fn=llm_func,
+            )
+        case _:
+            retriever = SimpleRAG(
+                collection=selected_collection,
+                embed_fn=embedder.embed_text,
+                llm_fn=llm_func,
+            )
 
     # Query
     result = await retriever.query(
         question=query,
-        system_message=system_message,
-        template=template,
+        # system_message=system_message, # overridden internally
+        # template=template, # overridden internally
         top_k=similarity_top_k,
     )
     answer = result.get("text")

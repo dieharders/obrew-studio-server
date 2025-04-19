@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Request
 from core import classes
 from embeddings.embedder import CHUNKING_STRATEGIES
-from embeddings.response_synthesis import Response_Mode
 
+# from embeddings.response_synthesis import Response_Mode
 # from llama_index.core.response_synthesizers import ResponseMode
 
 router = APIRouter()
@@ -13,15 +13,11 @@ router = APIRouter()
 def get_services_api(request: Request) -> classes.ServicesApiResponse:
     app: classes.FastAPIApp = request.app
     data = []
-    rag_response_modes = list(Response_Mode.__members__.values())
 
     # Return text inference services
     text_inference_api = {
         "name": "textInference",
         "port": app.state.api.SERVER_PORT,
-        "configs": {
-            "ragResponseModes": rag_response_modes,
-        },
         "endpoints": [
             # Generate a text response from Ai engine
             {
@@ -65,7 +61,7 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
                 "urlPath": "/v1/text/modelExplore",
                 "method": "GET",
             },
-            # Get model install configs
+            # Get model install configs (currently installed models)
             {
                 "name": "getModelConfigs",
                 "urlPath": "/v1/text/models",
@@ -96,35 +92,29 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
                 "method": "POST",
             },
             # llama.cpp offers native embedding too
-            {
-                "name": "embedding",
-                "urlPath": "/v1/text/embedding",
-                "method": "POST",
-            },
+            # {
+            #     "name": "embedding",
+            #     "urlPath": "/v1/text/embedding",
+            #     "method": "POST",
+            # },
             # Structured Data Extraction
-            {
-                "name": "extraction",
-                "urlPath": "/v1/text/extraction",
-                "method": "POST",
-            },
-            # Function Calling
-            {
-                "name": "functions",
-                "urlPath": "/v1/text/functions",
-                "method": "POST",
-            },
+            # {
+            #     "name": "extraction",
+            #     "urlPath": "/v1/text/extraction",
+            #     "method": "POST",
+            # },
             # Vision to Text (llama.cpp uses LLaVa but BakLLaVa is another option)
-            {
-                "name": "vision",
-                "urlPath": "/v1/text/vision",
-                "method": "POST",
-            },
+            # {
+            #     "name": "vision",
+            #     "urlPath": "/v1/text/vision",
+            #     "method": "POST",
+            # },
             # Code completion via Copilot
-            {
-                "name": "copilot",
-                "urlPath": "/v1/text/copilot",
-                "method": "POST",
-            },
+            # {
+            #     "name": "copilot",
+            #     "urlPath": "/v1/text/copilot",
+            #     "method": "POST",
+            # },
         ],
     }
     data.append(text_inference_api)

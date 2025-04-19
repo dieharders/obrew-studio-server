@@ -530,7 +530,7 @@ class ToolFunctionParameter(BaseModel):
     options_source: Optional[str] = (
         None  # ["retrieval-template", "memories", "installed-models"]
     )
-    llm_not_required: bool = None
+    llm_not_required: bool = False
     options: Optional[List[str]] = None
     items: Optional[dict] = None
 

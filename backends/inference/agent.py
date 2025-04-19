@@ -4,7 +4,7 @@ from sse_starlette.sse import EventSourceResponse
 from fastapi import Request
 from storage.route import get_all_tool_definitions
 from tools.tool import Tool
-from inference.helpers import KEY_PROMPT_MESSAGE, read_event_data, tool_payload
+from inference.helpers import apply_query_template, read_event_data, tool_payload
 from inference.classes import (
     CHAT_MODES,
     TOOL_RESPONSE_MODES,
@@ -53,6 +53,7 @@ class Agent:
         #########################################################
         # Return tool assisted response if any tools are assigned
         #########################################################
+        text_tool_result = ""
         if self.has_tools:
             tool = Tool(app=self.app, request=request)
             assigned_tool: ToolDefinition = None
@@ -122,7 +123,7 @@ class Agent:
                 elif tool_response_type == TOOL_RESPONSE_MODES.ANSWER.value:
                     # Pass thru to "normal" generation logic below
                     tool_response_prompt = f"\n{prompt}\n\nAnswer: {raw_tool_result}"
-                # Answer with raw value only
+                # Answer back with raw value only
                 else:
                     if streaming:
 
@@ -133,17 +134,21 @@ class Agent:
                         return EventSourceResponse(payload_generator())
                     return tool_call_result
             else:
+                # Pass thru to "normal" generation logic below
                 tool_response_prompt = failed_tool_response
 
         ###########################################
         # Or, Perform normal un-assisted generation
         ###########################################
-        p = tool_response_prompt if tool_response_prompt else prompt
-        query_prompt = p
+        query_prompt = tool_response_prompt if tool_response_prompt else prompt
         if prompt_template:
             # If a tool call failed handle its prompt, otherwise call normally
             # Apply the agent's template to the prompt
-            query_prompt = prompt_template.replace(KEY_PROMPT_MESSAGE, p)
+            query_prompt = apply_query_template(
+                template=prompt_template,
+                query=query_prompt,
+                existing_answer=text_tool_result,
+            )
 
         match (response_type):
             # Instruct is for Question/Answer (good for tool use, RAG)

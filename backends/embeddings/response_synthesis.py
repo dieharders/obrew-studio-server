@@ -36,9 +36,6 @@ class Response_Mode(str, Enum):
     returned as the response
     """
 
-    GENERATION = "generation"
-    """Ignore context, just use LLM to generate a response."""
-
     NO_TEXT = "no_text"
     """Return the retrieved context nodes, without synthesizing a final response."""
 
