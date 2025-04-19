@@ -28,7 +28,7 @@ class RAG:
         except Exception as err:
             raise Exception(f"Error finding prompt format templates: {err}")
 
-    async def query(self) -> dict:
+    async def query(self) -> AgentOutput:
         return {"text": ""}
 
 

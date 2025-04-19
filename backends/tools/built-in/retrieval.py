@@ -16,17 +16,18 @@ from inference.helpers import read_event_data
 class Params(BaseModel):
     # Required - A description is needed for prompt injection
     """Ask a specialized knowledge agent to perform information lookup and retrieval from a data source."""
-    prompt: str = Field(
-        ...,
-        description="The user prompt that asks the agent for contextual information.",
-        llm_not_required=True,
-    )
-    system_message: str = Field(
-        ...,
-        description="The agent's system message instructs it how to handle the contextual information provided.",
-        # @TODO Maybe we can allow user to specify this
-        llm_not_required=True,
-    )
+
+    # prompt: str = Field(
+    #     ...,
+    #     description="The user prompt that asks the agent for contextual information.",
+    #     llm_not_required=True,
+    # )
+    # system_message: str = Field(
+    #     ...,
+    #     description="The agent's system message instructs it how to handle the contextual information provided.",
+    #     # @TODO Maybe we can allow user to specify this?
+    #     llm_not_required=True,
+    # )
     # prompt_template: str = Field(
     #     ...,
     #     description="The agent's prompt template is used to structure its' response and influence what information is retrieved from the provided context.",
@@ -52,21 +53,21 @@ class Params(BaseModel):
         options=list(Response_Mode.__members__.values()),
         llm_not_required=True,
     )
-    memories: List[str] = Field(
-        ...,
-        description="Access the agent's memories to retrieve context information.",
-        # input_type="options-multi",
-        # options_source="memories",
-        llm_not_required=True,
-    )
-    model: Tuple[str, str] = Field(
-        ...,
-        description="Use the agent's LLM model [model id, model filename] for retrieval.",
-        # input_type="options-sel",
-        # placeholder="Select model",
-        # options_source="installed-models",
-        llm_not_required=True,
-    )
+    # memories: List[str] = Field(
+    #     ...,
+    #     description="Access the agent's memories to retrieve context information.",
+    #     # input_type="options-multi",
+    #     # options_source="memories",
+    #     llm_not_required=True,
+    # )
+    # model: Tuple[str, str] = Field(
+    #     ...,
+    #     description="Use the agent's LLM model [model id, model filename] for retrieval.",
+    #     # input_type="options-sel",
+    #     # placeholder="Select model",
+    #     # options_source="installed-models",
+    #     llm_not_required=True,
+    # )
 
     # Used to tell LLM how to structure its response for using this tool.
     # Only include params that the LLM is expected to fill out, the rest
@@ -74,21 +75,21 @@ class Params(BaseModel):
     model_config = {
         "json_schema_extra": {
             "examples": [
-                # first example for display in UI/documentation
                 {
-                    "prompt": "Find me contact info for the head of HR.",
-                    "system_message": "Only use knowledge taken from the provided context.",
+                    # "prompt": "Find me contact info for the head of HR.",
+                    # "system_message": "Only use knowledge taken from the provided context.",
                     # "prompt_template": "{{user_prompt}}",
                     "strategy": "summarize",
                     "similarity_top_k": 3,
-                    "memories": ["private_data"],
-                    "model": ["llama2", "llama2_7b_Q4.gguf"],
+                    # "memories": ["private_data"],
+                    # "model": ["llama2", "llama2_7b_Q4.gguf"],
                 },
             ]
         }
     }
 
 
+# prompt_template and system_message are overriden by RAG implementations
 async def main(**kwargs: Params) -> str:
     # generate_kwargs = kwargs.get("generate_kwargs")  # optional
     # model_init_kwargs = kwargs.get("model_init_kwargs")  # optional
