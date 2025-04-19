@@ -27,14 +27,14 @@ class Params(BaseModel):
         # @TODO Maybe we can allow user to specify this
         llm_not_required=True,
     )
-    prompt_template: str = Field(
-        ...,
-        description="The agent's prompt template is used to structure its' response and influence what information is retrieved from the provided context.",
-        # input_type="options-sel",
-        # placeholder="Select a template",
-        # options_source="retrieval-template",
-        llm_not_required=True,
-    )
+    # prompt_template: str = Field(
+    #     ...,
+    #     description="The agent's prompt template is used to structure its' response and influence what information is retrieved from the provided context.",
+    #     input_type="options-sel",
+    #     placeholder="Select a template",
+    #     options_source="retrieval-template",
+    #     llm_not_required=True,
+    # )
     similarity_top_k: int = Field(
         ...,
         description="Specify the number of top results from the knowledge base to use when ranking similarity.",
@@ -78,7 +78,7 @@ class Params(BaseModel):
                 {
                     "prompt": "Find me contact info for the head of HR.",
                     "system_message": "Only use knowledge taken from the provided context.",
-                    "prompt_template": "{{user_prompt}}",
+                    # "prompt_template": "{{user_prompt}}",
                     "strategy": "summarize",
                     "similarity_top_k": 3,
                     "memories": ["private_data"],
@@ -134,20 +134,26 @@ async def main(**kwargs: Params) -> str:
     embed_model_name = selected_collection.metadata.get("embedding_model")
     embedder = Embedder(app=app, embed_model=embed_model_name)
 
-    # @TODO Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
-    # @TODO "strategy" should also select (from rag options in prompt-templates.json) and override the appropriate prompt_template when calling llm
-    # Setup query engine
-    retriever = SimpleRAG(
-        collection=selected_collection,
-        embed_fn=embedder.embed_text,
-        llm_fn=llm_func,
-    )
+    # Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
+    match strategy:
+        case Response_Mode.CONTEXT_ONLY:
+            retriever = SimpleRAG(
+                collection=selected_collection,
+                embed_fn=embedder.embed_text,
+                llm_fn=llm_func,
+            )
+        case _:
+            retriever = SimpleRAG(
+                collection=selected_collection,
+                embed_fn=embedder.embed_text,
+                llm_fn=llm_func,
+            )
 
     # Query
     result = await retriever.query(
         question=query,
-        system_message=system_message,
-        template=template,
+        # system_message=system_message, # for override
+        # template=template, # for override
         top_k=similarity_top_k,
     )
     answer = result.get("text")
