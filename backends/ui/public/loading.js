@@ -43,9 +43,9 @@ async function mountPage() {
     transitionPage('main.html') // this exists in global.js
     return
   } catch (error) {
-    const msg = 'Failed to mount page. '
-    console.error(msg, error)
-    alert(msg + error)
+    const msg = `Error while mounting page: ${error}`
+    // alert(msg)
+    console.error(msg)
     // Go to main.html page
     transitionPage('main.html') // this exists in global.js
     return
