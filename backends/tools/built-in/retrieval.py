@@ -6,7 +6,7 @@ from core.classes import FastAPIApp
 from retrieval.rag import SimpleRAG
 from embeddings.vector_storage import Vector_Storage
 from embeddings.embedder import Embedder
-from embeddings.response_synthesis import Response_Mode
+from embeddings.response_synthesis import RESPONSE_SYNTHESIS_MODES
 from inference.helpers import read_event_data
 
 
@@ -50,7 +50,7 @@ class Params(BaseModel):
         input_type="options-sel",
         placeholder="Select strategy",
         default_value="refine",
-        options=list(Response_Mode.__members__.values()),
+        options=RESPONSE_SYNTHESIS_MODES.__members__.values(),
         llm_not_required=True,
     )
     # memories: List[str] = Field(
@@ -137,7 +137,7 @@ async def main(**kwargs: Params) -> str:
 
     # Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
     match strategy:
-        case Response_Mode.CONTEXT_ONLY:
+        case RESPONSE_SYNTHESIS_MODES.CONTEXT_ONLY:
             retriever = SimpleRAG(
                 collection=selected_collection,
                 embed_fn=embedder.embed_text,

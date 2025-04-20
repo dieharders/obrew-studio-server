@@ -88,9 +88,17 @@ async function mountPage() {
     // Generate qr code
     updateQRCode(data)
     // Parse page with data
+    const hostEl = document.getElementById('host')
+    hostEl.value = window.frontend.state.host || data.host
+    const portEl = document.getElementById('port')
+    portEl.value = window.frontend.state.port || data.port
+    const webuiEl = document.getElementById('webui')
+    webuiEl.value = window.frontend.state.webui || data.webui_url
+    // Attempt to parse update data (always do last)
     const updateMessageEl = document.getElementById('updateMessageContainer')
     const updateData = window.frontend.state.update_available || data.update_available
     updateMessageEl.hidden = !updateData
+    if (!updateData) return
     const updateLinkEl = document.getElementById('updateLink')
     updateLinkEl.innerText = updateData.downloadName
     updateLinkEl.href = updateData.downloadUrl
@@ -98,12 +106,6 @@ async function mountPage() {
     updateVersionEl.innerText = `New update (${updateData.tag_name}) available:`
     const updateAssetEl = document.getElementById('updateAsset')
     updateAssetEl.innerText = `Size: ${updateData.downloadSize} bytes`
-    const hostEl = document.getElementById('host')
-    hostEl.value = window.frontend.state.host || data.host
-    const portEl = document.getElementById('port')
-    portEl.value = window.frontend.state.port || data.port
-    const webuiEl = document.getElementById('webui')
-    webuiEl.value = window.frontend.state.webui || data.webui_url
     return
   } catch (error) {
     console.error('Failed to mount page', error)

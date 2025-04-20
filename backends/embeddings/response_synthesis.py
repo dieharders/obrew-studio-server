@@ -1,8 +1,8 @@
 from enum import Enum
 
 
-class Response_Mode(str, Enum):
-    """Response modes of the response builder (and synthesizer)."""
+class RESPONSE_SYNTHESIS_MODES(str, Enum):
+    """Modes of synthesizing responses using context taken from embeddings."""
 
     REFINE = "refine"
     """
