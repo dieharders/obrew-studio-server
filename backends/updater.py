@@ -149,7 +149,7 @@ def get_path(target_dir: str):
     return base_path
 
 
-# Read package file
+# Read package.json file
 def read_package_json(file_path: str) -> dict:
     try:
         with open(file_path, "r") as f:
@@ -162,11 +162,21 @@ def read_package_json(file_path: str) -> dict:
 class Updater:
     def __init__(self):
         self.status = "idle"
+        public_path = get_path("public")
+        package_path = os.path.join(public_path, "package.json")
+        self.package_path = package_path
         print("[UPDATER] Starting updater...", flush=True)
 
-    def check_updates(self):
-        # @TODO Check for updated launcher, ask user for download.
-        # ...
+    def check_if_update(self, latest_version):
+        # Check for updated launcher, ask user for download.
+        curr_ver = read_package_json(self.package_path).get("version")
+        print(
+            f"[UPDATER] Checking for latest app version ({latest_version})...",
+            flush=True,
+        )
+        if latest_version and curr_ver and f"v{curr_ver}" != latest_version:
+            # new ver exists
+            return True
         return False
 
     def download(self):
@@ -181,9 +191,7 @@ class Updater:
         deps_path = get_path("_deps")
         file_path = os.path.join(deps_path, "servers", "llama.cpp", "llama-cli.exe")
         target_path = os.path.join(deps_path, "servers", "llama.cpp")
-        public_path = get_path("public")
-        package_path = os.path.join(public_path, "package.json")
-        llamacpp_tag = read_package_json(package_path).get("llamacpp_tag")
+        llamacpp_tag = read_package_json(self.package_path).get("llamacpp_tag")
         print("[UPDATER] Checking for deps...", flush=True)
         if not check_llama_cpp_exists(file_path):
             print("[UPDATER] Downloading inference binaries ...", flush=True)

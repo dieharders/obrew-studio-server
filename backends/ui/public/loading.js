@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 // Front-End funcs
 async function downloadData() {
   try {
@@ -9,27 +10,22 @@ async function downloadData() {
   }
 }
 // https://docs.github.com/en/rest/releases/releases?apiVersion=2022-11-28#get-the-latest-release
-async function checkLatestVersion() {
+async function fetchLatestVersion() {
   try {
-    const apiUrl = 'https://api.github.com/repos/dieharders/obrew-studio-server/releases/latest'
-    const githubToken = ''
-    const response = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/vnd.github+json',
-        Authorization: `Bearer ${githubToken}`,
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-    })
+    const apiUrl = 'https://studio.openbrewai.com/api/github'
+    // const apiUrl = 'http://localhost:3000/api/github' // test locally
+    const response = await fetch(apiUrl, { method: 'GET' })
     if (!response.ok) {
-      console.error(`Error while checking latest version: ${response.status}`)
+      console.error(`Error while checking latest version. Status: ${response.status}`)
     } else {
-      const json = await response.json()
-      return json
+      const result = await response.json()
+      const data = result.data
+      return data
     }
     return
   } catch (error) {
-    console.error(error)
+    console.error('Error while checking latest version: ', error)
+    return
   }
 }
 
@@ -37,17 +33,22 @@ async function mountPage() {
   try {
     // Get data from input
     await downloadData()
-    // Check for latest version
-    // @TODO Perform on server side so we can pass github token for auth
-    // await checkLatestVersion()
+    // Check for latest version on server side
+    const verRes = await fetchLatestVersion()
+    if (!verRes) throw 'Failed to fetch update data.'
+    const latest_tag = verRes.tag_name
+    const isAvailable = await window.pywebview.api.check_is_latest_version(latest_tag)
+    window.frontend.state.update_available = isAvailable ? verRes : null
     // Go to main.html page
-    // eslint-disable-next-line no-undef
     transitionPage('main.html') // this exists in global.js
     return
   } catch (error) {
     const msg = 'Failed to mount page. '
     console.error(msg, error)
     alert(msg + error)
+    // Go to main.html page
+    transitionPage('main.html') // this exists in global.js
+    return
   }
 }
 

@@ -88,6 +88,16 @@ async function mountPage() {
     // Generate qr code
     updateQRCode(data)
     // Parse page with data
+    const updateMessageEl = document.getElementById('updateMessageContainer')
+    const updateData = window.frontend.state.update_available || data.update_available
+    updateMessageEl.hidden = !updateData
+    const updateLinkEl = document.getElementById('updateLink')
+    updateLinkEl.innerText = updateData.downloadName
+    updateLinkEl.href = updateData.downloadUrl
+    const updateVersionEl = document.getElementById('updateVersion')
+    updateVersionEl.innerText = `New update (${updateData.tag_name}) available:`
+    const updateAssetEl = document.getElementById('updateAsset')
+    updateAssetEl.innerText = `Size: ${updateData.downloadSize} bytes`
     const hostEl = document.getElementById('host')
     hostEl.value = window.frontend.state.host || data.host
     const portEl = document.getElementById('port')
@@ -97,6 +107,7 @@ async function mountPage() {
     return
   } catch (error) {
     console.error('Failed to mount page', error)
+    return
   }
 }
 function updatePageData(ev) {
