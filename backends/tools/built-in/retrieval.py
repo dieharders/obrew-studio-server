@@ -6,7 +6,10 @@ from core.classes import FastAPIApp
 from retrieval.rag import SimpleRAG
 from embeddings.vector_storage import Vector_Storage
 from embeddings.embedder import Embedder
-from embeddings.response_synthesis import RESPONSE_SYNTHESIS_MODES
+from embeddings.rag_response_synthesis import (
+    RESPONSE_SYNTHESIS_MODES,
+    RESPONSE_SYNTHESIS_DESCRIPTIONS,
+)
 from inference.helpers import read_event_data
 
 
@@ -50,7 +53,8 @@ class Params(BaseModel):
         input_type="options-sel",
         placeholder="Select strategy",
         default_value="refine",
-        options=RESPONSE_SYNTHESIS_MODES.__members__.values(),
+        options_description=list(RESPONSE_SYNTHESIS_DESCRIPTIONS.__members__.values()),
+        options=list(RESPONSE_SYNTHESIS_MODES.__members__.values()),
         llm_not_required=True,
     )
     # memories: List[str] = Field(
@@ -79,7 +83,7 @@ class Params(BaseModel):
                     # "prompt": "Find me contact info for the head of HR.",
                     # "system_message": "Only use knowledge taken from the provided context.",
                     # "prompt_template": "{{user_prompt}}",
-                    "strategy": "summarize",
+                    "strategy": "refine",
                     "similarity_top_k": 3,
                     # "memories": ["private_data"],
                     # "model": ["llama2", "llama2_7b_Q4.gguf"],

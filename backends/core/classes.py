@@ -4,7 +4,7 @@ import httpx
 from enum import Enum
 from types import NoneType
 from fastapi import FastAPI
-from typing import List, Optional, Union, Type
+from typing import List, Optional, Union, Type, Literal
 from pydantic import BaseModel
 from chromadb import Collection
 from chromadb.api import ClientAPI
@@ -527,9 +527,10 @@ class ToolFunctionParameter(BaseModel):
     value: Optional[str | int | float | dict | list] = None
     min_value: Optional[int | float | str] = None
     max_value: Optional[int | float | str] = None
-    options_source: Optional[str] = (
-        None  # ["retrieval-template", "memories", "installed-models"]
-    )
+    options_description: Optional[List[str]] = None
+    options_source: Optional[
+        Literal["retrieval-template", "memories", "installed-models"]
+    ] = None
     llm_not_required: bool = False
     options: Optional[List[str]] = None
     items: Optional[dict] = None
