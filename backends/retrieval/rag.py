@@ -49,8 +49,9 @@ class SimpleRAG(RAG):
         )
         documents = results.get("documents", [[]])[0]
         template_override = self.retrieval_templates.get("CONTEXT_ONLY").get("text")
+        prompt_template = template or template_override
         prompt = apply_query_template(
-            template=template or template_override,
+            template=prompt_template,
             query=question,
             context_list=documents,
         )

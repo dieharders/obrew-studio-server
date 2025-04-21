@@ -248,6 +248,7 @@ class Tool:
     ):
         tool_schemas = ""
         tool_funcs = dict()
+        native_tool_defs = ""
         # Use json schema format for structured output
         for tool_def in tool_defs:
             name = tool_def.get("name")
