@@ -20,11 +20,11 @@ class Params(BaseModel):
     # Required - A description is needed for prompt injection
     """Ask a specialized knowledge agent to perform information lookup and retrieval from a data source."""
 
-    # prompt: str = Field(
-    #     ...,
-    #     description="The user prompt that asks the agent for contextual information.",
-    #     llm_not_required=True,
-    # )
+    prompt: str = Field(
+        ...,
+        description="The user prompt that asks the agent for contextual information.",
+        llm_not_required=True,
+    )
     # system_message: str = Field(
     #     ...,
     #     description="The agent's system message instructs it how to handle the contextual information provided.",
@@ -80,7 +80,7 @@ class Params(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
-                    # "prompt": "Find me contact info for the head of HR.",
+                    "prompt": "Find me contact info for the head of HR.",
                     # "system_message": "Only use knowledge taken from the provided context.",
                     # "prompt_template": "{{user_prompt}}",
                     "strategy": "refine",
@@ -101,6 +101,8 @@ async def main(**kwargs: Params) -> str:
     system_message = kwargs.get("system_message")
     app: FastAPIApp = kwargs.get("app")
     query = kwargs.get("prompt")
+    if not query:
+        print(f"{common.PRNT_RAG} Warning: query does not exist.", flush=True)
     similarity_top_k = kwargs.get("similarity_top_k")
     collection_names = kwargs.get("memories", [])
     if len(collection_names) == 0:
@@ -141,7 +143,7 @@ async def main(**kwargs: Params) -> str:
 
     # Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
     match strategy:
-        case RESPONSE_SYNTHESIS_MODES.CONTEXT_ONLY:
+        case RESPONSE_SYNTHESIS_MODES.CONTEXT_ONLY.value:
             retriever = SimpleRAG(
                 collection=selected_collection,
                 embed_fn=embedder.embed_text,
@@ -156,7 +158,7 @@ async def main(**kwargs: Params) -> str:
 
     # Query
     result = await retriever.query(
-        question=query,
+        question=query or "",
         # system_message=system_message, # overridden internally
         # template=template, # overridden internally
         top_k=similarity_top_k,
