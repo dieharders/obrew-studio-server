@@ -94,9 +94,22 @@ async function mountPage() {
     portEl.value = window.frontend.state.port || data.port
     const webuiEl = document.getElementById('webui')
     webuiEl.value = window.frontend.state.webui || data.webui_url
+    // Attempt to parse update data (always do last)
+    const updateMessageEl = document.getElementById('updateMessageContainer')
+    const updateData = window.frontend.state.update_available || data.update_available
+    updateMessageEl.hidden = !updateData
+    if (!updateData) return
+    const updateLinkEl = document.getElementById('updateLink')
+    updateLinkEl.innerText = updateData.downloadName
+    updateLinkEl.href = updateData.downloadUrl
+    const updateVersionEl = document.getElementById('updateVersion')
+    updateVersionEl.innerText = `New update (${updateData.tag_name}) available:`
+    const updateAssetEl = document.getElementById('updateAsset')
+    updateAssetEl.innerText = `Size: ${updateData.downloadSize} bytes`
     return
   } catch (error) {
     console.error('Failed to mount page', error)
+    return
   }
 }
 function updatePageData(ev) {

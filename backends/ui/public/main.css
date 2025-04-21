@@ -43,7 +43,7 @@
 .messageBanner:has(> #messageBannerContent:empty) {
   padding: 0;
 }
-#updateMessage {
+#updateMessageContainer {
   /* display: none; */
   margin-bottom: 2rem;
 }

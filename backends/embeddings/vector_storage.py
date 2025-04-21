@@ -30,20 +30,20 @@ class Vector_Storage:
 
     def _get_vector_db_client(self) -> ClientAPI:
         """Create a ChromaDB client singleton"""
-        if not hasattr(self.app.state, "chroma_client"):
+        if not self.app.state.db_client:
             print(f"{common.PRNT_API} Connecting to vector store...")
             # Initialize storage path
             if not os.path.exists(VECTOR_STORAGE_PATH):
                 os.makedirs(VECTOR_STORAGE_PATH)
 
-            self.app.state.chroma_client = PersistentClient(
+            self.app.state.db_client = PersistentClient(
                 path=VECTOR_STORAGE_PATH,
                 settings=Settings(
                     anonymized_telemetry=False,
                     allow_reset=True,
                 ),
             )
-        return self.app.state.chroma_client
+        return self.app.state.db_client
 
     # @TODO Implement this for knowledge base actions when uploading documents, or delete.
     # This is a newer example of a simple implementation, not used yet.
@@ -153,7 +153,8 @@ class Vector_Storage:
         if collection:
             sources = self.get_collection_sources(collection)
             collection.metadata["sources"] = sources
-        return collection
+            return collection
+        raise Exception("No collection found.")
 
     def get_source_chunks(self, collection_name: str, source_id: str):
         """Returns all documents (chunks) associated with a source"""

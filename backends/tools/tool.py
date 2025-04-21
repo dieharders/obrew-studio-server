@@ -71,15 +71,14 @@ class Tool:
             example_tool_schema: dict = None
             if len(examples) > 0:
                 example_tool_schema = examples[0]
-            properties: dict = schema.get("properties", dict)
+            properties: dict = schema.get("properties", dict())
             # Make params
             func_name = filename.split(".")[0]
             tool_schema_name = tool_name or func_name
             params = []
             tool_schema = dict()
-            for prop in properties.items():
-                key = prop[0]
-                param = dict(**prop[1])
+            for key, value in list(properties.items()):  # Convert items to list
+                param = dict(**value)
                 param["name"] = key
                 # Create tool schema
                 allowed_values = param.get("options", None)
@@ -249,6 +248,7 @@ class Tool:
     ):
         tool_schemas = ""
         tool_funcs = dict()
+        native_tool_defs = ""
         # Use json schema format for structured output
         for tool_def in tool_defs:
             name = tool_def.get("name")

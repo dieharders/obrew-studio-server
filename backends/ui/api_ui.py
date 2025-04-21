@@ -74,6 +74,18 @@ class ApiUI:
                 flush=True,
             )
 
+    # Check for latest version of the app engine
+    def check_is_latest_version(self, latest_version):
+        try:
+            new_ver_exists = self.updater.check_if_update(latest_version=latest_version)
+            return new_ver_exists
+        except Exception as e:
+            print(
+                f"{common.PRNT_APP} Failed to fetch latest release: {e}",
+                flush=True,
+            )
+            return False
+
     # Generate links for user to connect an external device to this machine's
     # locally running server instance.
     # QRcode generation -> https://github.com/arjones/qr-generator/tree/main

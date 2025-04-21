@@ -6,7 +6,10 @@ from core.classes import FastAPIApp
 from retrieval.rag import SimpleRAG
 from embeddings.vector_storage import Vector_Storage
 from embeddings.embedder import Embedder
-from embeddings.response_synthesis import Response_Mode
+from embeddings.rag_response_synthesis import (
+    RESPONSE_SYNTHESIS_MODES,
+    RESPONSE_SYNTHESIS_DESCRIPTIONS,
+)
 from inference.helpers import read_event_data
 
 
@@ -17,11 +20,11 @@ class Params(BaseModel):
     # Required - A description is needed for prompt injection
     """Ask a specialized knowledge agent to perform information lookup and retrieval from a data source."""
 
-    # prompt: str = Field(
-    #     ...,
-    #     description="The user prompt that asks the agent for contextual information.",
-    #     llm_not_required=True,
-    # )
+    prompt: str = Field(
+        ...,
+        description="The user prompt that asks the agent for contextual information.",
+        llm_not_required=True,
+    )
     # system_message: str = Field(
     #     ...,
     #     description="The agent's system message instructs it how to handle the contextual information provided.",
@@ -50,7 +53,8 @@ class Params(BaseModel):
         input_type="options-sel",
         placeholder="Select strategy",
         default_value="refine",
-        options=list(Response_Mode.__members__.values()),
+        options_description=list(RESPONSE_SYNTHESIS_DESCRIPTIONS.__members__.values()),
+        options=list(RESPONSE_SYNTHESIS_MODES.__members__.values()),
         llm_not_required=True,
     )
     # memories: List[str] = Field(
@@ -76,10 +80,10 @@ class Params(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
-                    # "prompt": "Find me contact info for the head of HR.",
+                    "prompt": "Find me contact info for the head of HR.",
                     # "system_message": "Only use knowledge taken from the provided context.",
                     # "prompt_template": "{{user_prompt}}",
-                    "strategy": "summarize",
+                    "strategy": "refine",
                     "similarity_top_k": 3,
                     # "memories": ["private_data"],
                     # "model": ["llama2", "llama2_7b_Q4.gguf"],
@@ -97,6 +101,8 @@ async def main(**kwargs: Params) -> str:
     system_message = kwargs.get("system_message")
     app: FastAPIApp = kwargs.get("app")
     query = kwargs.get("prompt")
+    if not query:
+        print(f"{common.PRNT_RAG} Warning: query does not exist.", flush=True)
     similarity_top_k = kwargs.get("similarity_top_k")
     collection_names = kwargs.get("memories", [])
     if len(collection_names) == 0:
@@ -137,7 +143,7 @@ async def main(**kwargs: Params) -> str:
 
     # Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
     match strategy:
-        case Response_Mode.CONTEXT_ONLY:
+        case RESPONSE_SYNTHESIS_MODES.CONTEXT_ONLY.value:
             retriever = SimpleRAG(
                 collection=selected_collection,
                 embed_fn=embedder.embed_text,
@@ -152,7 +158,7 @@ async def main(**kwargs: Params) -> str:
 
     # Query
     result = await retriever.query(
-        question=query,
+        question=query or "",
         # system_message=system_message, # overridden internally
         # template=template, # overridden internally
         top_k=similarity_top_k,
