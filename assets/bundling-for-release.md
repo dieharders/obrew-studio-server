@@ -58,19 +58,19 @@ This utility will take your exe and dependencies and compress the files, then wr
 Increase the patch version by 1 (x.x.1 to x.x.2)
 
 ```bash
-yarn version --patch
+pnpm version --patch
 ```
 
 Increase the minor version by 1 (x.1.x to x.2.x)
 
 ```bash
-yarn version --minor
+pnpm version --minor
 ```
 
 Increase the major version by 1 (1.x.x to 2.x.x)
 
 ```bash
-yarn version --major
+pnpm version --major
 ```
 
 2. Create a new release in Github and choose the tag just created or enter a new tag name for Github to make.

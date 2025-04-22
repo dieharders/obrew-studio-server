@@ -87,7 +87,7 @@ To use Ai locally with your private data for free:
 ❌ Support multi-modal: vision, text, audio, 3d, and beyond<br>
 ❌ Support multi-device memory sharing (i.e. cluster of macs running single large model)<br>
 ❌ Support voice-to-text and text-to-speech<br>
-❌ Auto Agents: Self-prompting, autonomous agent given tools and access to a sandboxed OS env<br>
+❌ Auto Agents: Self-prompting, autonomous agent with access to a sandboxed env<br>
 
 ## Supported Model Providers
 
@@ -103,6 +103,6 @@ This is a local first project. The ultimate goal is to support many providers vi
 ## Learn More
 
 - Backend: [FastAPI](https://fastapi.tiangolo.com/) - learn about FastAPI features and API.
-- Inference: [llama-cpp](https://github.com/ggerganov/llama.cpp) and [llama-cpp-python](https://github.com/abetlen/llama-cpp-python) for LLM inference.
+- Inference: [llama-cpp](https://github.com/ggerganov/llama.cpp) for LLM inference.
 - Memory: [Llama-Index](https://github.com/run-llama/llama_index) for data retrieval and [ChromaDB](https://github.com/chroma-core/chroma) for vector database.
 - WebUI: Vanilla HTML and [Next.js](https://nextjs.org/) for front-end UI and [Pywebview](https://github.com/r0x0r/pywebview) for rendering the webview.

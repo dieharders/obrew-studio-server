@@ -15,7 +15,7 @@ This command will create a self-signed key and cert files in your current dir th
 ```bash
 openssl req -x509 -newkey rsa:4096 -nodes -out public/cert.pem -keyout public/key.pem -days 36500
 # OR (an alias for same command as above)
-yarn makecert
+pnpm makecert
 ```
 
 This should be enough for any webapp served over https to access the server. If you see "Warning: Potential Security Risk Ahead" in your browser when using the webapp, you can ignore it by clicking `advanced` then `Accept the Risk` button to continue.
