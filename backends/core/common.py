@@ -27,14 +27,16 @@ def app_path(relative_path):
 # Pass a relative path to resource and return the correct absolute path. Works for dev and for PyInstaller
 # If you use pyinstaller, it bundles deps into a folder alongside the binary (not --onefile mode).
 # This path is set to sys._MEIPASS and any python modules or added files are put in here (runtime writes, db still go where they should).
-def dep_path(relative_path):
+def dep_path(relative_path=None):
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
 
-    return os.path.join(base_path, relative_path)
+    if relative_path:
+        return os.path.join(base_path, relative_path)
+    return base_path
 
 
 MODEL_METADATAS_FILENAME = "installed_models.json"

@@ -1,13 +1,12 @@
-import json
 from typing import Dict, List
 import requests
 import zipfile
 import os
-import sys
 import wmi
 from io import BytesIO
 import platform
 import GPUtil
+from core.common import dep_path, get_package_json
 
 # @TODO Perhaps make a small installer app with Tauri that has a GUI that can launch headless/non etc of app and install/notify of updates. We wouldn't need multiple app shortcuts and the download link can always point to one file for all platforms.
 
@@ -138,40 +137,21 @@ def install_llama_cpp(gpu: dict, tag: str, target_path: str):
     # ...
 
 
-# Define the application's path so we can find files
-def get_path(target_dir: str):
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        is_compiled = sys._MEIPASS
-        base_path = os.path.join(os.getcwd(), target_dir)
-    except Exception:
-        base_path = os.getcwd()
-    return base_path
-
-
-# Read package.json file
-def read_package_json(file_path: str) -> dict:
-    try:
-        with open(file_path, "r") as f:
-            package_json: dict = json.load(f)
-        return package_json
-    except Exception:
-        print("[UPDATER] Failed to read package.")
-
-
 class Updater:
     def __init__(self):
         self.status = "idle"
-        public_path = get_path("public")
-        package_path = os.path.join(public_path, "package.json")
-        self.package_path = package_path
-        print("[UPDATER] Starting updater...", flush=True)
+        try:
+            self.package_json = get_package_json()
+        except Exception as error:
+            print(f"[UPDATER] Failed to read package file: {error}", flush=True)
+
+        print(f"[UPDATER] Starting updater...", flush=True)
 
     def check_if_update(self, latest_version):
         # Check for updated launcher, ask user for download.
-        curr_ver = read_package_json(self.package_path).get("version")
+        curr_ver = self.package_json.get("version")
         print(
-            f"[UPDATER] Checking for latest app version ({latest_version})...",
+            f"[UPDATER] Checking for latest app version, current: {curr_ver} | latest: {latest_version} ...",
             flush=True,
         )
         if latest_version and curr_ver and f"v{curr_ver}" != latest_version:
@@ -188,10 +168,10 @@ class Updater:
         gpus = get_gpu_details()
 
         # Download llama.cpp binaries
-        deps_path = get_path("_deps")
-        file_path = os.path.join(deps_path, "servers", "llama.cpp", "llama-cli.exe")
+        deps_path = dep_path()
         target_path = os.path.join(deps_path, "servers", "llama.cpp")
-        llamacpp_tag = read_package_json(self.package_path).get("llamacpp_tag")
+        file_path = os.path.join(target_path, "llama-cli.exe")
+        llamacpp_tag = self.package_json.get("llamacpp_tag")
         print("[UPDATER] Checking for deps...", flush=True)
         if not check_llama_cpp_exists(file_path):
             print("[UPDATER] Downloading inference binaries ...", flush=True)
