@@ -22,7 +22,7 @@ This is handled automatically by the build script:
 ```bash
 # You may need to edit the python virtual env path (in package.json under build:app) to match yours
 # This will export files to the `dist/[app_name]` dir
-yarn build:app
+pnpm build
 ```
 
 ## Build binary with auto-py-to-exe (optional)

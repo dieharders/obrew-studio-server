@@ -20,21 +20,25 @@ from huggingface_hub import (
 
 
 # Pass relative string to get absolute path
-def app_path(relative_path):
-    return os.path.join(os.getcwd(), relative_path)
+def app_path(relative_path: str = None):
+    if relative_path:
+        return os.path.join(os.getcwd(), relative_path)
+    return os.getcwd()
 
 
 # Pass a relative path to resource and return the correct absolute path. Works for dev and for PyInstaller
 # If you use pyinstaller, it bundles deps into a folder alongside the binary (not --onefile mode).
 # This path is set to sys._MEIPASS and any python modules or added files are put in here (runtime writes, db still go where they should).
-def dep_path(relative_path):
+def dep_path(relative_path=None):
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
         base_path = os.path.abspath(".")
 
-    return os.path.join(base_path, relative_path)
+    if relative_path:
+        return os.path.join(base_path, relative_path)
+    return base_path
 
 
 MODEL_METADATAS_FILENAME = "installed_models.json"
@@ -42,7 +46,7 @@ BACKENDS_FOLDER = "backends"
 APP_SETTINGS_FOLDER = "settings"
 APP_SETTINGS_PATH = app_path(APP_SETTINGS_FOLDER)
 TOOL_FOLDER = "tools"
-TOOL_FUNCS_FOLDER = "built-in"  # @TODO Should we change to "functions" ?
+TOOL_FUNCS_FOLDER = "functions"
 TOOL_PATH = app_path(TOOL_FOLDER)
 TOOL_DEFS_PATH = os.path.join(TOOL_PATH, "defs")
 TOOL_FUNCS_PATH = TOOL_PATH
@@ -121,6 +125,12 @@ def parse_mentions(input_string) -> Tuple[List[str], str]:
         return [matches, base_query]
     else:
         return [[], input_string]
+
+
+# Return all file names found in dir
+def find_file_names(path: str):
+    file_names = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+    return file_names
 
 
 # Open a native file explorer at location of given source

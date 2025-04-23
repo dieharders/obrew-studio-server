@@ -95,11 +95,9 @@ class LLAMA_CPP:
         self.model_path = model_path  # text-models/your-model.gguf
         self.model_init_kwargs = init_kwargs
         self._generate_kwargs = generate_kwargs  # proxy
-        BINARY_BASE_PATH = "servers"
-        BINARY_FOLDER = "llama.cpp"
-        self.BINARY_PATH: str = os.path.join(
-            os.getcwd(), BINARY_BASE_PATH, BINARY_FOLDER, "llama-cli.exe"
-        )
+        deps_path = common.dep_path()
+        BINARY_FOLDER_PATH = os.path.join(deps_path, "servers", "llama.cpp")
+        self.BINARY_PATH: str = os.path.join(BINARY_FOLDER_PATH, "llama-cli.exe")
 
     # Getter
     @property
@@ -378,7 +376,7 @@ class LLAMA_CPP:
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled", flush=True)
         except (ValueError, UnicodeEncodeError, Exception) as e:
-            print(f"{common.PRNT_LLAMA} Failed to query llama.cpp: {e}", flush=True)
+            print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}", flush=True)
             raise Exception(f"Failed to query llama.cpp: {e}")
 
     async def _text_generator(

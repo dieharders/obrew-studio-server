@@ -35,29 +35,19 @@ TOOL_OUTPUT_SCHEMA_STR = f"```json\n{json.dumps(TOOL_OUTPUT_SCHEMA)}\n```"
 def import_tool_function(filename: str):
     spec = None
 
-    # Check built-in funcs first
+    # Check in base dev path for built_in_functions
     try:
-        # from _deps directory
-        prebuilt_funcs_path = common.dep_path(
-            os.path.join(
-                common.BACKENDS_FOLDER,
-                common.TOOL_FOLDER,
-                common.TOOL_FUNCS_FOLDER,
-                filename,
-            )
-        )
-        if os.path.exists(prebuilt_funcs_path):
-            spec = importlib.util.spec_from_file_location(
-                name=filename,
-                location=prebuilt_funcs_path,
-            )
+        module_name = f"tools.built_in_functions.{filename}"
+        spec = importlib.util.find_spec(module_name)
     except Exception as err:
         print(f"{common.PRNT_API} {err}", flush=True)
 
-    # Check user made funcs
+    # Check in Production path /tools/functions for user added tool funcs
     try:
-        # from root of installation dir
-        custom_funcs_path = os.path.join(os.getcwd(), common.TOOL_FUNCS_PATH, filename)
+        base_path = common.app_path()
+        custom_funcs_path = os.path.join(
+            base_path, common.TOOL_FOLDER, common.TOOL_FUNCS_FOLDER, filename
+        )
         if os.path.exists(custom_funcs_path):
             spec = importlib.util.spec_from_file_location(
                 name=filename,

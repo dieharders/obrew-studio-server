@@ -3,6 +3,7 @@ import glob
 import json
 from typing import Optional
 from fastapi import APIRouter, Depends
+from tools.built_in_functions.get_functions import get_built_in_functions
 from tools.tool import Tool
 from core import classes, common
 from storage import classes as storage_classes
@@ -150,28 +151,20 @@ def get_tool_functions() -> classes.ListToolFunctionsResponse:
     built_in_file_names = []
 
     try:
-        # Check in root install path for user tools
-        user_funcs_path = common.TOOL_FUNCS_PATH
-        user_file_names = [
-            f
-            for f in os.listdir(user_funcs_path)
-            if os.path.isfile(os.path.join(user_funcs_path, f))
-        ]
+        # Check in internal dev path for built-in tool funcs
+        prebuilt_func = get_built_in_functions()
+        if prebuilt_func:
+            built_in_file_names = list(prebuilt_func.keys())
     except Exception as err:
         print(f"{common.PRNT_API} {err}")
 
     try:
-        # Check in _deps dir for built-in tools
-        built_in_funcs_path = common.dep_path(
-            os.path.join(
-                common.BACKENDS_FOLDER, common.TOOL_FOLDER, common.TOOL_FUNCS_FOLDER
-            )
+        # Check in /tools/functions Production dir for user added tool funcs
+        base_path = common.app_path()
+        user_funcs_path = os.path.join(
+            base_path, common.TOOL_FOLDER, common.TOOL_FUNCS_FOLDER
         )
-        built_in_file_names = [
-            f
-            for f in os.listdir(built_in_funcs_path)
-            if os.path.isfile(os.path.join(built_in_funcs_path, f))
-        ]
+        user_file_names = common.find_file_names(user_funcs_path)
     except Exception as err:
         print(f"{common.PRNT_API} {err}")
 
