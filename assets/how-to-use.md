@@ -20,9 +20,8 @@ Some notes on how to create a new tool:
 5. Each function needs a Pydantic class (named "Params") assigned to input args
 
 Where to store the function code:
-In the project's root `tools/functions`
-OR
-In the installation directory, create a new folder `tools/functions`
+Dev: In the project's root `backends/tools/built_in_functions`
+Prod: In the `tools/functions` folder in the installation directory.
 
 Take a look at the [calculator.py](/backends/tools/built-in/calculator.py) example for reference.
 

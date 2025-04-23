@@ -20,8 +20,10 @@ from huggingface_hub import (
 
 
 # Pass relative string to get absolute path
-def app_path(relative_path):
-    return os.path.join(os.getcwd(), relative_path)
+def app_path(relative_path: str = None):
+    if relative_path:
+        return os.path.join(os.getcwd(), relative_path)
+    return os.getcwd()
 
 
 # Pass a relative path to resource and return the correct absolute path. Works for dev and for PyInstaller
@@ -44,7 +46,7 @@ BACKENDS_FOLDER = "backends"
 APP_SETTINGS_FOLDER = "settings"
 APP_SETTINGS_PATH = app_path(APP_SETTINGS_FOLDER)
 TOOL_FOLDER = "tools"
-TOOL_FUNCS_FOLDER = "built-in"  # @TODO Should we change to "functions" ?
+TOOL_FUNCS_FOLDER = "functions"
 TOOL_PATH = app_path(TOOL_FOLDER)
 TOOL_DEFS_PATH = os.path.join(TOOL_PATH, "defs")
 TOOL_FUNCS_PATH = TOOL_PATH
@@ -123,6 +125,12 @@ def parse_mentions(input_string) -> Tuple[List[str], str]:
         return [matches, base_query]
     else:
         return [[], input_string]
+
+
+# Return all file names found in dir
+def find_file_names(path: str):
+    file_names = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+    return file_names
 
 
 # Open a native file explorer at location of given source
