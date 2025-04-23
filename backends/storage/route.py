@@ -154,17 +154,17 @@ def get_tool_functions() -> classes.ListToolFunctionsResponse:
         # Check in internal dev path for built-in tool funcs
         prebuilt_func = get_built_in_functions()
         if prebuilt_func:
-            user_file_names = list(prebuilt_func.keys())
+            built_in_file_names = list(prebuilt_func.keys())
     except Exception as err:
         print(f"{common.PRNT_API} {err}")
 
     try:
         # Check in /tools/functions Production dir for user added tool funcs
         base_path = common.app_path()
-        built_in_funcs_path = os.path.join(
+        user_funcs_path = os.path.join(
             base_path, common.TOOL_FOLDER, common.TOOL_FUNCS_FOLDER
         )
-        built_in_file_names = common.find_file_names(built_in_funcs_path)
+        user_file_names = common.find_file_names(user_funcs_path)
     except Exception as err:
         print(f"{common.PRNT_API} {err}")
 
