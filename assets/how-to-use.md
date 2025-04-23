@@ -9,21 +9,51 @@ As a user you have two ways of interacting with this service:
 - via http api endpoints, which gives you programmatic access
 - via the graphical interface WebUI which uses the same http api under the hood
 
+## How to create Retrieval Agents with Obrew Studio
+
+These are special kinds of LLM's that are capable of data conversion, summarization and synthesis. They have access to tools that allow them to retrieve information from various sources and provide it as context to the query.
+
+1. Model: Choose a capable LLM: Zephyr 7B, Orca Mini 7B
+2. Tools: Assign a previously created Retrieval tool
+3. Attention Tab:
+   - `Prompt Mode` is overridden to "instruct" when using retrieval tools.
+   - `Tool Response`: Use "results" if you want the most direct response to query. Otherwise use "answer" to refine the final response using assigned `Thinking` and `Personality` traits.
+   - `Tool Use`: Most of the time you should use "universal" since it works with everything even models not trained for function calling. If you want a possibly faster and more quality experience with tool use then use "native" but you must assign a function calling capable model (currently llama.cpp has spotty support for this and the feature is WIP, not recommended).
+4. Thinking:
+   - Only used if `Tool Response` is set to "answer"
+5. Personality:
+   - Only used if `Tool Response` is set to "answer"
+6. Performance:
+   - `Context Size` should be set to 0 or highest possible to allow for the most context to be used while searching.
+7. Memory: Assign a knowledge source. Currently only one collection can be searched by llm.
+8. Response:
+   - It is best to use a very low `temperature` (0) to keep hallucinations low.
+   - Adjust `Max Response Tokens` depending on your needs.
+
 ## Adding Custom Tools for Agents
 
-Some notes on how to create a new tool:
+Notes on how to write a new tool (code):
 
-1. Function name must be named `main`
-2. One function per file
-3. Functions must be written in Python: `function_name.py`
-4. Each function needs a description to help the llm
-5. Each function needs a Pydantic class (named "Params") assigned to input args
+1. One async function must be named `main` per file
+2. Functions must be written in Python: `function_name.py`
+3. Each function needs a description to help the llm
+4. Each function needs a Pydantic class (named "Params") assigned to input args
+
+Notes on how to write `Fields` for each parameter:
+
+- `input_type`="options-sel", "text", "options-multi" (set the input type of this param in WebUI)
+- `placeholder`=string (what value to set in WebUI)
+- `options_source`="retrieval-template", "installed-models", "memories" (tells the WebUI what menu to display for input)
+- `llm_not_required`=boolean (True=llm will not respond with this param, False=llm includes param as part of rresponse)
 
 Where to store the function code:
 Dev: In the project's root `backends/tools/built_in_functions`
 Prod: In the `tools/functions` folder in the installation directory.
 
-Take a look at the [calculator.py](/backends/tools/built-in/calculator.py) example for reference.
+- [calculator.py](/backends/tools/built_in_functions/calculator.py) Take a look at the example for reference. This tool takes no user arguments.
+- [retrieval.py](/backends/tools/built_in_functions/retrieval.py) For an example of a tool that takes a mix of user arguments and llm arguments.
+
+\*\*Please note you will not be able to import modules that are not already installed by the app.
 
 ## API Keys and .env variables
 
