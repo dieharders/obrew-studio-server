@@ -3,6 +3,8 @@ import json
 import codecs
 import signal
 import asyncio
+import subprocess
+import platform
 from asyncio.subprocess import Process
 from fastapi import Request
 from typing import List, Optional
@@ -215,6 +217,7 @@ class LLAMA_CPP:
     # Send multi-turn messages by role. Message does not require formatting. Does not use tools.
     # Cannot reload chat history from cache.
     # May be easier to re-implement chat using /completion and loading kv_cache each call.
+    # @TODO Would like to use /text_completion to perform chat
     async def text_chat(
         self,
         prompt: str,
@@ -269,13 +272,7 @@ class LLAMA_CPP:
                 print(
                     f"{common.PRNT_LLAMA} Starting llama.cpp cli ...\nWith chat command: {cmd_args}"
                 )
-                self.process = await asyncio.create_subprocess_exec(
-                    *cmd_args,
-                    stdin=asyncio.subprocess.PIPE,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    bufsize=0,
-                )
+                await self._run(cmd_args)
                 # Read logs
                 if self.debug:
                     self.task_logging = asyncio.create_task(self.read_logs())
@@ -355,15 +352,7 @@ class LLAMA_CPP:
             print(
                 f"{common.PRNT_LLAMA} Starting llama.cpp cli ...\nWith completion command: {cmd_args}"
             )
-            # Send command to llama-cli
-            # @TODO Incorporate with model_init_kwargs
-            self.process = await asyncio.create_subprocess_exec(
-                *cmd_args,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                bufsize=0,
-            )
+            await self._run(cmd_args)
             # Read logs
             if self.debug:
                 self.task_logging = asyncio.create_task(self.read_logs())
@@ -378,6 +367,23 @@ class LLAMA_CPP:
         except (ValueError, UnicodeEncodeError, Exception) as e:
             print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}", flush=True)
             raise Exception(f"Failed to query llama.cpp: {e}")
+
+    # Start llm process
+    async def _run(self, cmd_args):
+        creation_kwargs = {}
+        # Check each platform and assign flags as necessary
+        if platform.system() == "Windows":
+            # Removes the terminal window when process runs (Win only)
+            creation_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+        # @TODO Incorporate with model_init_kwargs
+        self.process = await asyncio.create_subprocess_exec(
+            *cmd_args,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            bufsize=0,
+            **creation_kwargs,
+        )
 
     async def _text_generator(
         self,
