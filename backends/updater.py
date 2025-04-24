@@ -140,12 +140,20 @@ def install_llama_cpp(gpu: dict, tag: str, target_path: str):
 class Updater:
     def __init__(self):
         self.status = "idle"
+        self.package_json = dict()
         try:
             self.package_json = get_package_json()
         except Exception as error:
             print(f"[UPDATER] Failed to read package file: {error}", flush=True)
 
         print(f"[UPDATER] Starting updater...", flush=True)
+
+    def check_version(self):
+        try:
+            return self.package_json.get("version")
+        except Exception as error:
+            print(f"[UPDATER] Failed to get package version: {error}", flush=True)
+            return ""
 
     def check_if_update(self, latest_version):
         # Check for updated launcher, ask user for download.

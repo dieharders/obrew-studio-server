@@ -17,11 +17,17 @@ async function launchWebUIFailed(err) {
   }
   return '' // always return something
 }
+// Nav to Obrew Studio WebUI
 async function launchWebUI() {
-  // Nav to Obrew Studio WebUI
   // The params help front-end know what server to connect to
-  const target = window.frontend.state.webui || window.frontend.state.webui_url
-  window.location = `${target}/?hostname=${window.frontend.state.local_url}&port=${window.frontend.state.port}`
+  const webuiEl = document.getElementById('webui')
+  const target = webuiEl.value
+  const hostEl = document.getElementById('host')
+  const hostname = hostEl.value || ''
+  const portEl = document.getElementById('port')
+  const port = portEl.value || ''
+  if (!target || (!hostname && !port)) launchWebUIFailed('No target, hostname or port provided.')
+  else window.location = `${target}/?hostname=${hostname}&port=${port}`
   return '' // always return something
 }
 async function startServer() {
@@ -94,6 +100,10 @@ async function mountPage() {
     portEl.value = window.frontend.state.port || data.port
     const webuiEl = document.getElementById('webui')
     webuiEl.value = window.frontend.state.webui || data.webui_url
+    const versionEl = document.getElementById('version')
+    const ver = window.frontend.state.current_version || ''
+    if (ver) versionEl.innerText = `Version ${ver}`
+    else versionEl.hidden = true
     // Attempt to parse update data (always do last)
     const updateMessageEl = document.getElementById('updateMessageContainer')
     const updateData = window.frontend.state.update_available || data.update_available
