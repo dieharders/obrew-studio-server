@@ -64,6 +64,11 @@ To use Ai locally with your private data for free:
     <img src="assets/images/knowledge.png" height="300" />
 </p>
 
+## Minimum hardware requirements
+
+- 8GB Disk space
+- 8GB Memory
+
 ## App Features Roadmap
 
 ✅ Run locally<br>
