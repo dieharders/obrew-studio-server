@@ -48,7 +48,7 @@ Notes on how to write `Fields` for each parameter:
 
 Where to store the function code:
 Dev: In the project's root `backends/tools/built_in_functions`
-Prod: In the `tools/functions` folder in the installation directory.
+App: In the `_deps/tools/functions` folder in the installation directory.
 
 - [calculator.py](/backends/tools/built_in_functions/calculator.py) Take a look at the example for reference. This tool takes no user arguments.
 - [retrieval.py](/backends/tools/built_in_functions/retrieval.py) For an example of a tool that takes a mix of user arguments and llm arguments.
