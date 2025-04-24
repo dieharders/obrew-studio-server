@@ -33,12 +33,23 @@ async function mountPage() {
   try {
     // Get data from input
     await downloadData()
+
+    // Initialize frontend state if needed
+    if (!window.frontend.state) {
+      window.frontend.state = {}
+    }
+
+    // Set current version state
+    const currVer = await window.pywebview.api.get_current_version()
+    window.frontend.state.current_version = currVer || ''
+
     // Check for latest version on server side
     const verRes = await fetchLatestVersion()
-    if (!verRes) throw 'Failed to fetch update data.'
-    const latest_tag = verRes.tag_name
-    const isAvailable = await window.pywebview.api.check_is_latest_version(latest_tag)
-    window.frontend.state.update_available = isAvailable ? verRes : null
+    if (verRes) {
+      const latest_tag = verRes.tag_name
+      const isAvailable = await window.pywebview.api.check_is_latest_version(latest_tag)
+      window.frontend.state.update_available = isAvailable ? verRes : null
+    }
     // Go to main.html page
     transitionPage('main.html') // this exists in global.js
     return

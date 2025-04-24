@@ -74,6 +74,17 @@ class ApiUI:
                 flush=True,
             )
 
+    # Get current version of app
+    def get_current_version(self):
+        try:
+            return self.updater.check_version() or ""
+        except Exception as e:
+            print(
+                f"{common.PRNT_APP} Failed to fetch current app version: {e}",
+                flush=True,
+            )
+            return ""
+
     # Check for latest version of the app engine
     def check_is_latest_version(self, latest_version):
         try:
