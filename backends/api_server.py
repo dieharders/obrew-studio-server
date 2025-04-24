@@ -69,8 +69,10 @@ class ApiServer:
             )
             self.origins = [
                 # "https://hoppscotch.io",  # (optional) for testing endpoints
+                # "https://studio.openbrewai.com",  # official webapp frontend address
                 self.selected_webui_url,  # (required) client app origin (user selected from menu)
                 *CUSTOM_ORIGINS,
+                # "*",  # or allow all
             ]
             # Start server
             self.app = self._create_app()
@@ -212,6 +214,7 @@ class ApiServer:
             try:
                 vector_storage = Vector_Storage(app=self.app)
                 db = vector_storage.db_client
+                # @TODO Perform this inside the Vector_Storage class
                 db.heartbeat()
                 return {"success": True, "message": "pong"}
             except Exception as e:

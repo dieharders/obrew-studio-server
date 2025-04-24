@@ -9,6 +9,16 @@ As a user you have two ways of interacting with this service:
 - via http api endpoints, which gives you programmatic access
 - via the graphical interface WebUI which uses the same http api under the hood
 
+## How to use from external device
+
+It is possible to run Obrew Studio (the engine) on one machine and use the WebUI on a different device (like a mobile/tablet) as long as it is on the same network.
+
+1. When starting Obrew Studio, navigate to "Settings" and enable "SSL" (be sure you have already created certificates [see here](deploy.md#start-server-on-localcloud-network-over-https)).
+2. Select "Start" to start the server.
+3. On a different device, navigate the browser url to `https://studio.openbrewai.com`.
+4. Toggle "Advanced Settings" button and enter the address of the server (shown on Obrew Studio start screen under "Advanced Options") under "Hostname" input.
+5. If you created self-signed certificates then the browser will block you from connecting by default, click on "issues connecting" then click on the "click here" link. This will open a new tab that gives you the option to ignore certificates by clicking "Advanced" and selecting "Allow".
+
 ## How to create Retrieval Agents with Obrew Studio
 
 These are special kinds of LLM's that are capable of data conversion, summarization and synthesis. They have access to tools that allow them to retrieve information from various sources and provide it as context to the query.
