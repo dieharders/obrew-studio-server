@@ -46,7 +46,7 @@ class Vector_Storage:
         return self.app.state.db_client
 
     # @TODO Implement this for knowledge base actions when uploading documents, or delete.
-    # This is a newer example of a simple implementation, not used yet.
+    # This is a newer example of a simpler implementation, not used yet.
     def add_documents(
         self,
         docs: List[str],
