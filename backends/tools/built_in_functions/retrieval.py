@@ -106,7 +106,9 @@ async def main(**kwargs: Params) -> str:
     similarity_top_k = kwargs.get("similarity_top_k")
     collection_names = kwargs.get("memories", [])
     if len(collection_names) == 0:
-        raise Exception("No collection names specified.")
+        raise Exception(
+            "Retrieval Tool: Please provide collection names for memory retrieval."
+        )
     strategy = kwargs.get("strategy")
 
     # Setup embedding llm
@@ -132,36 +134,35 @@ async def main(**kwargs: Params) -> str:
         collection = vector_storage.db_client.get_collection(name=name)
         collections.append(collection)
 
-    # @TODO Agent or Orchestrator could loop thru each collection's metadata and determine which one to select before calling tool
-    # OR
-    # We could make embeddings from each collection's metadata and compare those with query embedding to determine which is closest (most relevant).
-    selected_collection = collections[0]
+    # Loop thru each collection and return results
+    cumulative_answer = ""
+    for selected_collection in collections:
+        # Pass in the embed model based on the one used by the target collection
+        embed_model_name = selected_collection.metadata.get("embedding_model")
+        embedder = Embedder(app=app, embed_model=embed_model_name)
 
-    # Pass in the embed model based on the metadata from the target collection
-    embed_model_name = selected_collection.metadata.get("embedding_model")
-    embedder = Embedder(app=app, embed_model=embed_model_name)
+        # Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
+        match strategy:
+            case RESPONSE_SYNTHESIS_MODES.CONTEXT_ONLY.value:
+                retriever = SimpleRAG(
+                    collection=selected_collection,
+                    embed_fn=embedder.embed_text,
+                    llm_fn=llm_func,
+                )
+            case _:
+                retriever = SimpleRAG(
+                    collection=selected_collection,
+                    embed_fn=embedder.embed_text,
+                    llm_fn=llm_func,
+                )
 
-    # Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
-    match strategy:
-        case RESPONSE_SYNTHESIS_MODES.CONTEXT_ONLY.value:
-            retriever = SimpleRAG(
-                collection=selected_collection,
-                embed_fn=embedder.embed_text,
-                llm_fn=llm_func,
-            )
-        case _:
-            retriever = SimpleRAG(
-                collection=selected_collection,
-                embed_fn=embedder.embed_text,
-                llm_fn=llm_func,
-            )
-
-    # Query
-    result = await retriever.query(
-        question=query or "",
-        # system_message=system_message, # overridden internally
-        # template=template, # overridden internally
-        top_k=similarity_top_k,
-    )
-    answer = result.get("text")
-    return answer
+        # Query
+        result = await retriever.query(
+            question=query or "",
+            # system_message=system_message, # overridden internally
+            # template=template, # overridden internally
+            top_k=similarity_top_k,
+        )
+        answer = result.get("text")
+        cumulative_answer += f"\n\n{answer}"
+    return cumulative_answer.strip()
