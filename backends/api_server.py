@@ -208,18 +208,18 @@ class ApiServer:
         )
         app.include_router(endpoint_router)
 
-        # Keep server/database alive
-        @app.get("/v1/ping")
-        def ping() -> classes.PingResponse:
-            try:
-                vector_storage = Vector_Storage(app=self.app)
-                db = vector_storage.db_client
-                # @TODO Perform this inside the Vector_Storage class
-                db.heartbeat()
-                return {"success": True, "message": "pong"}
-            except Exception as e:
-                print(f"{common.PRNT_API} Error pinging server: {e}", flush=True)
-                return {"success": False, "message": ""}
+        # Keep server/database alive. Not currently used.
+        # @app.get("/v1/ping")
+        # def ping() -> classes.PingResponse:
+        #     try:
+        #         vector_storage = Vector_Storage(app=self.app)
+        #         db = vector_storage.db_client
+        #         # @TODO Perform this inside the Vector_Storage class
+        #         db.heartbeat()
+        #         return {"success": True, "message": "pong"}
+        #     except Exception as e:
+        #         print(f"{common.PRNT_API} Error pinging server: {e}", flush=True)
+        #         return {"success": False, "message": ""}
 
         # Tell client we are ready to accept requests
         @app.get("/v1/connect")
