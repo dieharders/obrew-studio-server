@@ -11,6 +11,9 @@ There are two shortcuts installed, the normal executable and one for "headless" 
 - --headless=True
 - --mode=dev or prod (this enables/disables logging)
 
+You can also append these to the shortcut's "Target", just use one dash.
+<img src="images/headless-executable-props.png" />
+
 ## Run/Build from source code
 
 ### Install Python dependencies
