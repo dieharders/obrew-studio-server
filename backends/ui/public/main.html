@@ -31,6 +31,7 @@
   <div id="connContainer" data-attr="closed">
     <p>Edit the config below to start the server.</p>
     <form action="" class="formOptions">
+      <!-- Custom Server -->
       <div class="inputContainer">
         <label for="host">Host:</label>
         <input type="text" id="host" name="host" value="" placeholder="{{0.0.0.0}}" />
@@ -39,15 +40,62 @@
         <label for="port">Port:</label>
         <input type="number" id="port" name="port" value="" placeholder="{{8008}}" />
       </div>
-      <div class="inputContainer">
-        <label for="webui">WebUI:</label>
-        <input
-          type="text"
-          id="webui"
-          name="webui"
-          value=""
-          placeholder="{{http://localhost:3000}}"
-        />
+      <div>
+        <!-- Supported Apps List -->
+        <div class="appsListContainer">
+          <h3>Available Apps</h3>
+          <div class="appCards" id="appCards">
+            <!-- Studio App Card -->
+            <div
+              class="appCard"
+              data-webui="http://"
+              data-name="Studio"
+              onclick="selectAppCard(this)"
+            >
+              <div class="appCardHeader">
+                <h4>Obrew Studio</h4>
+              </div>
+              <p class="appCardDescription">
+                The main Obrew Studio interface for AI chat, agents, and workflows.
+              </p>
+              <button type="button" class="btn appCardBtn" onclick="selectApp(this, event)">
+                Launch Studio
+              </button>
+            </div>
+            <!-- FileBuff App Card -->
+            <div
+              class="appCard"
+              data-webui="https://filebuff.openbrew.ai"
+              data-name="FileBuff"
+              onclick="selectAppCard(this)"
+            >
+              <div class="appCardHeader">
+                <h4>FileBuff</h4>
+              </div>
+              <p class="appCardDescription">
+                File management and knowledge base interface for your documents.
+              </p>
+              <button type="button" class="btn appCardBtn" onclick="selectApp(this, event)">
+                Launch FileBuff
+              </button>
+            </div>
+          </div>
+        </div>
+        <!-- Manual Entry Toggle -->
+        <button type="button" class="btn grey" id="manualEntryBtn" onclick="toggleManualEntry()">
+          Enter Manually
+        </button>
+        <!-- WebUI Input -->
+        <div class="inputContainer" id="webuiContainer" data-attr="closed">
+          <label for="webui">WebUI:</label>
+          <input
+            type="text"
+            id="webui"
+            name="webui"
+            value=""
+            placeholder="{{http://localhost:3000}}"
+          />
+        </div>
       </div>
     </form>
   </div>
