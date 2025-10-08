@@ -21,6 +21,7 @@
 - [Features](#app-features-roadmap)
 - [How to Use](assets/how-to-use.md)
 - [Getting Started](assets/getting-started.md)
+- [How to Connect Apps](assets/how-to-connect-apps.md)
 - [API Documentation](assets/api-docs.md)
 - [Build Steps](assets/build-steps.md)
 - [Bundling for Release](assets/bundling-for-release.md)
