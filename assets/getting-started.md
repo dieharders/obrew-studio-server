@@ -47,13 +47,13 @@ python backends/main.py
 Or using a package manager
 
 ```bash
-pnpm server:dev
+pnpm dev
 # or
-pnpm server:prod
+pnpm prod
 # or to run headless (production)
-pnpm server:headless-prod
+pnpm headless-prod
 # or to run headless (development)
-pnpm server:headless-dev
+pnpm headless-dev
 ```
 
 The Obrew api server will be running on [https://localhost:8008](https://localhost:8008)

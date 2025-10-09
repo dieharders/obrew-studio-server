@@ -99,7 +99,22 @@ async function mountPage() {
     const portEl = document.getElementById('port')
     portEl.value = window.frontend.state.port || data.port
     const webuiEl = document.getElementById('webui')
-    webuiEl.value = window.frontend.state.webui || data.webui_url
+    const currentWebui = window.frontend.state.webui || data.webui_url
+    webuiEl.value = currentWebui
+    // Update Studio card's data-webui attribute with the actual webui_url
+    const studioCard = document.querySelector('.appCard[data-name="Studio"]')
+    if (studioCard && data.webui_url) {
+      studioCard.setAttribute('data-webui', data.webui_url)
+    }
+    // Pre-select the app card that matches the current webui URL
+    const allCards = document.querySelectorAll('.appCard')
+    allCards.forEach(card => {
+      if (card.getAttribute('data-webui') === currentWebui) {
+        card.classList.add('selected')
+      } else {
+        card.classList.remove('selected')
+      }
+    })
     const versionEl = document.getElementById('version')
     const ver = window.frontend.state.current_version || ''
     if (ver) versionEl.innerText = `Version ${ver}`
@@ -150,6 +165,65 @@ async function toggleAdvanced() {
     const data = await getPageData()
     updateQRCode(data)
   }
+  return
+}
+function toggleManualEntry() {
+  const containerEl = document.getElementById('webuiContainer')
+  const isOpen = containerEl.getAttribute('data-attr') === 'open'
+
+  if (isOpen) containerEl.setAttribute('data-attr', 'closed')
+  else containerEl.setAttribute('data-attr', 'open')
+  return
+}
+function updateCardState(el) {
+  // Update selected state for all cards
+  const allCards = document.querySelectorAll('.appCard')
+  allCards.forEach(card => card.classList.remove('selected'))
+  el.classList.add('selected')
+}
+function updateWebUI(el) {
+  const webuiUrl = el.getAttribute('data-webui')
+
+  // Update the webui input field
+  const webuiEl = document.getElementById('webui')
+  webuiEl.value = webuiUrl
+
+  // Update page state
+  window.frontend.state.webui = webuiUrl
+}
+// Only updates the webui input without starting the server
+function selectAppCard(cardElement) {
+  // Update the webui input field
+  updateWebUI(cardElement)
+
+  // Update cards
+  updateCardState(cardElement)
+
+  // Hide advanced options
+  hideAdvanced()
+
+  return
+}
+// Select the app and start Server
+function selectApp(btnElement, event) {
+  // Prevent card click event from firing
+  event.stopPropagation()
+
+  // Get the app card element (parent of parent of button)
+  const appCard = btnElement.closest('.appCard')
+
+  // Update the webui input field
+  updateWebUI(appCard)
+
+  // Update cards
+  updateCardState(appCard)
+
+  // Hide advanced options
+  hideAdvanced()
+
+  // Start the server (same behavior as "Start" button)
+  startServer()
+
   return
 }
 
