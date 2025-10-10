@@ -29,7 +29,7 @@
   <!-- Connection Options -->
   <button class="btn grey" onclick="toggleConnections()">Connection Options</button>
   <div id="connContainer" data-attr="closed">
-    <p>Edit the config below to start the server.</p>
+    <p>Start the server with the config below.</p>
     <form action="" class="formOptions">
       <!-- Custom Server -->
       <div class="inputContainer">
@@ -79,29 +79,41 @@
                 Launch FileBuff
               </button>
             </div>
+            <!-- Custom Server Card -->
+            <div class="appCard" onclick="selectAppCard(this)">
+              <div class="appCardHeader">
+                <h4>Custom App</h4>
+              </div>
+              <p class="appCardDescription">
+                Connect to a custom WebUI server by entering the URL below.
+              </p>
+              <input
+                type="text"
+                id="webui"
+                name="webui"
+                class="customServerInput"
+                value=""
+                placeholder="http://localhost:3000"
+                onclick="event.stopPropagation()"
+                oninput="updateCustomServerWebUI(event)"
+              />
+              <button
+                type="button"
+                class="btn appCardBtn"
+                id="customServerStartBtn"
+                onclick="launchCustomServer(event)"
+              >
+                Start
+              </button>
+            </div>
           </div>
-        </div>
-        <!-- Manual Entry Toggle -->
-        <button type="button" class="btn grey" id="manualEntryBtn" onclick="toggleManualEntry()">
-          Enter Manually
-        </button>
-        <!-- WebUI Input -->
-        <div class="inputContainer" id="webuiContainer" data-attr="closed">
-          <label for="webui">WebUI:</label>
-          <input
-            type="text"
-            id="webui"
-            name="webui"
-            value=""
-            placeholder="{{http://localhost:3000}}"
-          />
         </div>
       </div>
     </form>
   </div>
 
   <!-- Advanced Connection Options -->
-  <button class="btn grey" onclick="toggleAdvanced()">Advanced Options</button>
+  <button class="btn grey" onclick="toggleAdvanced()">Remote Connection</button>
   <div id="advContainer" data-attr="closed">
     <p>Scan the code with your mobile device to connect to Obrew running on this device.</p>
     <div class="remote">
@@ -119,8 +131,9 @@
   <!-- Button Menu -->
   <div class="menuContainer">
     <ul class="menu">
-      <button id="startBtn" class="btn" onclick="startServer()">Start</button>
-      <a id="settingsBtn" class="btn" href="/settings.html" draggable="false" data-link>Settings</a>
+      <a id="settingsBtn" class="btn grey" href="/settings.html" draggable="false" data-link
+        >Settings</a
+      >
     </ul>
   </div>
 </div>

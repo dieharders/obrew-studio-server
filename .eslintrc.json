@@ -35,7 +35,7 @@
     // Tailwind
     // "tailwindcss/no-custom-classname": "off",
     // Prettier
-    "prettier/prettier": ["error", { "semi": false }], // including this also respects printWidth?
+    "prettier/prettier": ["warn", { "semi": false }], // including this also respects printWidth?
     // ESLint
     "quotes": [2, "single", { "avoidEscape": true }],
     "object-curly-spacing": ["warn", "always"],

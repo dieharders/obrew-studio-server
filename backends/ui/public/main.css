@@ -142,7 +142,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  max-height: 400px;
+  max-height: 600px;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 0.5rem;
@@ -193,6 +193,27 @@
 #manualEntryBtn {
   width: 100%;
   margin-bottom: 1rem;
+}
+/* Custom server card styling */
+.customServerInput {
+  width: 100%;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid #ced4da;
+  border-radius: 0.25rem;
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+.customServerInput:focus {
+  outline: none;
+  border-color: #ffb327;
+  box-shadow: 0 0 0 2px rgba(255, 179, 39, 0.2);
+}
+#customServerStartBtn {
+  background-color: #ffb327;
+}
+#customServerStartBtn:hover {
+  background-color: #ff9f00;
 }
 /* Scrollbar styling for app cards */
 .appCards::-webkit-scrollbar {

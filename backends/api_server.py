@@ -80,7 +80,7 @@ class ApiServer:
             self.origins = [
                 origin.strip() for origin in origins_list if origin and origin.strip()
             ]
-            print(f"{common.PRNT_API} Server Started....Origins: {self.origins}")
+            # print(f"{common.PRNT_API} Server Started....Origins: {self.origins}")
             # Start server
             self.app = self._create_app()
         except (Exception, FileNotFoundError, json.JSONDecodeError, KeyError) as e:
