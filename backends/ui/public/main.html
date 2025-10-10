@@ -22,7 +22,7 @@
   <!-- Update notification -->
   <div id="updateMessageContainer">
     <p id="updateVersion">New update available:</p>
-    <p>Download: <a id="updateLink" href="https://www.openbrewai.com" target="_blank">here</a></p>
+    <p>Download: <a id="updateLink" href="https://www.openbrew.ai" target="_blank">here</a></p>
     <p id="updateAsset">Size:</p>
   </div>
 
@@ -48,7 +48,7 @@
             <!-- Studio App Card -->
             <div
               class="appCard"
-              data-webui="http://"
+              data-webui="https://studio.openbrew.ai"
               data-name="Studio"
               onclick="selectAppCard(this)"
             >
@@ -58,7 +58,7 @@
               <p class="appCardDescription">
                 The main Obrew Studio interface for AI chat, agents, and workflows.
               </p>
-              <button type="button" class="btn appCardBtn" onclick="selectApp(this, event)">
+              <button type="button" class="btn appCardBtn" onclick="launchApp(this, event)">
                 Launch Studio
               </button>
             </div>
@@ -75,7 +75,7 @@
               <p class="appCardDescription">
                 File management and knowledge base interface for your documents.
               </p>
-              <button type="button" class="btn appCardBtn" onclick="selectApp(this, event)">
+              <button type="button" class="btn appCardBtn" onclick="launchApp(this, event)">
                 Launch FileBuff
               </button>
             </div>

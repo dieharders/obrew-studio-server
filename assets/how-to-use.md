@@ -15,7 +15,7 @@ It is possible to run Obrew Studio (the engine) on one machine and use the WebUI
 
 1. When starting Obrew Studio, navigate to "Settings" and enable "SSL" (be sure you have already created certificates [see here](deploy.md#start-server-on-localcloud-network-over-https)).
 2. Select "Start" to start the server.
-3. On a different device, navigate the browser url to `https://studio.openbrewai.com`.
+3. On a different device, navigate the browser url to `https://studio.openbrew.ai`.
 4. Toggle "Advanced Settings" button and enter the address of the server (shown on Obrew Studio start screen under "Advanced Options") under "Hostname" input.
 5. If you created self-signed certificates then the browser will block you from connecting by default, click on "issues connecting" then click on the "click here" link. This will open a new tab that gives you the option to ignore certificates by clicking "Advanced" and selecting "Allow".
 

@@ -12,7 +12,7 @@ async function downloadData() {
 // https://docs.github.com/en/rest/releases/releases?apiVersion=2022-11-28#get-the-latest-release
 async function fetchLatestVersion() {
   try {
-    const apiUrl = 'https://studio.openbrewai.com/api/github'
+    const apiUrl = 'https://studio.openbrew.ai/api/github'
     // const apiUrl = 'http://localhost:3000/api/github' // test locally
     const response = await fetch(apiUrl, { method: 'GET' })
     if (!response.ok) {

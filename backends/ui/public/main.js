@@ -167,14 +167,6 @@ async function toggleAdvanced() {
   }
   return
 }
-function toggleManualEntry() {
-  const containerEl = document.getElementById('webuiContainer')
-  const isOpen = containerEl.getAttribute('data-attr') === 'open'
-
-  if (isOpen) containerEl.setAttribute('data-attr', 'closed')
-  else containerEl.setAttribute('data-attr', 'open')
-  return
-}
 function updateCardState(el) {
   // Update selected state for all cards
   const allCards = document.querySelectorAll('.appCard')
@@ -205,21 +197,15 @@ function selectAppCard(cardElement) {
   return
 }
 // Select the app and start Server
-function selectApp(btnElement, event) {
+function launchApp(btnElement, event) {
   // Prevent card click event from firing
   event.stopPropagation()
 
   // Get the app card element (parent of parent of button)
   const appCard = btnElement.closest('.appCard')
 
-  // Update the webui input field
-  updateWebUI(appCard)
-
-  // Update cards
-  updateCardState(appCard)
-
-  // Hide advanced options
-  hideAdvanced()
+  // Update
+  selectAppCard(appCard)
 
   // Start the server (same behavior as "Start" button)
   startServer()
