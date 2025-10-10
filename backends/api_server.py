@@ -69,7 +69,8 @@ class ApiServer:
             )
             self.origins = [
                 # "https://hoppscotch.io",  # (optional) for testing endpoints
-                # "https://studio.openbrewai.com",  # official webapp frontend address
+                # "https://studio.openbrew.ai",  # official frontend
+                # "https://filebuff.openbrew.ai",  # 3rd party webapps
                 self.selected_webui_url,  # (required) client app origin (user selected from menu)
                 *CUSTOM_ORIGINS,
                 # "*",  # or allow all
