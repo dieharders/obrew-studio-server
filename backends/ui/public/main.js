@@ -150,11 +150,6 @@ async function mountPage() {
     portEl.value = window.frontend.state.port || data.port
     // Don't set the webui input value - let it stay empty or use user input
     const currentWebui = window.frontend.state.webui || data.webui_url
-    // Update Studio card's data-webui attribute with the actual webui_url
-    // const studioCard = document.querySelector('.appCard[data-name="Studio"]')
-    // if (studioCard && data.webui_url) {
-    //   studioCard.setAttribute('data-webui', data.webui_url)
-    // }
     // Pre-select the app card that matches the current webui URL
     const allCards = document.querySelectorAll('.appCard')
     allCards.forEach(card => {
