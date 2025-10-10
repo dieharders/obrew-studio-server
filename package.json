@@ -6,7 +6,7 @@
   "productName": "Obrew Studio Engine",
   "description": "Your personal Ai engine.",
   "private": false,
-  "hosted_webui_url": "https://studio.openbrewai.com",
+  "hosted_webui_url": "https://studio.openbrew.ai",
   "llamacpp_tag": "b4905",
   "scripts": {
     "dev": "python ./backends/main.py --mode=dev --headless=False",

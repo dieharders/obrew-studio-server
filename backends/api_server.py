@@ -67,13 +67,20 @@ class ApiServer:
             CUSTOM_ORIGINS = (
                 self.CUSTOM_ORIGINS_ENV.split(",") if self.CUSTOM_ORIGINS_ENV else []
             )
-            self.origins = [
+            # Build origins list, filtering out empty strings
+            origins_list = [
                 # "https://hoppscotch.io",  # (optional) for testing endpoints
-                # "https://studio.openbrewai.com",  # official webapp frontend address
+                # "https://studio.openbrew.ai",  # official frontend (added automatically via get_package_json)
+                # "https://filebuff.openbrew.ai",  # 3rd party webapps (added by selecting card)
                 self.selected_webui_url,  # (required) client app origin (user selected from menu)
                 *CUSTOM_ORIGINS,
                 # "*",  # or allow all
             ]
+            # Filter out empty/whitespace-only strings and strip whitespace
+            self.origins = [
+                origin.strip() for origin in origins_list if origin and origin.strip()
+            ]
+            # print(f"{common.PRNT_API} Server Started....Origins: {self.origins}")
             # Start server
             self.app = self._create_app()
         except (Exception, FileNotFoundError, json.JSONDecodeError, KeyError) as e:

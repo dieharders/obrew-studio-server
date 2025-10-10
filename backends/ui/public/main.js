@@ -1,4 +1,32 @@
 // Backend funcs
+function disableAllAppCards() {
+  const allCards = document.querySelectorAll('.appCard')
+  allCards.forEach(card => {
+    card.style.pointerEvents = 'none'
+    card.style.opacity = '0.6'
+    // Disable all buttons within the card
+    const buttons = card.querySelectorAll('button')
+    buttons.forEach(btn => (btn.disabled = true))
+    // Disable input within the card
+    const inputs = card.querySelectorAll('input')
+    inputs.forEach(input => (input.disabled = true))
+  })
+}
+
+function enableAllAppCards() {
+  const allCards = document.querySelectorAll('.appCard')
+  allCards.forEach(card => {
+    card.style.pointerEvents = 'auto'
+    card.style.opacity = '1'
+    // Enable all buttons within the card
+    const buttons = card.querySelectorAll('button')
+    buttons.forEach(btn => (btn.disabled = false))
+    // Enable input within the card
+    const inputs = card.querySelectorAll('input')
+    inputs.forEach(input => (input.disabled = false))
+  })
+}
+
 async function launchWebUIFailed(err) {
   console.error('Failed to start API server')
   // Reset state if server start fails
@@ -6,6 +34,8 @@ async function launchWebUIFailed(err) {
   const settingsEl = document.getElementById('settingsBtn')
   if (btnEl) btnEl.disabled = false
   if (settingsEl) settingsEl.removeAttribute('disabled')
+  // Re-enable all app cards
+  enableAllAppCards()
   // Display error message
   const toastEl = document.getElementById('messageBannerContent')
   if (toastEl) {
@@ -20,14 +50,13 @@ async function launchWebUIFailed(err) {
 // Nav to Obrew Studio WebUI
 async function launchWebUI() {
   // The params help front-end know what server to connect to
-  const webuiEl = document.getElementById('webui')
-  const target = webuiEl.value
+  const target = window.frontend.state.webui
   const hostEl = document.getElementById('host')
   const hostname = hostEl.value || ''
   const portEl = document.getElementById('port')
   const port = portEl.value || ''
-  if (!target || (!hostname && !port)) launchWebUIFailed('No target, hostname or port provided.')
-  else window.location = `${target}/?hostname=${hostname}&port=${port}`
+  // Go to app
+  window.location = `${target}/?hostname=${hostname}&port=${port}`
   return '' // always return something
 }
 async function startServer() {
@@ -35,6 +64,23 @@ async function startServer() {
   const settingsEl = document.getElementById('settingsBtn')
   let timerRef
   try {
+    // Check for empty startup values
+    const hostEl = document.getElementById('host')
+    const hostname = hostEl.value || ''
+    const portEl = document.getElementById('port')
+    const port = portEl.value || ''
+    if (
+      !window.frontend.state.webui ||
+      window.frontend.state.webui.length <= 0 ||
+      !hostname ||
+      !port
+    ) {
+      const err = 'No target, hostname or port provided to launch App.'
+      launchWebUIFailed(err)
+      throw new Error(err)
+    }
+    // Disable all app cards
+    disableAllAppCards()
     const form = document.querySelector('form')
     // Disable buttons
     if (btnEl) btnEl.disabled = true
@@ -42,16 +88,20 @@ async function startServer() {
     timerRef = setTimeout(() => {
       if (btnEl) btnEl.disabled = false
       if (settingsEl) settingsEl.removeAttribute('disabled')
+      enableAllAppCards()
     }, 30000) // un-disable after 30sec
     // Get form data
     const formData = new FormData(form)
     const config = Object.fromEntries(formData.entries())
     config.port = parseInt(config.port)
+    // Always use the webui value from state, not from the input field
+    config.webui = window.frontend.state.webui
     await window.pywebview.api.start_server(config)
     return
   } catch (err) {
     if (btnEl) btnEl.disabled = false
     if (settingsEl) settingsEl.removeAttribute('disabled')
+    enableAllAppCards()
     clearTimeout(timerRef)
     console.error(`Failed to start API server: ${err}`)
   }
@@ -98,14 +148,8 @@ async function mountPage() {
     hostEl.value = window.frontend.state.host || data.host
     const portEl = document.getElementById('port')
     portEl.value = window.frontend.state.port || data.port
-    const webuiEl = document.getElementById('webui')
+    // Don't set the webui input value - let it stay empty or use user input
     const currentWebui = window.frontend.state.webui || data.webui_url
-    webuiEl.value = currentWebui
-    // Update Studio card's data-webui attribute with the actual webui_url
-    const studioCard = document.querySelector('.appCard[data-name="Studio"]')
-    if (studioCard && data.webui_url) {
-      studioCard.setAttribute('data-webui', data.webui_url)
-    }
     // Pre-select the app card that matches the current webui URL
     const allCards = document.querySelectorAll('.appCard')
     allCards.forEach(card => {
@@ -167,14 +211,6 @@ async function toggleAdvanced() {
   }
   return
 }
-function toggleManualEntry() {
-  const containerEl = document.getElementById('webuiContainer')
-  const isOpen = containerEl.getAttribute('data-attr') === 'open'
-
-  if (isOpen) containerEl.setAttribute('data-attr', 'closed')
-  else containerEl.setAttribute('data-attr', 'open')
-  return
-}
 function updateCardState(el) {
   // Update selected state for all cards
   const allCards = document.querySelectorAll('.appCard')
@@ -193,9 +229,6 @@ function updateWebUI(el) {
 }
 // Only updates the webui input without starting the server
 function selectAppCard(cardElement) {
-  // Update the webui input field
-  updateWebUI(cardElement)
-
   // Update cards
   updateCardState(cardElement)
 
@@ -205,15 +238,21 @@ function selectAppCard(cardElement) {
   return
 }
 // Select the app and start Server
-function selectApp(btnElement, event) {
+function launchApp(btnElement, event) {
   // Prevent card click event from firing
   event.stopPropagation()
 
   // Get the app card element (parent of parent of button)
   const appCard = btnElement.closest('.appCard')
 
-  // Update the webui input field
-  updateWebUI(appCard)
+  // Update
+  selectAppCard(appCard)
+
+  // Get the webui URL from the card's data-webui attribute
+  const webuiUrl = appCard.getAttribute('data-webui')
+
+  // Update the webui state with the card's URL
+  window.frontend.state.webui = webuiUrl
 
   // Update cards
   updateCardState(appCard)
@@ -221,7 +260,22 @@ function selectApp(btnElement, event) {
   // Hide advanced options
   hideAdvanced()
 
-  // Start the server (same behavior as "Start" button)
+  // Start the server
+  startServer()
+
+  return
+}
+// Update webui value when custom server input changes
+function updateCustomServerWebUI(event) {
+  // Update page state
+  window.frontend.state.webui = event.target.value
+}
+// Launch custom server
+function launchCustomServer(event) {
+  // Prevent any parent click events
+  event.stopPropagation()
+
+  // Start the server
   startServer()
 
   return

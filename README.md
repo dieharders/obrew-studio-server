@@ -47,7 +47,7 @@ Obrew Studio is a native app with a GUI that can be configured to allow access f
 
 ## How It Works
 
-This backend runs a web server that acts as the main gateway to the suite of tools. A WebUI is provided called [Obrew Studio: WebUI](https://studio.openbrewai.com/) to access this server. You can also run in headless mode to access it programmatically via the API.
+This backend runs a web server that acts as the main gateway to the suite of tools. A WebUI is provided called [Obrew Studio: WebUI](https://studio.openbrew.ai/) to access this server. You can also run in headless mode to access it programmatically via the API.
 
 <p align="center">
     <img src="assets/images/tools.png" height="250" />
