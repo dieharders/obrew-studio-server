@@ -5,7 +5,7 @@ from embeddings.embedder import CHUNKING_STRATEGIES
 router = APIRouter()
 
 
-# Return api info for available services
+# Return api info to client for available services
 @router.get("/api")
 def get_services_api(request: Request) -> classes.ServicesApiResponse:
     app: classes.FastAPIApp = request.app
@@ -74,6 +74,12 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
             {
                 "name": "getModelMetadata",
                 "urlPath": "/v1/text/getModelMetadata",
+                "method": "GET",
+            },
+            # Get hardware information (GPU details)
+            {
+                "name": "auditHardware",
+                "urlPath": "/v1/text/auditHardware",
                 "method": "GET",
             },
             # Download model from Huggingface
