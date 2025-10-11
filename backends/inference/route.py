@@ -19,6 +19,7 @@ from inference.classes import (
     CHAT_MODES,
     SSEResponse,
 )
+from updater import get_gpu_details
 
 
 def get_model_install_config(model_id: str = None) -> dict:
@@ -312,6 +313,25 @@ def get_model_metadata(payload):
     }
 
 
+# Return hardware information (GPU details)
+@router.get("/auditHardware")
+def audit_hardware() -> classes.HardwareAuditResponse:
+    try:
+        hardware_info = get_gpu_details()
+        return {
+            "success": True,
+            "message": "Hardware information retrieved successfully",
+            "data": hardware_info,
+        }
+    except Exception as err:
+        print(f"{common.PRNT_API} Error retrieving hardware info: {err}", flush=True)
+        return {
+            "success": False,
+            "message": f"Failed to retrieve hardware information. Reason: {err}",
+            "data": [],
+        }
+
+
 # Download a text model from huggingface hub
 # https://huggingface.co/docs/huggingface_hub/v0.21.4/en/package_reference/file_download#huggingface_hub.hf_hub_download
 @router.post("/download")
@@ -440,7 +460,7 @@ async def generate_text(
         prompt = payload.prompt
         prompt_template = payload.promptTemplate
         assigned_tool_names = payload.tools
-        collections = payload.memory.ids or []
+        collections = payload.memory.ids if payload.memory else []
         # messages = payload.messages # @TODO Implement...
 
         # We can re-use llm for multi-turn conversations

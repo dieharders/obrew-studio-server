@@ -642,6 +642,52 @@ class GenericEmptyResponse(BaseModel):
     }
 
 
+class HardwareInfo(BaseModel):
+    gpu_type: str
+    gpu_name: str
+    driver_ver: str
+    manufacturer: str
+    dac_type: str
+    pnp_device_id: str
+    id: Optional[int] = None
+    hardware_type: str
+    vram_total: Optional[float] = None
+    vram_used: Optional[float] = None
+    vram_free: Optional[float] = None
+
+
+class HardwareAuditResponse(BaseModel):
+    success: bool
+    message: str
+    data: List[HardwareInfo]
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "success": True,
+                    "message": "Hardware information retrieved successfully",
+                    "data": [
+                        {
+                            "gpu_type": "Discrete (Dedicated)",
+                            "gpu_name": "NVIDIA GeForce RTX 3080",
+                            "driver_ver": "31.0.15.4601",
+                            "manufacturer": "NVIDIA",
+                            "dac_type": "Integrated RAMDAC",
+                            "pnp_device_id": "PCI\\VEN_10DE&DEV_2206",
+                            "id": 0,
+                            "hardware_type": "gpu",
+                            "vram_total": 10240.0,
+                            "vram_used": 512.0,
+                            "vram_free": 9728.0,
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+
+
 class InstalledTextModelMetadata(BaseModel):
     repoId: Optional[str] = None
     savePath: Optional[str | dict] = None

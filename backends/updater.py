@@ -29,6 +29,7 @@ def get_gpu_details() -> List[Dict]:
             gpu_type = "Discrete (Dedicated)"
         results.append(
             dict(
+                hardware_type="gpu",
                 gpu_type=gpu_type,
                 gpu_name=gpu_name,
                 driver_ver=driver_ver,
