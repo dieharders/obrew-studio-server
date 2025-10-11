@@ -440,7 +440,7 @@ async def generate_text(
         prompt = payload.prompt
         prompt_template = payload.promptTemplate
         assigned_tool_names = payload.tools
-        collections = payload.memory.ids or []
+        collections = payload.memory.ids if payload.memory else []
         # messages = payload.messages # @TODO Implement...
 
         # We can re-use llm for multi-turn conversations
