@@ -271,5 +271,33 @@
     "description": "DeepCoder-14B-Preview is a code reasoning LLM fine-tuned from DeepSeek-R1-Distilled-Qwen-14B using distributed reinforcement learning (RL) to scale up to long context lengths. Supports a context length of 128k tokens.",
     "messageFormat": "deepcoder",
     "tags": ["coding", "reasoning"]
+  },
+  "unsloth/Qwen3-4B-Instruct-2507-GGUF": {
+    "repoId": "unsloth/Qwen3-4B-Instruct-2507-GGUF",
+    "name": "Qwen 3 4B Instruct",
+    "description": "An advanced language model with 4B parameters featuring enhanced instruction following, reasoning, and multi-language capabilities. Supports native 262K token context length with non-thinking mode for efficient inference. Strong performance in mathematics, science, and coding with advanced tool calling abilities.",
+    "messageFormat": "qwen",
+    "tags": ["instruct", "reasoning", "coding", "multilingual", "long-context", "function-calling"]
+  },
+  "unsloth/Qwen3-8B-GGUF": {
+    "repoId": "unsloth/Qwen3-8B-GGUF",
+    "name": "Qwen 3 8B",
+    "description": "A large language model with 8.2B parameters featuring seamless switching between 'thinking' and 'non-thinking' modes. Enhanced reasoning capabilities with superior human preference alignment and agent capabilities. Supports 100+ languages with native 32K context (up to 131K with YaRN scaling).",
+    "messageFormat": "qwen",
+    "tags": ["reasoning", "agent", "multilingual", "long-context", "function-calling"]
+  },
+  "unsloth/gpt-oss-20b-GGUF": {
+    "repoId": "unsloth/gpt-oss-20b-GGUF",
+    "name": "GPT-OSS 20B",
+    "description": "An open-weight language model by OpenAI with 21B total parameters (3.6B active) under Apache 2.0 license. Features configurable reasoning effort, full chain-of-thought reasoning, and agentic capabilities including function calling and web browsing. Designed for local and specialized applications with fine-tuning support.",
+    "messageFormat": "chatml",
+    "tags": ["reasoning", "function-calling", "coding", "agent"]
+  },
+  "bullerwins/Hunyuan-A13B-Instruct-GGUF": {
+    "repoId": "bullerwins/Hunyuan-A13B-Instruct-GGUF",
+    "name": "Hunyuan-A 13B Instruct",
+    "description": "An innovative large language model with fine-grained Mixture-of-Experts (MoE) architecture featuring 80B total parameters with 13B active parameters. Supports 256K context window and hybrid reasoning modes (fast and slow thinking). Enhanced agent capabilities with competitive performance across mathematics, science, coding, and reasoning tasks.",
+    "messageFormat": "chatml",
+    "tags": ["MoE", "reasoning", "agent", "coding", "function-calling", "long-context"]
   }
 }
