@@ -450,10 +450,17 @@ class LLAMA_CPP:
         content += decoder.decode(b"", final=True)
         content = content.rstrip(eos_llama_token).strip()
         if not content:
-            # @TODO Should we throw exception to display a toast msg on frontend?
-            print(
-                f"{common.PRNT_LLAMA} No response from model. Check available memory, try to lower amount of GPU Layers or offload to CPU only."
-            )
+            errMsg = "No response from model. Check available memory, try to lower amount of GPU Layers or offload to CPU only."
+            print(f"{common.PRNT_LLAMA} {errMsg}")
+            # Cleanup
+            if self.task_logging:
+                self.task_logging.cancel()
+            # Only terminate cli if Instruct mode
+            if self.process and gen_type == "completion":
+                self.process.terminate()
+                self.process = None
+            # Return error msg
+            raise Exception(f"{errMsg}")
         payload = content_payload(content)
         if stream:
             yield json.dumps(payload)
