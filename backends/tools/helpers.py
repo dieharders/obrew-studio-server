@@ -316,3 +316,28 @@ def find_tool_in_response(response: str, tools: List[str]) -> Optional[str]:
             print(f"{common.PRNT_API} Found tool:{tool_name}", flush=True)
             return tool_name  # Return first match
     return None  # Explicitly return None if no tool is found
+
+
+def get_built_in_functions() -> dict:
+    """Dynamically import all built-in function modules from tools/built_in_functions."""
+    import pkgutil
+    import importlib
+    from tools import built_in_functions
+
+    functions = {}
+
+    # Iterate through all modules in the built_in_functions package
+    for _, module_name, ispkg in pkgutil.iter_modules(built_in_functions.__path__):
+        # Skip __init__ and any packages (only import .py files)
+        if ispkg or module_name.startswith('_'):
+            continue
+
+        try:
+            # Import the module
+            module = importlib.import_module(f'tools.built_in_functions.{module_name}')
+            # Add the module to the functions dict using the module name as key
+            functions[module_name] = module
+        except Exception as err:
+            print(f"{common.PRNT_API} Failed to import {module_name}: {err}", flush=True)
+
+    return functions
