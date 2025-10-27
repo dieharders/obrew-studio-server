@@ -3,7 +3,7 @@ import glob
 import json
 from typing import Optional
 from fastapi import APIRouter, Depends
-from tools.built_in_functions.get_functions import get_built_in_functions
+from tools.helpers import get_built_in_functions
 from tools.tool import Tool
 from core import classes, common
 from storage import classes as storage_classes
