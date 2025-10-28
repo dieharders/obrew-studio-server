@@ -253,8 +253,8 @@ type {name} = (_: {{
 def schema_to_markdown(schema: dict) -> str:
     result = ""
     for index, pname in enumerate(schema):
-        descr = schema[pname].get("description", None)
-        data_type = schema[pname].get("type", None)
+        descr = schema[pname].get("description", None) or ""
+        data_type = schema[pname].get("type", None) or ""
         allowed_values = schema[pname].get("allowed_values", None)
         if index > 0:
             result += "\n\n"

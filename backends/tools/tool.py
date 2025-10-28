@@ -372,23 +372,23 @@ class Tool:
             # tool_example_str = f"```json\n{tool_example_json}\n```"
             tool_args_str = schema_to_markdown(params_schema_dict)
             # Inject template args into system message
-            tool_prompt = tool_prompt.replace(KEY_PROMPT_MESSAGE, query)
+            tool_prompt = tool_prompt.replace(KEY_PROMPT_MESSAGE, query or "")
             # tool_prompt = tool_prompt.replace(OUTPUT_SCHEMA, tool_json_schema_str)
             tool_system_message = tool_instruction.replace(
-                TOOL_ARGUMENTS, tool_args_str
+                TOOL_ARGUMENTS, tool_args_str or ""
             )
             # @TODO Do we need an example?
             # tool_system_message = tool_system_message.replace(
             #     TOOL_EXAMPLE_ARGUMENTS, tool_example_str
             # )
             tool_system_message = tool_system_message.replace(
-                OUTPUT_SCHEMA, tool_json_schema_str
+                OUTPUT_SCHEMA, tool_json_schema_str or ""
             )
             tool_system_message = tool_system_message.replace(
-                TOOL_NAME_STR, tool_name_str
+                TOOL_NAME_STR, tool_name_str or ""
             )
             tool_system_message = tool_system_message.replace(
-                TOOL_DESCRIPTION, tool_description_str
+                TOOL_DESCRIPTION, tool_description_str or ""
             )
             # Prompt the LLM for a response using the tool's schema.
             # A lower temperature is better for tool use.

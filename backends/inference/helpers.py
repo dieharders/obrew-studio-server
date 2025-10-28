@@ -66,13 +66,13 @@ def apply_query_template(
         result = result.replace(KEY_CONTEXT_MESSAGE, context_str)
     result = result.replace("{{num_chunks}}", str(num_chunks))
     result = result.replace("{{max_keywords}}", str(max_keywords))
-    result = result.replace("{{new_chunk_text}}", new_chunk_text)
+    result = result.replace("{{new_chunk_text}}", new_chunk_text or "")
     result = result.replace("{{branching_factor}}", str(branching_factor))
-    result = result.replace("{{schema}}", schema)
-    result = result.replace("{{dialect}}", dialect)
-    result = result.replace("{{existing_answer}}", existing_answer)
+    result = result.replace("{{schema}}", schema or "")
+    result = result.replace("{{dialect}}", dialect or "")
+    result = result.replace("{{existing_answer}}", existing_answer or "")
     result = result.replace("{{max_knowledge_triplets}}", str(max_knowledge_triplets))
-    result = result.replace("{{instruction_str}}", instruction_str)
+    result = result.replace("{{instruction_str}}", instruction_str or "")
     return result
 
 
@@ -103,7 +103,7 @@ def completion_to_prompt(
                 prompt = sys_msg.strip()
             # Check if messageFormat includes tool_defs
             if prompt.find(KEY_TOOL_MESSAGE) != -1:
-                prompt = prompt.replace(KEY_TOOL_MESSAGE, native_tool_defs)
+                prompt = prompt.replace(KEY_TOOL_MESSAGE, native_tool_defs or "")
             # Check if messageFormat includes a user message
             if (
                 messageFormat["user"]
