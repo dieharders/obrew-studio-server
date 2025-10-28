@@ -122,7 +122,7 @@ def delete_tool_definition_by_id(id: str) -> classes.EmptyToolSettingsResponse:
 # Return a schema from a specified python tool function
 @router.get("/tool-schema")
 def get_tool_schema(
-    filename: str, tool_name: Optional[str] = None
+    filename: str, tool_name: str
 ) -> classes.GetToolFunctionSchemaResponse:
     result = None
 
@@ -143,7 +143,7 @@ def get_tool_schema(
     }
 
 
-# Return a list of all tool function names
+# Return a list of all tool function filenames
 @router.get("/tool-funcs")
 def get_tool_functions() -> classes.ListToolFunctionsResponse:
     funcs = []

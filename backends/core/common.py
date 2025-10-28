@@ -129,7 +129,7 @@ def parse_mentions(input_string) -> Tuple[List[str], str]:
 
 # Return all file names found in dir
 def find_file_names(path: str):
-    file_names = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+    file_names = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)) and f.endswith('.py')]
     return file_names
 
 

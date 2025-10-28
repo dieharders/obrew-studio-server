@@ -106,7 +106,7 @@ class Agent:
                     collections=collections,
                 )
             print(
-                f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4)}"
+                f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4) if tool_call_result else 'None'}"
             )
             # Handle tool response
             failed_tool_response = f"\nFailed to use tool, no JSON block found. The original query:\n{prompt}"
