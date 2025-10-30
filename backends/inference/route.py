@@ -466,18 +466,18 @@ async def generate_text(
         # We can re-use llm for multi-turn conversations
         llm = app.state.llm
 
-        # Update llm props
-        llm.generate_kwargs = payload
-
         # Verify there is a model to run
-        if not llm.model_path:
-            msg = "No path to model provided."
-            print(f"{common.PRNT_API} Error: {msg}", flush=True)
-            raise Exception(msg)
         if not llm:
             msg = "No LLM loaded."
             print(f"{common.PRNT_API} Error: {msg}", flush=True)
             raise Exception(msg)
+        if not llm.model_path:
+            msg = "No path to model provided."
+            print(f"{common.PRNT_API} Error: {msg}", flush=True)
+            raise Exception(msg)
+
+        # Update llm props
+        llm.generate_kwargs = payload
 
         # Handles requests sequentially
         if app.state.request_queue.qsize() > 0:

@@ -156,6 +156,9 @@ class Tool:
         content = [item async for item in response]
         data = read_event_data(content)
         # Parse out the json result using either regex or another llm call
+        if not data:
+            print(f"{common.PRNT_API} No data returned from LLM response", flush=True)
+            return None
         arguments_response_str = data.get("text")
         print(
             f"{common.PRNT_API} Tool choice structured output:\n{arguments_response_str}",
@@ -212,6 +215,9 @@ class Tool:
         content = [item async for item in response]
         data = read_event_data(content)
         # Parse out the json result using either regex or another llm call
+        if not data:
+            print(f"{common.PRNT_API} No data returned from LLM response", flush=True)
+            return None
         arguments_response_str = data.get("text")
         print(
             f"{common.PRNT_API} Tool choice structured output:\n{arguments_response_str}"
@@ -277,6 +283,9 @@ class Tool:
         content: List[dict] = [item async for item in llm_tool_use_response]
         data = read_event_data(content)
         # Parse the output
+        if not data:
+            print(f"{common.PRNT_API} No data returned from LLM response", flush=True)
+            return None
         arguments_response_str = data.get("text")
         print(
             f"{common.PRNT_API} Native tool call structured output:\n{arguments_response_str}",
@@ -328,6 +337,12 @@ class Tool:
         system_message: str = None,
         collections: List[str] = [],
     ) -> AgentOutput | None:
+        if not tool_def:
+            print(
+                f"{common.PRNT_API} No tool definition provided to universal_call",
+                flush=True,
+            )
+            return None
         func_results = await _call_func_with_tool_params(
             app=self.app,
             request=self.request,
@@ -372,23 +387,23 @@ class Tool:
             # tool_example_str = f"```json\n{tool_example_json}\n```"
             tool_args_str = schema_to_markdown(params_schema_dict)
             # Inject template args into system message
-            tool_prompt = tool_prompt.replace(KEY_PROMPT_MESSAGE, query)
+            tool_prompt = tool_prompt.replace(KEY_PROMPT_MESSAGE, query or "")
             # tool_prompt = tool_prompt.replace(OUTPUT_SCHEMA, tool_json_schema_str)
             tool_system_message = tool_instruction.replace(
-                TOOL_ARGUMENTS, tool_args_str
+                TOOL_ARGUMENTS, tool_args_str or ""
             )
             # @TODO Do we need an example?
             # tool_system_message = tool_system_message.replace(
             #     TOOL_EXAMPLE_ARGUMENTS, tool_example_str
             # )
             tool_system_message = tool_system_message.replace(
-                OUTPUT_SCHEMA, tool_json_schema_str
+                OUTPUT_SCHEMA, tool_json_schema_str or ""
             )
             tool_system_message = tool_system_message.replace(
-                TOOL_NAME_STR, tool_name_str
+                TOOL_NAME_STR, tool_name_str or ""
             )
             tool_system_message = tool_system_message.replace(
-                TOOL_DESCRIPTION, tool_description_str
+                TOOL_DESCRIPTION, tool_description_str or ""
             )
             # Prompt the LLM for a response using the tool's schema.
             # A lower temperature is better for tool use.
@@ -402,6 +417,11 @@ class Tool:
             content: List[dict] = [item async for item in llm_tool_use_response]
             data = read_event_data(content)
             # Parse out the json result using regex
+            if not data:
+                print(
+                    f"{common.PRNT_API} No data returned from LLM response", flush=True
+                )
+                return None
             arguments_response_str = data.get("text")
             print(
                 f"{common.PRNT_API} Universal tool call structured output:\n{arguments_response_str}",
@@ -444,6 +464,12 @@ async def _call_func_with_tool_params(
     collections: List[str] = [],
 ):
     """If tool requires llm params, then return nothing, otherwise return func result."""
+    if not tool_def:
+        print(
+            f"{common.PRNT_API} No tool definition provided to _call_func_with_tool_params",
+            flush=True,
+        )
+        return None
     tool_params = tool_def.get("params", None)
     required_llm_arguments = get_llm_required_args(tool_params)
     # @TODO Allow mixing required llm/tool params

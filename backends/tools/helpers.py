@@ -35,12 +35,25 @@ TOOL_OUTPUT_SCHEMA_STR = f"```json\n{json.dumps(TOOL_OUTPUT_SCHEMA)}\n```"
 def import_tool_function(filename: str):
     spec = None
 
+    # Strip .py extension if present to get the module name
+    module_name_only = (
+        filename.replace(".py", "") if filename.endswith(".py") else filename
+    )
+
     # Check in base dev path for built_in_functions
     try:
-        module_name = f"tools.built_in_functions.{filename}"
+        module_name = f"tools.built_in_functions.{module_name_only}"
         spec = importlib.util.find_spec(module_name)
+        if spec:
+            print(
+                f"{common.PRNT_API} Found spec in built_in_functions: {module_name}",
+                flush=True,
+            )
     except Exception as err:
-        print(f"{common.PRNT_API} {err}", flush=True)
+        print(
+            f"{common.PRNT_API} Error finding spec in built_in_functions: {err}",
+            flush=True,
+        )
 
     # Check in Production path /tools/functions for user added tool funcs
     try:
@@ -253,8 +266,8 @@ type {name} = (_: {{
 def schema_to_markdown(schema: dict) -> str:
     result = ""
     for index, pname in enumerate(schema):
-        descr = schema[pname].get("description", None)
-        data_type = schema[pname].get("type", None)
+        descr = schema[pname].get("description", None) or ""
+        data_type = schema[pname].get("type", None) or ""
         allowed_values = schema[pname].get("allowed_values", None)
         if index > 0:
             result += "\n\n"
@@ -329,15 +342,17 @@ def get_built_in_functions() -> dict:
     # Iterate through all modules in the built_in_functions package
     for _, module_name, ispkg in pkgutil.iter_modules(built_in_functions.__path__):
         # Skip __init__ and any packages (only import .py files)
-        if ispkg or module_name.startswith('_'):
+        if ispkg or module_name.startswith("_"):
             continue
 
         try:
             # Import the module
-            module = importlib.import_module(f'tools.built_in_functions.{module_name}')
-            # Add the module to the functions dict using the module name as key
-            functions[module_name] = module
+            module = importlib.import_module(f"tools.built_in_functions.{module_name}")
+            # Add the module to the functions dict using the module name (assuming .py extension as key)
+            functions[f"{module_name}.py"] = module
         except Exception as err:
-            print(f"{common.PRNT_API} Failed to import {module_name}: {err}", flush=True)
+            print(
+                f"{common.PRNT_API} Failed to import {module_name}: {err}", flush=True
+            )
 
     return functions
