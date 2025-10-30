@@ -2,7 +2,6 @@ import json
 from typing import Literal
 from pydantic import BaseModel, Field
 from core.classes import FastAPIApp
-from inference.helpers import read_event_data
 
 
 class Params(BaseModel):
