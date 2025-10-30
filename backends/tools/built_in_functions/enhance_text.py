@@ -7,7 +7,7 @@ from inference.helpers import read_event_data
 
 class Params(BaseModel):
     # Required - A description is needed for prompt injection
-    """Ask an expert writer to enhance the provided context."""
+    """Ask an expert editor/writer to enhance the provided text."""
 
     type: Literal["grammar", "style", "clarity", "format", "insight"] = Field(
         ...,
@@ -17,17 +17,17 @@ class Params(BaseModel):
 
     title: str = Field(
         ...,
-        description="A brief, descriptive title that summarizes the enhancement (e.g., `Fix subject-verb agreement`, `Use active voice`).",
+        description="A brief, descriptive title (max 6 words) that summarizes the enhancement (e.g., `Fix subject-verb agreement`, `Use active voice`).",
     )
 
     description: str = Field(
         ...,
-        description="A clear explanation of what needs improvement and why this change would make the text better.",
+        description="A clear explanation of what needs improvement and why this change would make the text better (max 20 words).",
     )
 
     suggestion: str = Field(
         ...,
-        description="The improved version of the text, showing exactly how it should be rewritten.",
+        description="The improved version of the text, showing exactly how it should be rewritten (respect the `Preserve Original Style` setting).",
     )
 
     confidence: int = Field(
@@ -102,29 +102,21 @@ async def main(**kwargs: Params) -> str:
     ):
         raise ValueError("Missing required for enhancement.")
 
-    # Use the app's LLM instance
+    # @TODO Use the app's LLM instance to enhance the returned values further,
+    # Ultimately we want to load a bespoke model since currently loaded model may not be ideal.
     # llm = app.state.llm
 
     # Simplified system message - no need to explain JSON format since it's constrained
-    # @TODO Remove or put this in filebuff's handleAnalyzeParagraph()
     #     system_message = """You are an expert writing coach and editor. Analyze the provided text and suggest 2-5 specific, actionable enhancements.
-
-    # For each enhancement:
-    # - type: Choose the most appropriate category (grammar, style, clarity, format, or insight)
-    # - title: A brief, descriptive title
-    # - description: Explain what needs improvement and why
-    # - suggestion: Provide the improved version of the text
-    # - confidence: Rate your confidence in this enhancement (0-100)
 
     # Focus on the most impactful improvements."""
 
-    # Simplified prompt @TODO Remove or put this in filebuff's handleAnalyzeParagraph()
+    # Simplified prompt
     #     prompt = f"""Analyze the following text and provide enhancement suggestions:
 
     # {context}"""
 
     # Call the LLM with JSON schema constraint
-    # @TODO May not need this, remove
     # response = await llm.text_completion(
     #     request=kwargs.get("request"),
     #     prompt=prompt,
@@ -136,7 +128,7 @@ async def main(**kwargs: Params) -> str:
     # data = read_event_data(content)
 
     # Extract the text response - should already be valid JSON due to schema constraint
-    # raw_json = data.raw
+    # We just return the same values, unless we want to call another LLM for further enhancement.
     raw_dict = dict(
         type=type,
         title=title,
