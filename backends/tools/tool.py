@@ -61,7 +61,6 @@ class Tool:
 
         try:
             spec = import_tool_function(filename)
-            print("Royal Farts")
             tool_code = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(tool_code)
             pydantic_model_name = "Params"
