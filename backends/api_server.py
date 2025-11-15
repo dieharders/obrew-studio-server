@@ -67,13 +67,17 @@ class ApiServer:
             CUSTOM_ORIGINS = (
                 self.CUSTOM_ORIGINS_ENV.split(",") if self.CUSTOM_ORIGINS_ENV else []
             )
+            # Get all hosted app URLs from package.json
+            hosted_apps = package_json.get("hosted_apps_urls", [])
+            hosted_app_urls = [app.get("url") for app in hosted_apps if app.get("url")]
             # Build origins list, filtering out empty strings
             origins_list = [
                 # "https://hoppscotch.io",  # (optional) for testing endpoints
                 # "https://studio.openbrew.ai",  # official frontend (added automatically via get_package_json)
-                # "https://filebuff.openbrew.ai",  # 3rd party webapps (added by selecting card)
+                # "https://filebuff.openbrew.ai",  # 3rd party webapps (added automatically via get_package_json)
+                *hosted_app_urls,  # All apps from hosted_apps_urls in package.json
                 self.selected_webui_url,  # (required) client app origin (user selected from menu)
-                *CUSTOM_ORIGINS,
+                *CUSTOM_ORIGINS,  # Custom origins from .env
                 # "*",  # or allow all
             ]
             # Filter out empty/whitespace-only strings and strip whitespace

@@ -45,40 +45,8 @@
         <div class="appsListContainer">
           <h3>Available Apps</h3>
           <div class="appCards" id="appCards">
-            <!-- Studio App Card -->
-            <div
-              class="appCard"
-              data-webui="https://studio.openbrew.ai"
-              data-name="Studio"
-              onclick="selectAppCard(this)"
-            >
-              <div class="appCardHeader">
-                <h4>Obrew Studio</h4>
-              </div>
-              <p class="appCardDescription">
-                The main Obrew Studio interface for AI chat, agents, and workflows.
-              </p>
-              <button type="button" class="btn appCardBtn" onclick="launchApp(this, event)">
-                Launch Studio
-              </button>
-            </div>
-            <!-- FileBuff App Card -->
-            <div
-              class="appCard"
-              data-webui="https://filebuff.openbrew.ai"
-              data-name="FileBuff"
-              onclick="selectAppCard(this)"
-            >
-              <div class="appCardHeader">
-                <h4>FileBuff</h4>
-              </div>
-              <p class="appCardDescription">
-                File management and knowledge base interface for your documents.
-              </p>
-              <button type="button" class="btn appCardBtn" onclick="launchApp(this, event)">
-                Launch FileBuff
-              </button>
-            </div>
+            <!-- App cards will be dynamically generated here by JavaScript -->
+
             <!-- Custom Server Card -->
             <div class="appCard" onclick="selectAppCard(this)">
               <div class="appCardHeader">

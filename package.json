@@ -6,7 +6,18 @@
   "productName": "Obrew Studio Engine",
   "description": "Your personal Ai engine.",
   "private": false,
-  "hosted_webui_url": "https://studio.openbrew.ai",
+  "hosted_apps_urls": [
+    {
+      "title": "Obrew Studio",
+      "url": "https://studio.openbrew.ai",
+      "description": "The main Obrew Studio interface for AI chat, agents, and workflows."
+    },
+    {
+      "title": "FileBuff",
+      "url": "https://filebuff.openbrew.ai",
+      "description": "File management and knowledge base interface for your documents."
+    }
+  ],
   "llamacpp_tag": "b4905",
   "scripts": {
     "dev": "python ./backends/main.py --mode=dev --headless=False",

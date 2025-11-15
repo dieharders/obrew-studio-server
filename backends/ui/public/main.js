@@ -134,6 +134,36 @@ function updateQRCode(data) {
     qrcodeEl.src = `data:image/png;base64,${qrcodeImage}`
   }
 }
+function createAppCards(hostedApps) {
+  if (!hostedApps || hostedApps.length === 0) return
+
+  const appCardsContainer = document.getElementById('appCards')
+  const customServerCard = appCardsContainer.querySelector('.appCard')
+
+  // Create app cards for each hosted app
+  hostedApps.forEach(app => {
+    const card = document.createElement('div')
+    card.className = 'appCard'
+    card.setAttribute('data-webui', app.url)
+    card.setAttribute('data-name', app.title)
+    card.onclick = function() { selectAppCard(this) }
+
+    card.innerHTML = `
+      <div class="appCardHeader">
+        <h4>${app.title}</h4>
+      </div>
+      <p class="appCardDescription">
+        ${app.description}
+      </p>
+      <button type="button" class="btn appCardBtn" onclick="launchApp(this, event)">
+        Launch ${app.title}
+      </button>
+    `
+
+    // Insert before the custom server card
+    appCardsContainer.insertBefore(card, customServerCard)
+  })
+}
 async function mountPage() {
   try {
     // Get data from input
@@ -141,6 +171,10 @@ async function mountPage() {
     if (!data) return
     // Update state on first mount
     if (Object.keys(window.frontend.state).length === 0) window.frontend.state = data
+    // Create app cards from hosted_apps data
+    if (data.hosted_apps && data.hosted_apps.length > 0) {
+      createAppCards(data.hosted_apps)
+    }
     // Generate qr code
     updateQRCode(data)
     // Parse page with data
@@ -149,7 +183,7 @@ async function mountPage() {
     const portEl = document.getElementById('port')
     portEl.value = window.frontend.state.port || data.port
     // Don't set the webui input value - let it stay empty or use user input
-    const currentWebui = window.frontend.state.webui || data.webui_url
+    const currentWebui = window.frontend.state.webui || (data.hosted_apps && data.hosted_apps.length > 0 ? data.hosted_apps[0].url : '')
     // Pre-select the app card that matches the current webui URL
     const allCards = document.querySelectorAll('.appCard')
     allCards.forEach(card => {
