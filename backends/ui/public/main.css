@@ -64,9 +64,11 @@
   display: block;
   position: relative;
   min-height: 1rem;
+  min-width: 100%;
   font-weight: bold;
   font-size: small;
-  text-align: center;
+  text-align: left;
+  margin-left: 2rem;
   color: rgb(175, 175, 175);
   text-shadow: 0px 0px 3px #ffffff;
 }
