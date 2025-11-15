@@ -185,6 +185,11 @@ def install_llama_cpp(gpu: dict, tag: str, target_path: str):
             asset_name=f"llama-{tag}-bin-macos-arm64.zip",
             target_path=target_path,
         )
+        # Make the binary executable on Unix-like systems
+        binary_path = os.path.join(target_path, "llama-cli")
+        if os.path.exists(binary_path):
+            os.chmod(binary_path, 0o755)  # rwxr-xr-x permissions
+            print(f"[UPDATER] Made {binary_path} executable", flush=True)
         print("[UPDATER] Downloaded llama.cpp with Metal GPU support for macOS", flush=True)
 
     # For Windows - Nvidia
