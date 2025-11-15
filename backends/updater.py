@@ -190,10 +190,28 @@ def download_and_extract(
 #         nltk.download("stopwords")
 
 
-def check_llama_cpp_exists(file_path):
+def check_llama_cpp_exists(file_paths):
+    """
+    Check if all required llama.cpp files exist.
+
+    Args:
+        file_paths: Single file path (str) or list of file paths to check
+
+    Returns:
+        True if all files exist, False otherwise
+    """
     try:
-        # Construct the absolute path to the file
-        return os.path.isfile(file_path)
+        # Handle both single file and list of files
+        if isinstance(file_paths, str):
+            file_paths = [file_paths]
+
+        # Check if all files exist
+        for file_path in file_paths:
+            if not os.path.isfile(file_path):
+                print(f"[UPDATER] Missing required file: {file_path}", flush=True)
+                return False
+
+        return True
     except Exception as e:
         print(f"[UPDATER] Error checking file existence: {e}")
         return False
@@ -312,12 +330,26 @@ class Updater:
         # Download llama.cpp binaries
         deps_path = dep_path()
         target_path = os.path.join(deps_path, "servers", "llama.cpp")
-        # Platform-aware binary name
-        binary_name = "llama-cli.exe" if platform.system() == "Windows" else "llama-cli"
-        file_path = os.path.join(target_path, binary_name)
         llamacpp_tag = self.package_json.get("llamacpp_tag")
+
+        # Build list of required files based on platform
+        required_files = []
+        if platform.system() == "Darwin":
+            # macOS - llama-cli binary only (Metal shaders are commented out in install_llama_cpp)
+            required_files = [
+                os.path.join(target_path, "llama-cli"),
+            ]
+        elif platform.system() == "Windows":
+            # Windows - llama-cli.exe + CUDA DLLs
+            required_files = [
+                os.path.join(target_path, "llama-cli.exe"),
+                os.path.join(target_path, "cublas64_12.dll"),
+                os.path.join(target_path, "cublasLt64_12.dll"),
+                os.path.join(target_path, "cudart64_12.dll"),
+            ]
+
         print("[UPDATER] Checking for deps...", flush=True)
-        if not check_llama_cpp_exists(file_path):
+        if not check_llama_cpp_exists(required_files):
             print("[UPDATER] Downloading inference binaries ...", flush=True)
             install_llama_cpp(gpu=gpus[0], tag=llamacpp_tag, target_path=target_path)
             print("[UPDATER] Download complete.", flush=True)
