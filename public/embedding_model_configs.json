@@ -1,0 +1,65 @@
+{
+  "intfloat/multilingual-e5-large-instruct": {
+    "repoId": "intfloat/multilingual-e5-large-instruct",
+    "name": "Multilingual E5 Large Instruct",
+    "description": "Multilingual E5 text embeddings, large-sized model (560M parameters) with instruction-following capabilities. Top performer on MTEB leaderboard. Supports 100+ languages.",
+    "modelSize": "2.24 GB",
+    "dimensions": 1024,
+    "maxTokens": 512,
+    "tags": ["multilingual", "large", "instruct", "top-performer"]
+  },
+  "BAAI/bge-large-en": {
+    "repoId": "BAAI/bge-large-en",
+    "name": "BGE Large English",
+    "description": "BGE (BAAI General Embedding) model, large-sized (335M parameters). High quality English text embeddings with excellent performance on retrieval tasks.",
+    "modelSize": "1.34 GB",
+    "dimensions": 1024,
+    "maxTokens": 512,
+    "tags": ["english", "large", "retrieval"]
+  },
+  "BAAI/bge-small-en-v1.5": {
+    "repoId": "BAAI/bge-small-en-v1.5",
+    "name": "BGE Small English v1.5",
+    "description": "BGE (BAAI General Embedding) model, small-sized (33M parameters). Fast and efficient English text embeddings with good performance for most use cases.",
+    "modelSize": "133 MB",
+    "dimensions": 384,
+    "maxTokens": 512,
+    "tags": ["english", "small", "fast", "efficient"]
+  },
+  "thenlper/gte-large": {
+    "repoId": "thenlper/gte-large",
+    "name": "GTE Large",
+    "description": "General Text Embeddings (GTE) model, large-sized (335M parameters). Strong performance on text similarity and retrieval tasks.",
+    "modelSize": "1.34 GB",
+    "dimensions": 1024,
+    "maxTokens": 512,
+    "tags": ["english", "large", "retrieval"]
+  },
+  "thenlper/gte-base": {
+    "repoId": "thenlper/gte-base",
+    "name": "GTE Base",
+    "description": "General Text Embeddings (GTE) model, base-sized (110M parameters). Historically used in Obrew Studio. Good balance of performance and efficiency.",
+    "modelSize": "438 MB",
+    "dimensions": 768,
+    "maxTokens": 512,
+    "tags": ["english", "base", "balanced"]
+  },
+  "thenlper/gte-small": {
+    "repoId": "thenlper/gte-small",
+    "name": "GTE Small",
+    "description": "General Text Embeddings (GTE) model, small-sized (33M parameters). Fast and lightweight for resource-constrained environments.",
+    "modelSize": "133 MB",
+    "dimensions": 384,
+    "maxTokens": 512,
+    "tags": ["english", "small", "fast", "lightweight"]
+  },
+  "sentence-transformers/all-MiniLM-L6-v2": {
+    "repoId": "sentence-transformers/all-MiniLM-L6-v2",
+    "name": "All MiniLM L6 v2",
+    "description": "Popular sentence-transformers model (22M parameters). Very fast and lightweight, suitable for semantic similarity and clustering tasks.",
+    "modelSize": "90 MB",
+    "dimensions": 384,
+    "maxTokens": 256,
+    "tags": ["english", "small", "very-fast", "popular"]
+  }
+}
