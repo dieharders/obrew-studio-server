@@ -154,15 +154,29 @@ def download_and_extract(
             os.makedirs(target_path, exist_ok=True)
             with zipfile.ZipFile(BytesIO(response.content)) as zip_file:
                 if files_to_extract:
+                    # Debug: List all files in the archive
+                    all_files = zip_file.namelist()
+                    print(f"[UPDATER] Archive contains {len(all_files)} files")
+
                     # Only extract specified files
                     for file_name in files_to_extract:
                         try:
-                            zip_file.extract(file_name, target_path)
-                            print(f"[UPDATER] Extracted {file_name}")
-                        except KeyError:
-                            print(
-                                f"[UPDATER] Warning: {file_name} not found in archive"
-                            )
+                            # Look for the file in the archive (may be in subdirectory)
+                            matching_files = [f for f in all_files if f.endswith(file_name) and not f.endswith('/')]
+
+                            if matching_files:
+                                for match in matching_files:
+                                    # Extract file and flatten directory structure
+                                    source = zip_file.open(match)
+                                    target_file = os.path.join(target_path, os.path.basename(match))
+                                    with open(target_file, 'wb') as target:
+                                        target.write(source.read())
+                                    source.close()
+                                    print(f"[UPDATER] Extracted {match} -> {os.path.basename(match)}")
+                            else:
+                                print(f"[UPDATER] Warning: {file_name} not found in archive")
+                        except Exception as e:
+                            print(f"[UPDATER] Error extracting {file_name}: {e}")
                 else:
                     # Extract all files (fallback behavior)
                     zip_file.extractall(target_path)
