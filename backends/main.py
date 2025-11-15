@@ -156,8 +156,13 @@ def main():
 
             # Handle window closing
             def on_window_closing():
+                print(f"{common.PRNT_APP} Window closing, shutting down server...", flush=True)
                 if view_instance.api_server:
                     view_instance.api_server.shutdown()
+                # Give server time to cleanup
+                import time
+                time.sleep(0.5)
+                return True
 
             window_handle = view_instance.webview_window
             window_handle.events.closing += on_window_closing

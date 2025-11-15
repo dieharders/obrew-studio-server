@@ -5,6 +5,7 @@ import json
 import uvicorn
 import asyncio
 import httpx
+import threading
 from collections.abc import Callable
 from fastapi import (
     FastAPI,
@@ -50,6 +51,8 @@ class ApiServer:
             self.is_debug = is_debug
             self.selected_webui_url = selected_webui_url
             self.on_startup_callback = on_startup_callback
+            self.server = None  # Store uvicorn server instance
+            self.server_thread = None  # Store server thread
             # Get version from package file
             package_json = common.get_package_json()
             self.api_version = package_json.get("version")
@@ -60,8 +63,8 @@ class ApiServer:
                 sys.stderr = open(os.devnull, "w")
 
             # Get paths for SSL certificate
-            self.SSL_KEY: str = common.dep_path(os.path.join("public", "key.pem"))
-            self.SSL_CERT: str = common.dep_path(os.path.join("public", "cert.pem"))
+            self.SSL_KEY: str = common.dep_path(os.path.join("backends", "ui", "public", "key.pem"))
+            self.SSL_CERT: str = common.dep_path(os.path.join("backends", "ui", "public", "cert.pem"))
             # Configure CORS settings
             self.CUSTOM_ORIGINS_ENV: str = os.getenv("CUSTOM_ORIGINS")
             CUSTOM_ORIGINS = (
@@ -137,12 +140,35 @@ class ApiServer:
             print(f"{common.PRNT_API} Server forced to shutdown.", flush=True)
             if self.app.state.llm:
                 self.app.state.llm.unload()
-                os.kill(os.getpid(), signal.SIGTERM)  # or SIGINT
+
+            # Gracefully shutdown uvicorn server
+            if self.server:
+                self.server.should_exit = True
+                # Wait for server thread to finish (with timeout)
+                if self.server_thread and self.server_thread.is_alive():
+                    self.server_thread.join(timeout=5.0)
+
         except Exception as e:
             print(
                 f"{common.PRNT_API} Failed to shutdown API server. Error: {e}",
                 flush=True,
             )
+
+    def _run_server(self):
+        """Internal method to run uvicorn server"""
+        try:
+            config = uvicorn.Config(
+                self.app,
+                host=self.SERVER_HOST,
+                port=self.SERVER_PORT,
+                log_level="info",
+                ssl_keyfile=self.SSL_KEY if self.SSL_ENABLED else None,
+                ssl_certfile=self.SSL_CERT if self.SSL_ENABLED else None,
+            )
+            self.server = uvicorn.Server(config)
+            self.server.run()
+        except Exception as e:
+            print(f"{common.PRNT_API} Server error: {e}", flush=True)
 
     def startup(self):
         try:
@@ -151,40 +177,27 @@ class ApiServer:
                 flush=True,
             )
             errMsg = "Server is already running on specified port. Please choose an available free port or close the duplicate app."
-            # Start the ASGI server (https)
+
+            # Check if port is available
+            if common.check_open_port(self.SERVER_PORT) == 0:
+                print(f"{common.PRNT_API} {errMsg}", flush=True)
+                raise Exception(errMsg)
+
+            # Start the ASGI server in a separate thread
             if self.SSL_ENABLED:
                 print(f"{common.PRNT_API} API server starting with SSL...", flush=True)
-                if common.check_open_port(self.SERVER_PORT) != 0:
-                    uvicorn.run(
-                        self.app,
-                        host=self.SERVER_HOST,
-                        port=self.SERVER_PORT,
-                        log_level="info",
-                        # Include these to host over https. If server fails to start make sure the .pem files are generated in _deps/public dir
-                        ssl_keyfile=self.SSL_KEY,
-                        ssl_certfile=self.SSL_CERT,
-                    )
-                else:
-                    print(f"{common.PRNT_API} {errMsg}", flush=True)
-                    raise Exception(errMsg)
-            # Start the ASGI server (http)
             else:
                 print(f"{common.PRNT_API} API server starting...", flush=True)
-                if common.check_open_port(self.SERVER_PORT) != 0:
-                    uvicorn.run(
-                        self.app,
-                        host=self.SERVER_HOST,
-                        port=self.SERVER_PORT,
-                        log_level="info",
-                    )
-                else:
-                    print(f"{common.PRNT_API} {errMsg}", flush=True)
-                    raise Exception(errMsg)
+
+            self.server_thread = threading.Thread(target=self._run_server, daemon=True)
+            self.server_thread.start()
+
         except KeyboardInterrupt as e:
             print(
                 f"{common.PRNT_API} API server ended by Keyboard interrupt. {e}",
                 flush=True,
             )
+            self.shutdown()
         except Exception as e:
             print(f"{common.PRNT_API} API server shutdown. Error: {e}", flush=True)
             raise Exception(f"Error: {e}")
