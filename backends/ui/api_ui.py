@@ -24,7 +24,8 @@ class ApiUI:
         self.is_debug = is_debug
         self.port = port
         self.host = host
-        self.webui_url = common.get_package_json().get("hosted_webui_url")
+        package_json = common.get_package_json()
+        self.hosted_apps = package_json.get("hosted_apps_urls", [])
         self.get_server_info = get_server_info
         self.updater = updater
 
@@ -121,7 +122,7 @@ class ApiUI:
                 remote_url=remote_url,
                 host=self.host,
                 port=PORT,
-                webui_url=self.webui_url,
+                hosted_apps=self.hosted_apps,
             )
             return page_data
         except Exception as e:
