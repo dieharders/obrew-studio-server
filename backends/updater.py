@@ -20,13 +20,14 @@ def get_gpu_details() -> List[Dict]:
     # macOS - Return Metal GPU info for Apple Silicon
     if platform.system() == "Darwin":
         import subprocess
+
         try:
             # Get Mac model info
             result = subprocess.run(
                 ["sysctl", "-n", "machdep.cpu.brand_string"],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
             cpu_info = result.stdout.strip()
 
@@ -83,7 +84,11 @@ def get_gpu_details() -> List[Dict]:
             dac_type = gpu.AdapterDACType
             pnp_device_id = gpu.PNPDeviceID
             # Heuristic to determine discrete vs integrated GPU
-            if "Intel" in manufacturer or "UMA" in dac_type or "VEN_8086" in pnp_device_id:
+            if (
+                "Intel" in manufacturer
+                or "UMA" in dac_type
+                or "VEN_8086" in pnp_device_id
+            ):
                 gpu_type = "Integrated (Onboard)"
             else:
                 gpu_type = "Discrete (Dedicated)"
@@ -119,9 +124,22 @@ def get_gpu_details() -> List[Dict]:
     return results
 
 
-def download_and_extract(repo: str, tag: str, asset_name: str, target_path: str):
+def download_and_extract(
+    repo: str,
+    tag: str,
+    asset_name: str,
+    target_path: str,
+    files_to_extract: List[str] = None,
+):
     """
-    Downloads and extracts a ZIP file from a GitHub repo.
+    Downloads and extracts specific files from a ZIP file from a GitHub repo.
+
+    Args:
+        repo: GitHub repo in format "owner/repo"
+        tag: Release tag
+        asset_name: Name of the asset file
+        target_path: Where to extract files
+        files_to_extract: List of specific files to extract. If None, extracts all files.
     """
     url = f"https://github.com/{repo}/releases/download/{tag}/{asset_name}"
 
@@ -135,9 +153,20 @@ def download_and_extract(repo: str, tag: str, asset_name: str, target_path: str)
             # Create the extraction directory if it doesn't exist
             os.makedirs(target_path, exist_ok=True)
             with zipfile.ZipFile(BytesIO(response.content)) as zip_file:
-                # @TODO Only extract the binary you need and delete the rest.
-                zip_file.extractall(target_path)
-            print(f"[UPDATER] Extracted {asset_name} to the current directory.")
+                if files_to_extract:
+                    # Only extract specified files
+                    for file_name in files_to_extract:
+                        try:
+                            zip_file.extract(file_name, target_path)
+                            print(f"[UPDATER] Extracted {file_name}")
+                        except KeyError:
+                            print(
+                                f"[UPDATER] Warning: {file_name} not found in archive"
+                            )
+                else:
+                    # Extract all files (fallback behavior)
+                    zip_file.extractall(target_path)
+            print(f"[UPDATER] Extraction complete.")
         else:
             print(
                 f"[UPDATER] Failed to download file. Status code: {response.status_code}"
@@ -177,37 +206,64 @@ def install_llama_cpp(gpu: dict, tag: str, target_path: str):
     )
 
     # For macOS - Apple Silicon with Metal support
+    # Set `--n-gpu-layers 999` or `-ngl -1` to use gpu acceleration
+    # @TODO - Only implements support for Q4_0 (check most recent release for better support)
     if platform.system() == "Darwin":
+        # Extract llama-cli binary and other files required for GPU acceleration
+        files_to_extract = [
+            "llama-cli",
+            # "ggml-metal.metal",      # Metal shader source (loaded at runtime)
+            # "ggml-common.h",         # Common headers (required by Metal shader)
+            # "ggml-metal-impl.h",     # Metal implementation header
+        ]
+
         # Download llama.cpp binaries for Apple Silicon (ARM64 with Metal)
         download_and_extract(
             repo=repo,
             tag=tag,
             asset_name=f"llama-{tag}-bin-macos-arm64.zip",
             target_path=target_path,
+            files_to_extract=files_to_extract,
         )
         # Make the binary executable on Unix-like systems
         binary_path = os.path.join(target_path, "llama-cli")
         if os.path.exists(binary_path):
             os.chmod(binary_path, 0o755)  # rwxr-xr-x permissions
             print(f"[UPDATER] Made {binary_path} executable", flush=True)
-        print("[UPDATER] Downloaded llama.cpp with Metal GPU support for macOS", flush=True)
+        print(
+            "[UPDATER] Downloaded llama.cpp with Metal GPU support for macOS",
+            flush=True,
+        )
 
     # For Windows - Nvidia
     elif platform.system() == "Windows":
         if is_nvidia_gpu:
+            # Only extract the llama-cli.exe binary
+            llama_files = ["llama-cli.exe"]
+
             # Download llama.cpp binaries
             download_and_extract(
                 repo=repo,
                 tag=tag,
                 asset_name=f"llama-{tag}-bin-win-cuda-cu12.4-x64.zip",
                 target_path=target_path,
+                files_to_extract=llama_files,
             )
+
+            # Required CUDA DLLs for llama-cli to run
+            cuda_dlls = [
+                "cublas64_12.dll",
+                "cublasLt64_12.dll",
+                "cudart64_12.dll",
+            ]
+
             # Download cuda dll's
             download_and_extract(
                 repo=repo,
                 tag=tag,
                 asset_name="cudart-llama-bin-win-cu12.4-x64.zip",
                 target_path=target_path,
+                files_to_extract=cuda_dlls,
             )
         # @TODO Handle for amd gpu's
         # ...
