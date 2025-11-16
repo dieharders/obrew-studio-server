@@ -88,6 +88,14 @@ jobs:
       #     echo "Contents of the Python directory:"
       #     ls -al "${{ env.pythonLocation }}"
 
+      # Download mkcert binaries (required for SSL certificate installation)
+      - name: Download mkcert binaries
+        shell: bash
+        run: |
+          bash scripts/download-mkcert.sh
+          echo "mkcert binaries downloaded:"
+          ls -lh bundled/mkcert-*
+
       # Download and install UPX (for pyinstaller)
       # - name: Download and install UPX (Windows)
       #   shell: bash
@@ -124,6 +132,7 @@ jobs:
             --add-data "${{ github.workspace }}/public:public/" \
             --add-data "${{ github.workspace }}/package.json:public/" \
             --add-data "${{ github.workspace }}/backends/ui/public:public/" \
+            --add-data "${{ github.workspace }}/bundled:bundled/" \
             --add-data .venv/lib/site-packages/posthog:posthog/ \
             --add-data .venv/lib/site-packages/chromadb:chromadb/ \
             --add-data .venv/lib/site-packages/importlib_resources:importlib_resources/ \

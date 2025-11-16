@@ -42,7 +42,7 @@ Obrew Studio now supports trusted HTTPS connections using a hybrid certificate a
 
 ## Implementation Details
 
-### Bundled Files
+### Mkcert binaries downloaded during build process and included.
 
 #### mkcert Binaries (`bundled/`)
 
@@ -50,6 +50,12 @@ Obrew Studio now supports trusted HTTPS connections using a hybrid certificate a
 - `mkcert-darwin-amd64` (macOS Intel) - 4.9 MB
 - `mkcert-windows-amd64.exe` (Windows) - 4.7 MB
 - `mkcert-linux-amd64` (Linux - future) - 4.6 MB
+
+**For Developers:**
+
+```bash
+pnpm run download-mkcert
+```
 
 ## User Experience
 

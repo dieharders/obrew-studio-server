@@ -21,11 +21,9 @@
 # misc
 .DS_Store
 *.pem
-# Exception: Include bundled self-signed certificates for localhost
+# Exception: Include bundled self-signed certificates for localhost, used as fallback
 !backends/ui/public/cert.pem
 !backends/ui/public/key.pem
-# Exception: Include mkcert binaries for SSL certificate management
-!bundled/mkcert-*
 
 # debug
 npm-debug.log*
@@ -74,7 +72,9 @@ next-env.d.ts
 /examples/models_cache
 /examples/parsed_data
 *.exe
-!bundled/mkcert-*.exe
+
+# mkcert binaries (downloaded during build, not committed)
+/bundled/mkcert-*
 
 # runtime installation
 /servers
