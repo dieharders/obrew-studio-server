@@ -1,4 +1,4 @@
-import os
+import subprocess
 import sys
 import platform
 from pathlib import Path
@@ -28,7 +28,6 @@ class CertificateManager:
 
         self.cert_file = self.cert_dir / "cert.pem"
         self.key_file = self.cert_dir / "key.pem"
-        self.mkcert_installed_flag = self.cert_dir / ".mkcert_installed"
 
     def are_certificates_valid(self) -> bool:
         """
@@ -39,64 +38,85 @@ class CertificateManager:
         """
         return self.cert_file.exists() and self.key_file.exists()
 
-    def are_mkcert_certificates_installed(self) -> bool:
+    # Check SSL certificate status and install if needed (macOS only)
+    def check_and_install_ssl_certificates_macos(self):
         """
-        Check if mkcert-generated certificates are installed.
+        Check if SSL certificates exist and install them if needed.
 
-        Returns:
-            bool: True if mkcert certificates were successfully installed by installer
+        For macOS: If no certificates exist, runs install_certificates_macos.sh
+        For Windows: Certificates are installed during Inno Setup installation
+        For other platforms: Uses fallback self-signed certificates
         """
-        return self.mkcert_installed_flag.exists() and self.are_certificates_valid()
 
-    def get_certificate_type(self) -> str:
-        """
-        Determine what type of certificates are being used.
+        # Check if certificates already exist
+        if self.are_certificates_valid():
+            # Certificates exist, we're good to go
+            return
 
-        Returns:
-            str: "mkcert" if trusted certs, "self-signed" if bundled fallback, "none" if missing
-        """
-        if not self.are_certificates_valid():
-            return "none"
+        # No valid certificates found - attempt installation on macOS
+        if platform.system() == "Darwin":
+            try:
+                # Find the installation script
+                if getattr(sys, "frozen", False):
+                    # Running from PyInstaller bundle
+                    base_dir = Path(sys._MEIPASS)
+                else:
+                    # Running from source
+                    base_dir = Path(__file__).parent.parent
 
-        if self.are_mkcert_certificates_installed():
-            return "mkcert"
+                script_path = base_dir / "cmake" / "install_certificates_macos.sh"
 
-        return "self-signed"
+                if not script_path.exists():
+                    print(
+                        f"[CERT] Warning: Certificate installation script not found at {script_path}",
+                        flush=True,
+                    )
+                    print(
+                        f"[CERT] Falling back to bundled self-signed certificates",
+                        flush=True,
+                    )
+                    return
 
-    def get_certificate_paths(self) -> dict:
-        """
-        Get the paths to certificate files.
+                print(
+                    f"[CERT] No SSL certificates found. Installing trusted certificates...",
+                    flush=True,
+                )
 
-        Returns:
-            dict: Paths to cert and key files
-        """
-        return {
-            "cert_file": str(self.cert_file),
-            "key_file": str(self.key_file),
-        }
+                # Run the installation script
+                result = subprocess.run(
+                    ["/bin/bash", str(script_path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,  # 2 minute timeout
+                )
 
-    def check_certificate_type(self, cert_type) -> bool:
-        """
-        Check SSL certificate status and log which type is being used.
+                if result.returncode == 0:
+                    print(f"[CERT] SSL certificates installed successfully", flush=True)
+                    return
+                else:
+                    print(f"[CERT] Failed to install SSL certificates:", flush=True)
+                    print(result.stderr, flush=True)
+                    print(
+                        f"[CERT] Falling back to bundled self-signed certificates",
+                        flush=True,
+                    )
+                    return
 
-        Note: Certificate installation is handled by:
-        - Windows: Installer (Inno Setup) with admin privileges
-        - macOS: Installer creates certificates on first launch
-        - Fallback: Bundled self-signed certificates (browser warnings)
-        """
-        if cert_type == "none":
-            # print(f"{common.PRNT_APP} ❌ Error: No SSL certificates found!", flush=True)
-            # print(f"{common.PRNT_APP} The app may not function correctly.", flush=True)
-            return False
+            except subprocess.TimeoutExpired:
+                print(f"[CERT] Certificate installation timed out", flush=True)
+                print(
+                    f"[CERT] Falling back to bundled self-signed certificates",
+                    flush=True,
+                )
+                return
+            except Exception as e:
+                print(f"[CERT] Error during certificate installation: {e}", flush=True)
+                print(
+                    f"[CERT] Falling back to bundled self-signed certificates",
+                    flush=True,
+                )
+                return
 
-        elif cert_type == "mkcert":
-            # print(f"{common.PRNT_APP} ✓ Using trusted mkcert certificates (no browser warnings)", flush=True)
-            return True
-
-        elif cert_type == "self-signed":
-            # print(f"{common.PRNT_APP} ⚠️  Using bundled self-signed certificates", flush=True)
-            # print(f"{common.PRNT_APP} Note: Browsers will show a one-time security warning", flush=True)
-            # print(f"{common.PRNT_APP} You can accept the warning to proceed", flush=True)
-            return True
-
-        return True
+        # For Windows and other platforms, certificates should already be installed
+        # or we'll use the bundled fallback certificates
+        return

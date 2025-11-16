@@ -18,6 +18,24 @@ CERT_DIR="$APP_DIR/backends/ui/public"
 CERT_FILE="$CERT_DIR/cert.pem"
 KEY_FILE="$CERT_DIR/key.pem"
 
+# Validate paths before use
+if [ ! -d "$APP_DIR" ]; then
+    echo "[Obrew Studio] Error: Application directory not found: $APP_DIR"
+    exit 1
+fi
+
+# Validate that paths don't contain suspicious characters
+if [[ "$CERT_DIR" =~ [^a-zA-Z0-9/_. -] ]]; then
+    echo "[Obrew Studio] Error: Certificate directory path contains invalid characters"
+    exit 1
+fi
+
+# Create certificate directory if it doesn't exist
+mkdir -p "$CERT_DIR" || {
+    echo "[Obrew Studio] Error: Failed to create certificate directory"
+    exit 1
+}
+
 echo "[Obrew Studio] Installing SSL certificates..."
 
 # Check if mkcert binary exists

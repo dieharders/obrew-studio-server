@@ -151,6 +151,7 @@ jobs:
             --add-data "${{ github.workspace }}/package.json:public/" \
             --add-data "${{ github.workspace }}/backends/ui/public:public/" \
             --add-data "${{ github.workspace }}/bundled:bundled/" \
+            --add-data "${{ github.workspace }}/cmake:cmake/" \
             --add-data .venv/lib/site-packages/posthog:posthog/ \
             --add-data .venv/lib/site-packages/chromadb:chromadb/ \
             --add-data .venv/lib/site-packages/importlib_resources:importlib_resources/ \
