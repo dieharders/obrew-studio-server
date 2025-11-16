@@ -21,9 +21,6 @@
 # misc
 .DS_Store
 *.pem
-# Exception: Include bundled self-signed certificates for localhost, used as fallback
-!backends/ui/public/cert.pem
-!backends/ui/public/key.pem
 
 # debug
 npm-debug.log*
