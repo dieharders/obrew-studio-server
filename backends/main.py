@@ -2,6 +2,7 @@ import os
 import sys
 import socket
 import signal
+import platform
 from typing import Tuple
 from dotenv import load_dotenv
 import ctypes
@@ -86,16 +87,32 @@ def _close_app(api=None):
         print(f"{common.PRNT_APP} Failed to close App.", flush=True)
 
 
-# @TODO Need to accomodate macos and linux
 def _get_screen_res() -> Tuple:
     try:
-        # Check screen resolution
-        user32 = ctypes.windll.user32
-        screen_size = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
-        return screen_size
-    except:
+        # macOS - Use AppKit to get screen resolution
+        if platform.system() == "Darwin":
+            from AppKit import NSScreen
+            screen = NSScreen.mainScreen()
+            screen_size = (
+                int(screen.frame().size.width),
+                int(screen.frame().size.height)
+            )
+            return screen_size
+        # Windows - Use ctypes to get screen resolution
+        elif platform.system() == "Windows":
+            user32 = ctypes.windll.user32
+            screen_size = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+            return screen_size
+        else:
+            # Linux or other platforms
+            print(
+                f"{common.PRNT_APP} Screen resolution detection not implemented for this platform.",
+                flush=True,
+            )
+            return None
+    except Exception as e:
         print(
-            f"{common.PRNT_APP} Failed to get the current screen resolution.",
+            f"{common.PRNT_APP} Failed to get the current screen resolution: {e}",
             flush=True,
         )
         return None
@@ -156,8 +173,13 @@ def main():
 
             # Handle window closing
             def on_window_closing():
+                print(f"{common.PRNT_APP} Window closing, shutting down server...", flush=True)
                 if view_instance.api_server:
                     view_instance.api_server.shutdown()
+                # Give server time to cleanup
+                import time
+                time.sleep(0.5)
+                return True
 
             window_handle = view_instance.webview_window
             window_handle.events.closing += on_window_closing
