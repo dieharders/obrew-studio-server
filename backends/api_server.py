@@ -183,12 +183,21 @@ class ApiServer:
                 print(f"{common.PRNT_API} {errMsg}", flush=True)
                 raise Exception(errMsg)
 
-            # Start the ASGI server in a separate thread
+            # Validate SSL certificates exist if SSL is enabled
             if self.SSL_ENABLED:
+                if not os.path.exists(self.SSL_KEY):
+                    errMsg = f"SSL is enabled but certificate key file not found at: {self.SSL_KEY}"
+                    print(f"{common.PRNT_API} {errMsg}", flush=True)
+                    raise FileNotFoundError(errMsg)
+                if not os.path.exists(self.SSL_CERT):
+                    errMsg = f"SSL is enabled but certificate file not found at: {self.SSL_CERT}"
+                    print(f"{common.PRNT_API} {errMsg}", flush=True)
+                    raise FileNotFoundError(errMsg)
                 print(f"{common.PRNT_API} API server starting with SSL...", flush=True)
             else:
                 print(f"{common.PRNT_API} API server starting...", flush=True)
 
+            # Start the ASGI server in a separate thread
             self.server_thread = threading.Thread(target=self._run_server, daemon=True)
             self.server_thread.start()
 
