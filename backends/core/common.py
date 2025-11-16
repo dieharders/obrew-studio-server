@@ -130,7 +130,11 @@ def parse_mentions(input_string) -> Tuple[List[str], str]:
 
 # Return all file names found in dir
 def find_file_names(path: str):
-    file_names = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)) and f.endswith('.py')]
+    file_names = [
+        f
+        for f in os.listdir(path)
+        if os.path.isfile(os.path.join(path, f)) and f.endswith(".py")
+    ]
     return file_names
 
 
@@ -585,9 +589,8 @@ def get_file_extension_from_path(path: str):
 
 
 def get_ssl_env():
-    val = os.getenv("ENABLE_SSL", "False").lower() in ("true", "1", "t")
-    if val is None:
-        return False
+    # Enable by default if no setting found
+    val = os.getenv("ENABLE_SSL", "True").lower() in ("true", "1", "t")
     return val
 
 

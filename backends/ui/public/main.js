@@ -55,8 +55,14 @@ async function launchWebUI() {
   const hostname = hostEl.value || ''
   const portEl = document.getElementById('port')
   const port = portEl.value || ''
-  // Go to app
-  window.location = `${target}/?hostname=${hostname}&port=${port}`
+  // Determine protocol based on SSL setting
+  const sslEnabled = await window.pywebview.api.get_ssl_setting()
+  const protocol = sslEnabled ? 'https' : 'http'
+  const serverUrl = `${protocol}://localhost:${port}`
+  // Go to app - pass both old format and new serverUrl for backwards compatibility
+  window.location = `${target}/?protocol=${protocol}&hostname=${hostname}&port=${port}&serverUrl=${encodeURIComponent(
+    serverUrl,
+  )}`
   return '' // always return something
 }
 async function startServer() {
@@ -146,7 +152,9 @@ function createAppCards(hostedApps) {
     card.className = 'appCard'
     card.setAttribute('data-webui', app.url)
     card.setAttribute('data-name', app.title)
-    card.onclick = function() { selectAppCard(this) }
+    card.onclick = function () {
+      selectAppCard(this)
+    }
 
     card.innerHTML = `
       <div class="appCardHeader">
@@ -183,7 +191,9 @@ async function mountPage() {
     const portEl = document.getElementById('port')
     portEl.value = window.frontend.state.port || data.port
     // Don't set the webui input value - let it stay empty or use user input
-    const currentWebui = window.frontend.state.webui || (data.hosted_apps && data.hosted_apps.length > 0 ? data.hosted_apps[0].url : '')
+    const currentWebui =
+      window.frontend.state.webui ||
+      (data.hosted_apps && data.hosted_apps.length > 0 ? data.hosted_apps[0].url : '')
     // Pre-select the app card that matches the current webui URL
     const allCards = document.querySelectorAll('.appCard')
     allCards.forEach(card => {
