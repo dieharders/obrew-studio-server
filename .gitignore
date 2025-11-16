@@ -74,6 +74,7 @@ next-env.d.ts
 /examples/models_cache
 /examples/parsed_data
 *.exe
+!bundled/mkcert-*.exe
 
 # runtime installation
 /servers
