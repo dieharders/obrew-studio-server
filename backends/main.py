@@ -64,41 +64,15 @@ def _get_server_info():
 
 # Check SSL certificate status
 def _check_ssl_certificates():
-    """
-    Check SSL certificate status and log which type is being used.
-
-    Note: Certificate installation is handled by:
-    - Windows: Installer (Inno Setup) with admin privileges
-    - macOS: Installer creates certificates on first launch
-    - Fallback: Bundled self-signed certificates (browser warnings)
-    """
     ssl_enabled = common.get_ssl_env()
 
     if not ssl_enabled:
-        print(f"{common.PRNT_APP} SSL is disabled.", flush=True)
         return True
-
-    print(f"{common.PRNT_APP} SSL is enabled. Checking certificates...", flush=True)
 
     cert_manager = CertificateManager()
     cert_type = cert_manager.get_certificate_type()
-
-    if cert_type == "none":
-        print(f"{common.PRNT_APP} ❌ Error: No SSL certificates found!", flush=True)
-        print(f"{common.PRNT_APP} The app may not function correctly.", flush=True)
-        return False
-
-    elif cert_type == "mkcert":
-        print(f"{common.PRNT_APP} ✓ Using trusted mkcert certificates (no browser warnings)", flush=True)
-        return True
-
-    elif cert_type == "self-signed":
-        print(f"{common.PRNT_APP} ⚠️  Using bundled self-signed certificates", flush=True)
-        print(f"{common.PRNT_APP} Note: Browsers will show a one-time security warning", flush=True)
-        print(f"{common.PRNT_APP} You can accept the warning to proceed", flush=True)
-        return True
-
-    return True
+    check_cert_type = cert_manager.check_certificate_type(cert_type)
+    return check_cert_type
 
 
 # Graceful shutdown, close everything and cleanup

@@ -74,3 +74,29 @@ class CertificateManager:
             "cert_file": str(self.cert_file),
             "key_file": str(self.key_file),
         }
+
+    def check_certificate_type(self, cert_type) -> bool:
+        """
+        Check SSL certificate status and log which type is being used.
+
+        Note: Certificate installation is handled by:
+        - Windows: Installer (Inno Setup) with admin privileges
+        - macOS: Installer creates certificates on first launch
+        - Fallback: Bundled self-signed certificates (browser warnings)
+        """
+        if cert_type == "none":
+            # print(f"{common.PRNT_APP} ❌ Error: No SSL certificates found!", flush=True)
+            # print(f"{common.PRNT_APP} The app may not function correctly.", flush=True)
+            return False
+
+        elif cert_type == "mkcert":
+            # print(f"{common.PRNT_APP} ✓ Using trusted mkcert certificates (no browser warnings)", flush=True)
+            return True
+
+        elif cert_type == "self-signed":
+            # print(f"{common.PRNT_APP} ⚠️  Using bundled self-signed certificates", flush=True)
+            # print(f"{common.PRNT_APP} Note: Browsers will show a one-time security warning", flush=True)
+            # print(f"{common.PRNT_APP} You can accept the warning to proceed", flush=True)
+            return True
+
+        return True
