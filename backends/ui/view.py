@@ -3,6 +3,7 @@
 # import threading
 import os
 import sys
+import platform
 from typing import Tuple, Type
 import webview
 from webview.errors import JavascriptException
@@ -107,6 +108,7 @@ class Webview:
             height=screen_y,
             min_size=(300, 300),
             fullscreen=False,
+            confirm_close=False,  # Prevent confirmation dialog on close
             # http_port=3000,
             # draggable=True,
             # transparent=True,
@@ -116,7 +118,14 @@ class Webview:
 
         # A hook to start the window
         def callback():
-            webview.start(ssl=self.IS_WEBVIEW_SSL, debug=self.is_dev)
+            # macOS-specific: suppress RemoteLayerTreeDrawingAreaProxyMac warning
+            # This warning is harmless but can be suppressed by ensuring proper GUI settings
+            gui_settings = {}
+            if platform.system() == "Darwin":
+                # Use Cocoa backend on macOS
+                gui_settings = {"gui": "cocoa"}
+
+            webview.start(ssl=self.IS_WEBVIEW_SSL, debug=self.is_dev, **gui_settings)
 
         self.callback = callback
 
