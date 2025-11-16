@@ -61,7 +61,7 @@ These fallback certificates are used when mkcert installation fails or is declin
 No action needed. The installer handles everything:
 
 1. **Windows**: Installer runs mkcert with admin privileges
-2. **macOS**: First launch prompts for password to install mkcert
+2. **macOS**: First launch prompts for password to install mkcert. This happenns during runtime since .dmg cannot do this during app install.
 3. **Fallback**: If mkcert fails, self-signed certificates are used (browser shows warning)
 
 **For Developers:**
