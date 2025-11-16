@@ -4,6 +4,7 @@ from core import common
 from typing import Type
 from api_server import ApiServer
 from updater import Updater
+from dotenv import set_key
 
 
 # Inject these Python funcs into javascript context. Funcs must be sync.
@@ -32,16 +33,34 @@ class ApiUI:
     # Save .env vals and other pre-launch settings
     def save_settings(self, settings: dict):
         try:
-            # Save .env values
+            # Get path to .env file in project root
+            env_path = common.app_path(".env")
+
+            # Create .env file if it doesn't exist
+            if not os.path.exists(env_path):
+                with open(env_path, "w") as f:
+                    f.write("# Obrew Server Environment Variables\n")
+
+            # Save .env values to file and update environment
             for key, value in settings.items():
-                if value and key:
-                    os.environ[key] = value.strip().replace(" ", "")
+                if key:  # Allow empty values to clear settings
+                    clean_value = value.strip().replace(" ", "") if value else ""
+                    # Write to .env file without quotes
+                    set_key(env_path, key, clean_value, quote_mode="never")
+                    # Also update in-memory environment
+                    os.environ[key] = clean_value
+
+            print(f"{common.PRNT_APP} Settings saved to .env file", flush=True)
             return
         except Exception as e:
             print(
                 f"{common.PRNT_APP} Failed to update .env values: {e}",
                 flush=True,
             )
+
+    def get_ssl_setting(self):
+        """Get the current SSL setting"""
+        return common.get_ssl_env()
 
     def update_settings_page(self):
         try:
@@ -108,11 +127,17 @@ class ApiUI:
             remote_url = server_info["remote_ip"]
             local_url = server_info["local_ip"]
             ui_url = selected_webui_url
+            # Get protocol based on SSL setting
+            ssl_enabled = common.get_ssl_env()
+            protocol = "https" if ssl_enabled else "http"
             # Generate QR code to remote url
             if "localhost" in selected_webui_url:
                 # Use external url if we detect localhost
                 ui_url = f"{remote_url}:3000"
-            qr_code = pyqrcode.create(f"{ui_url}/?hostname={remote_url}&port={PORT}")
+            # Pass both old format (for backwards compatibility) and new serverUrl format
+            qr_code = pyqrcode.create(
+                f"{ui_url}/?protocol={protocol}&hostname={remote_url}&port={PORT}&serverUrl={protocol}://localhost:{PORT}"
+            )
             qr_data = qr_code.png_as_base64_str(scale=5)
             # qr_image = qr_code.png("image.png", scale=8) # Writes image file to disk
 
