@@ -62,48 +62,42 @@ def _get_server_info():
     }
 
 
-# Setup SSL certificates using mkcert
-def _setup_ssl_certificates():
+# Check SSL certificate status
+def _check_ssl_certificates():
     """
-    Ensures SSL certificates are properly set up for HTTPS.
-    Uses mkcert to create trusted localhost certificates.
+    Check SSL certificate status and log which type is being used.
+
+    Note: Certificate installation is handled by:
+    - Windows: Installer (Inno Setup) with admin privileges
+    - macOS: Installer creates certificates on first launch
+    - Fallback: Bundled self-signed certificates (browser warnings)
     """
     ssl_enabled = common.get_ssl_env()
 
     if not ssl_enabled:
-        print(f"{common.PRNT_APP} SSL is disabled. Skipping certificate setup.", flush=True)
+        print(f"{common.PRNT_APP} SSL is disabled.", flush=True)
         return True
 
     print(f"{common.PRNT_APP} SSL is enabled. Checking certificates...", flush=True)
 
     cert_manager = CertificateManager()
+    cert_type = cert_manager.get_certificate_type()
 
-    # Check status
-    status = cert_manager.get_setup_status()
+    if cert_type == "none":
+        print(f"{common.PRNT_APP} ❌ Error: No SSL certificates found!", flush=True)
+        print(f"{common.PRNT_APP} The app may not function correctly.", flush=True)
+        return False
 
-    if status["ready"]:
-        print(f"{common.PRNT_APP} ✓ SSL certificates are already installed and valid", flush=True)
+    elif cert_type == "mkcert":
+        print(f"{common.PRNT_APP} ✓ Using trusted mkcert certificates (no browser warnings)", flush=True)
         return True
 
-    # Need to install
-    if not status["mkcert_available"]:
-        print(f"{common.PRNT_APP} ⚠️  Warning: mkcert binary not found. Falling back to self-signed certificates.", flush=True)
-        print(f"{common.PRNT_APP} Note: Browsers will show security warnings for self-signed certificates.", flush=True)
-        return True  # Continue with existing self-signed certs
+    elif cert_type == "self-signed":
+        print(f"{common.PRNT_APP} ⚠️  Using bundled self-signed certificates", flush=True)
+        print(f"{common.PRNT_APP} Note: Browsers will show a one-time security warning", flush=True)
+        print(f"{common.PRNT_APP} You can accept the warning to proceed", flush=True)
+        return True
 
-    print(f"{common.PRNT_APP} Installing trusted SSL certificates for localhost...", flush=True)
-    print(f"{common.PRNT_APP} You may be prompted for your password to add certificates to system trust store.", flush=True)
-
-    # Setup certificates
-    success, error = cert_manager.setup_certificates()
-
-    if not success:
-        print(f"{common.PRNT_APP} ⚠️  Certificate installation failed: {error}", flush=True)
-        print(f"{common.PRNT_APP} Continuing with self-signed certificates (browsers will show warnings).", flush=True)
-        return True  # Don't block startup, just warn
-
-    print(f"{common.PRNT_APP} ✓ Trusted SSL certificates installed successfully!", flush=True)
-    print(f"{common.PRNT_APP} Your browser will not show security warnings for localhost.", flush=True)
     return True
 
 
@@ -140,8 +134,8 @@ def _get_screen_res() -> Tuple:
 
 def main():
     try:
-        # Setup SSL certificates if enabled
-        _setup_ssl_certificates()
+        # Check SSL certificate status
+        _check_ssl_certificates()
 
         # Webview api
         window_api = ApiUI(
