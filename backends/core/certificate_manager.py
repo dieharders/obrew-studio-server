@@ -51,6 +51,10 @@ class CertificateManager:
         # Check if certificates already exist
         if self.are_certificates_valid():
             # Certificates exist, we're good to go
+            print(
+                f"[CERT] Certificate exist.",
+                flush=True,
+            )
             return
 
         # No valid certificates found - attempt installation on macOS
@@ -62,7 +66,9 @@ class CertificateManager:
                     base_dir = Path(sys._MEIPASS)
                 else:
                     # Running from source
-                    base_dir = Path(__file__).parent.parent
+                    # This file is at: backends/core/certificate_manager.py
+                    # We need to go up 2 levels to reach project root
+                    base_dir = Path(__file__).parent.parent.parent
 
                 script_path = base_dir / "cmake" / "install_certificates_macos.sh"
 
@@ -95,7 +101,11 @@ class CertificateManager:
                     return
                 else:
                     print(f"[CERT] Failed to install SSL certificates:", flush=True)
-                    print(result.stderr, flush=True)
+                    if result.stdout:
+                        print(f"[CERT] stdout: {result.stdout}", flush=True)
+                    if result.stderr:
+                        print(f"[CERT] stderr: {result.stderr}", flush=True)
+                    print(f"[CERT] Return code: {result.returncode}", flush=True)
                     print(
                         f"[CERT] Falling back to bundled self-signed certificates",
                         flush=True,

@@ -25,7 +25,7 @@ if [ ! -d "$APP_DIR" ]; then
 fi
 
 # Validate that paths don't contain suspicious characters
-if [[ "$CERT_DIR" =~ [^a-zA-Z0-9/_. -] ]]; then
+if [[ "$CERT_DIR" =~ [^a-zA-Z0-9/_.\ -] ]]; then
     echo "[Obrew Studio] Error: Certificate directory path contains invalid characters"
     exit 1
 fi
