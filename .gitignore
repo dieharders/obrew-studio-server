@@ -21,6 +21,11 @@
 # misc
 .DS_Store
 *.pem
+# Exception: Include bundled self-signed certificates for localhost
+!backends/ui/public/cert.pem
+!backends/ui/public/key.pem
+# Exception: Include mkcert binaries for SSL certificate management
+!bundled/mkcert-*
 
 # debug
 npm-debug.log*

@@ -10,6 +10,7 @@ import ctypes
 from ui.view import Webview
 from ui.api_ui import ApiUI
 from core import common
+from core.certificate_manager import CertificateManager
 from updater import Updater
 
 ###############
@@ -61,6 +62,51 @@ def _get_server_info():
     }
 
 
+# Setup SSL certificates using mkcert
+def _setup_ssl_certificates():
+    """
+    Ensures SSL certificates are properly set up for HTTPS.
+    Uses mkcert to create trusted localhost certificates.
+    """
+    ssl_enabled = common.get_ssl_env()
+
+    if not ssl_enabled:
+        print(f"{common.PRNT_APP} SSL is disabled. Skipping certificate setup.", flush=True)
+        return True
+
+    print(f"{common.PRNT_APP} SSL is enabled. Checking certificates...", flush=True)
+
+    cert_manager = CertificateManager()
+
+    # Check status
+    status = cert_manager.get_setup_status()
+
+    if status["ready"]:
+        print(f"{common.PRNT_APP} ✓ SSL certificates are already installed and valid", flush=True)
+        return True
+
+    # Need to install
+    if not status["mkcert_available"]:
+        print(f"{common.PRNT_APP} ⚠️  Warning: mkcert binary not found. Falling back to self-signed certificates.", flush=True)
+        print(f"{common.PRNT_APP} Note: Browsers will show security warnings for self-signed certificates.", flush=True)
+        return True  # Continue with existing self-signed certs
+
+    print(f"{common.PRNT_APP} Installing trusted SSL certificates for localhost...", flush=True)
+    print(f"{common.PRNT_APP} You may be prompted for your password to add certificates to system trust store.", flush=True)
+
+    # Setup certificates
+    success, error = cert_manager.setup_certificates()
+
+    if not success:
+        print(f"{common.PRNT_APP} ⚠️  Certificate installation failed: {error}", flush=True)
+        print(f"{common.PRNT_APP} Continuing with self-signed certificates (browsers will show warnings).", flush=True)
+        return True  # Don't block startup, just warn
+
+    print(f"{common.PRNT_APP} ✓ Trusted SSL certificates installed successfully!", flush=True)
+    print(f"{common.PRNT_APP} Your browser will not show security warnings for localhost.", flush=True)
+    return True
+
+
 # Graceful shutdown, close everything and cleanup
 def _close_app(api=None):
     try:
@@ -94,6 +140,9 @@ def _get_screen_res() -> Tuple:
 
 def main():
     try:
+        # Setup SSL certificates if enabled
+        _setup_ssl_certificates()
+
         # Webview api
         window_api = ApiUI(
             port=port,
