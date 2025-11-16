@@ -70,5 +70,8 @@ next-env.d.ts
 /examples/parsed_data
 *.exe
 
+# mkcert binaries (downloaded during build, not committed)
+/bundled/mkcert-*
+
 # runtime installation
 /servers

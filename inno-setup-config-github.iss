@@ -22,8 +22,8 @@ AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
 DefaultDirName={userappdata}\Obrew-Studio
 DisableProgramGroupPage=yes
-; the following line to run in non administrative install mode (install for current user only.)
-PrivilegesRequired=lowest
+; Request administrator privileges to install SSL certificates
+PrivilegesRequired=admin
 OutputDir={#OUTPATH}
 OutputBaseFilename=Obrew-Studio.WIN.Setup
 Compression=lzma
@@ -48,5 +48,9 @@ Name: "{userprograms}\{#MyAppName}-headless"; Filename: "{app}\{#MyAppExeName}";
 Name: "{userdesktop}\{#MyAppName}-headless"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--headless=True"; Comment: "{#MyComment}"; Tasks: desktopicon
 
 [Run]
+; Install trusted SSL certificates using mkcert (requires admin privileges)
+Filename: "{app}\_deps\bundled\mkcert-windows-amd64.exe"; Parameters: "-install"; StatusMsg: "Installing SSL certificate authority..."; Flags: runhidden
+Filename: "{app}\_deps\bundled\mkcert-windows-amd64.exe"; Parameters: "-cert-file ""{app}\_deps\backends\ui\public\cert.pem"" -key-file ""{app}\_deps\backends\ui\public\key.pem"" localhost 127.0.0.1 ::1"; StatusMsg: "Generating localhost certificates..."; Flags: runhidden
+; Launch application after installation
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
