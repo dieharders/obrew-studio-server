@@ -42,9 +42,9 @@ def get_gpu_details() -> List[Dict]:
                     dac_type="Metal",
                     pnp_device_id="apple-silicon",
                     id=0,
-                    vram_total="Shared",  # Apple Silicon uses unified memory
-                    vram_used="N/A",
-                    vram_free="N/A",
+                    vram_total=None,  # Apple Silicon uses unified memory
+                    vram_used=None,
+                    vram_free=None,
                 )
             )
             # Debug
@@ -65,9 +65,9 @@ def get_gpu_details() -> List[Dict]:
                     dac_type="Metal",
                     pnp_device_id="unknown",
                     id=0,
-                    vram_total="Shared",
-                    vram_used="N/A",
-                    vram_free="N/A",
+                    vram_total=None,
+                    vram_used=None,
+                    vram_free=None,
                 )
             )
         return results
