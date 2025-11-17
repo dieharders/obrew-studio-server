@@ -43,6 +43,7 @@ def dep_path(relative_path=None):
 
 
 MODEL_METADATAS_FILENAME = "installed_models.json"
+EMBEDDING_METADATAS_FILENAME = "installed_embedding_models.json"
 BACKENDS_FOLDER = "backends"
 APP_SETTINGS_FOLDER = "settings"
 APP_SETTINGS_PATH = app_path(APP_SETTINGS_FOLDER)
@@ -52,9 +53,13 @@ TOOL_PATH = app_path(TOOL_FOLDER)
 TOOL_DEFS_PATH = os.path.join(TOOL_PATH, "defs")
 TOOL_FUNCS_PATH = TOOL_PATH
 MODEL_METADATAS_FILEPATH = os.path.join(APP_SETTINGS_PATH, MODEL_METADATAS_FILENAME)
+EMBEDDING_METADATAS_FILEPATH = os.path.join(APP_SETTINGS_PATH, EMBEDDING_METADATAS_FILENAME)
 TEXT_MODELS_CACHE_DIR = "text_models"
+EMBEDDING_MODELS_CACHE_DIR = "embed_models"
 INSTALLED_TEXT_MODELS = "installed_text_models"  # key in json file
+INSTALLED_EMBEDDING_MODELS = "installed_embedding_models"  # key in json file
 DEFAULT_SETTINGS_DICT = {"current_download_path": "", INSTALLED_TEXT_MODELS: []}
+DEFAULT_EMBEDDING_SETTINGS_DICT = {INSTALLED_EMBEDDING_MODELS: []}
 DEFAULT_MAX_TOKENS = 128
 
 
@@ -406,6 +411,76 @@ def delete_text_model(filename: str, repo_id: str):
         # Save updated metadata
         with open(filepath, "w") as file:
             json.dump(metadata, file, indent=2)
+    except FileNotFoundError:
+        print(f"{PRNT_API} File not found.", flush=True)
+    except json.JSONDecodeError:
+        print(f"{PRNT_API} JSON parsing error.", flush=True)
+
+
+class SaveEmbeddingModelRequestArgs(dict):
+    repoId: str
+    modelName: str
+    savePath: Optional[str] = ""
+    size: Optional[int] = 0
+
+
+# Index the path of the downloaded embedding model in a file
+def save_embedding_model(data: SaveEmbeddingModelRequestArgs):
+    repo_id = data["repoId"]
+    folderpath = APP_SETTINGS_PATH
+    filepath = EMBEDDING_METADATAS_FILEPATH
+    existing_data = DEFAULT_EMBEDDING_SETTINGS_DICT
+
+    try:
+        # Create folder
+        if not os.path.exists(folderpath):
+            os.makedirs(folderpath)
+        # Try to open the file (if it exists)
+        with open(filepath, "r") as file:
+            existing_data = json.load(file)
+    except (Exception, FileNotFoundError):
+        # If the file doesn't exist yet, create an empty dictionary
+        existing_data = DEFAULT_EMBEDDING_SETTINGS_DICT
+
+    # Update the existing data with the new variables
+    models_list: List = existing_data[INSTALLED_EMBEDDING_MODELS]
+    modelIndex = next(
+        (x for x, item in enumerate(models_list) if item["repoId"] == repo_id), None
+    )
+    if modelIndex is None:
+        # Assign new data
+        models_list.append(data)
+    else:
+        # Update existing entry
+        model = models_list[modelIndex]
+        for key, val in data.items():
+            model[key] = val
+        models_list[modelIndex] = model
+
+    # Save the updated data to the file
+    with open(filepath, "w") as file:
+        json.dump(existing_data, file, indent=2)
+    return existing_data
+
+
+# Deletes all files associated with an embedding model
+def delete_embedding_model_revisions(repo_id: str):
+    filepath = EMBEDDING_METADATAS_FILEPATH
+
+    try:
+        # Try to open the file (if it exists)
+        with open(filepath, "r") as file:
+            metadata = json.load(file)
+        # Remove model entry from metadata
+        models_list: List = metadata[INSTALLED_EMBEDDING_MODELS]
+        modelIndex = next(
+            (x for x, item in enumerate(models_list) if item["repoId"] == repo_id), None
+        )
+        if modelIndex is not None:
+            del models_list[modelIndex]
+            # Save updated metadata
+            with open(filepath, "w") as file:
+                json.dump(metadata, file, indent=2)
     except FileNotFoundError:
         print(f"{PRNT_API} File not found.", flush=True)
     except json.JSONDecodeError:

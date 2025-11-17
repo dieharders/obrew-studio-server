@@ -255,6 +255,32 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
                 "urlPath": "/v1/memory/wipe",
                 "method": "GET",
             },
+            # Embedding model management
+            {
+                "name": "downloadEmbedModel",
+                "urlPath": "/v1/memory/downloadEmbedModel",
+                "method": "POST",
+            },
+            {
+                "name": "installedEmbedModels",
+                "urlPath": "/v1/memory/installedEmbedModels",
+                "method": "GET",
+            },
+            {
+                "name": "availableEmbedModels",
+                "urlPath": "/v1/memory/availableEmbedModels",
+                "method": "GET",
+            },
+            {
+                "name": "deleteEmbedModel",
+                "urlPath": "/v1/memory/deleteEmbedModel",
+                "method": "POST",
+            },
+            {
+                "name": "getEmbedModelInfo",
+                "urlPath": "/v1/memory/getEmbedModelInfo",
+                "method": "GET",
+            },
         ],
     }
     data.append(memory_api)

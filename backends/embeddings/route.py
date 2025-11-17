@@ -1,11 +1,21 @@
 import os
 import json
+import shutil
 from datetime import datetime, timezone
 from core import classes, common
-from fastapi import APIRouter, Request, Depends, File, BackgroundTasks, UploadFile
+from fastapi import (
+    APIRouter,
+    Request,
+    Depends,
+    File,
+    BackgroundTasks,
+    UploadFile,
+    HTTPException,
+)
 from embeddings.vector_storage import VECTOR_STORAGE_PATH, Vector_Storage
 from embeddings.embedder import Embedder
 from . import file_parsers
+from huggingface_hub import hf_hub_download, model_info
 
 router = APIRouter()
 
@@ -14,7 +24,6 @@ router = APIRouter()
 def create_memory_collection(
     request: Request,
     form: classes.AddCollectionRequest = Depends(),
-    # @TODO Add a param for embedding_model if user wants to specify
 ) -> classes.AddCollectionResponse:
     app = request.app
 
@@ -30,7 +39,8 @@ def create_memory_collection(
                 "Invalid collection name. No '--', uppercase, spaces or special chars allowed."
             )
         # Create payload. ChromaDB only accepts strings, numbers, bools.
-        embedder = Embedder(app=app)
+        # Use specified embedding model or default
+        embedder = Embedder(app=app, embed_model=form.embeddingModel)
         metadata = {
             "icon": form.icon or "",
             "created_at": datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S"),
@@ -44,7 +54,7 @@ def create_memory_collection(
             name=collection_name,
             metadata=metadata,
         )
-        msg = f'Successfully created new collection "{collection_name}"'
+        msg = f'Successfully created new collection "{collection_name}" with embedding model "{embedder.embed_model_name}"'
         print(f"{common.PRNT_API} {msg}")
         return {
             "success": True,
@@ -373,3 +383,269 @@ def wipe_all_memories(
             "success": False,
             "message": str(e),
         }
+
+
+# Download an embedding model from huggingface hub
+@router.post("/downloadEmbedModel")
+def download_embedding_model(payload: classes.DownloadEmbeddingModelRequest):
+    try:
+        repo_id = payload.repo_id
+        filename = payload.filename
+        cache_dir = common.app_path(common.EMBEDDING_MODELS_CACHE_DIR)
+        resume_download = True
+
+        # Extract model name from repo_id (e.g., "intfloat/multilingual-e5-large-instruct" -> "multilingual-e5-large-instruct")
+        model_name = repo_id.split("/")[-1]
+
+        # Check if this is a GGUF model (single file download)
+        is_gguf = filename.lower().endswith('.gguf')
+
+        print(f"{common.PRNT_API} Downloading embedding model {repo_id}...", flush=True)
+
+        if is_gguf:
+            # GGUF models are single files, similar to text model downloads
+            # Save initial metadata to json file
+            common.save_embedding_model(
+                {
+                    "repoId": repo_id,
+                    "modelName": model_name,
+                    "savePath": filename,
+                    "size": 0,
+                }
+            )
+
+            # Download the single GGUF file
+            hf_hub_download(
+                repo_id=repo_id,
+                filename=filename,
+                cache_dir=cache_dir,
+                resume_download=resume_download,
+            )
+            print(f"{common.PRNT_API} Downloaded {filename}", flush=True)
+
+        else:
+            # Standard Transformer models with multiple files
+            # Save initial metadata to json file
+            common.save_embedding_model(
+                {
+                    "repoId": repo_id,
+                    "modelName": model_name,
+                    "savePath": filename,
+                    "size": 0,
+                }
+            )
+
+            # Download model files using hf_hub_download (same pattern as text models)
+            # Embedding models typically have these core files
+            files_to_download = [
+                "config.json",
+                "tokenizer_config.json",
+                "tokenizer.json",
+                "special_tokens_map.json",
+                "vocab.txt",
+                "model.safetensors",  # or pytorch_model.bin
+            ]
+
+            downloaded_files = []
+            for file in files_to_download:
+                try:
+                    hf_hub_download(
+                        repo_id=repo_id,
+                        filename=file,
+                        cache_dir=cache_dir,
+                        resume_download=resume_download,
+                    )
+                    downloaded_files.append(file)
+                    print(f"{common.PRNT_API} Downloaded {file}", flush=True)
+                except Exception:
+                    # Some files might not exist (e.g., model.safetensors vs pytorch_model.bin)
+                    # Try pytorch_model.bin if safetensors fails
+                    if file == "model.safetensors":
+                        try:
+                            hf_hub_download(
+                                repo_id=repo_id,
+                                filename="pytorch_model.bin",
+                                cache_dir=cache_dir,
+                                resume_download=resume_download,
+                            )
+                            downloaded_files.append("pytorch_model.bin")
+                            print(
+                                f"{common.PRNT_API} Downloaded pytorch_model.bin",
+                                flush=True,
+                            )
+                        except:
+                            pass
+                    # Continue with other files even if one fails
+                    continue
+
+            if not downloaded_files:
+                raise Exception("No model files were successfully downloaded")
+
+        # Scan cache to verify download
+        common.scan_cached_repo(cache_dir=cache_dir, repo_id=repo_id)
+
+        # Get the base model directory path
+        model_path = os.path.join(cache_dir, f"models--{repo_id.replace('/', '--')}")
+
+        # Calculate total size
+        total_size = 0
+        if os.path.exists(model_path):
+            for dirpath, dirnames, filenames in os.walk(model_path):
+                for f in filenames:
+                    fp = os.path.join(dirpath, f)
+                    if os.path.exists(fp):
+                        total_size += os.path.getsize(fp)
+
+        # Save finalized details to disk
+        common.save_embedding_model(
+            {
+                "repoId": repo_id,
+                "modelName": model_name,
+                "savePath": model_path,
+                "size": total_size,
+            }
+        )
+
+        print(f"{common.PRNT_API} Successfully downloaded {repo_id}", flush=True)
+        size_mb = total_size / (1024 * 1024)
+        return {
+            "success": True,
+            "message": f"Saved embedding model to {model_path}. Size: {size_mb:.2f} MB",
+            "data": None,
+        }
+    except (KeyError, Exception, EnvironmentError, OSError, ValueError) as err:
+        print(f"{common.PRNT_API} Error: {err}", flush=True)
+        raise HTTPException(
+            status_code=400, detail=f"Something went wrong. Reason: {err}"
+        )
+
+
+# Return a list of all currently installed embedding models
+@router.get("/installedEmbedModels")
+def get_installed_embedding_models() -> classes.InstalledEmbeddingModelsResponse:
+    try:
+        data = []
+        # Get installed models file
+        metadatas = common.get_settings_file(
+            common.APP_SETTINGS_PATH, common.EMBEDDING_METADATAS_FILEPATH
+        )
+        if not metadatas:
+            metadatas = common.DEFAULT_EMBEDDING_SETTINGS_DICT
+        if common.INSTALLED_EMBEDDING_MODELS in metadatas:
+            data = metadatas[common.INSTALLED_EMBEDDING_MODELS]
+            return {
+                "success": True,
+                "message": f"Returned {len(data)} installed embedding model(s).",
+                "data": data,
+            }
+        else:
+            raise Exception(
+                f"No attribute {common.INSTALLED_EMBEDDING_MODELS} exists in settings file."
+            )
+    except Exception as err:
+        return {
+            "success": False,
+            "message": f"Failed to find any installed embedding models. {err}",
+            "data": [],
+        }
+
+
+# Returns the curated list of embedding models available for installation
+@router.get("/availableEmbedModels")
+def get_available_embedding_models() -> classes.EmbeddingModelConfigsResponse:
+    try:
+        # Get data from file
+        config_path = common.dep_path(
+            os.path.join("public", "embedding_model_configs.json")
+        )
+        with open(config_path, "r") as file:
+            embedding_models = json.load(file)
+
+        return {
+            "success": True,
+            "message": f"Returned {len(embedding_models)} available embedding model(s).",
+            "data": embedding_models,
+        }
+    except Exception as err:
+        print(f"{common.PRNT_API} Error: {err}", flush=True)
+        return {
+            "success": False,
+            "message": f"Something went wrong. Reason: {err}",
+            "data": {},
+        }
+
+
+# Remove embedding model and installation record
+@router.post("/deleteEmbedModel")
+def delete_embedding_model(payload: classes.DeleteEmbeddingModelRequest):
+    repo_id = payload.repoId
+
+    try:
+        cache_dir = common.app_path(common.EMBEDDING_MODELS_CACHE_DIR)
+
+        # Get the model path
+        model_path = os.path.join(cache_dir, f"models--{repo_id.replace('/', '--')}")
+
+        if not os.path.exists(model_path):
+            raise Exception(f"Model {repo_id} not found in cache")
+
+        # Calculate size before deletion
+        total_size = 0
+        for dirpath, dirnames, filenames in os.walk(model_path):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                if os.path.exists(fp):
+                    total_size += os.path.getsize(fp)
+
+        # Delete the model directory
+        shutil.rmtree(model_path)
+
+        # Delete install record from json file
+        common.delete_embedding_model_revisions(repo_id=repo_id)
+
+        # Format size
+        size_mb = total_size / (1024 * 1024)
+        freed_size_str = f"{size_mb:.2f} MB"
+
+        print(f"{common.PRNT_API} Freed {freed_size_str} space.", flush=True)
+
+        return {
+            "success": True,
+            "message": f"Deleted embedding model {repo_id}. Freed {freed_size_str} of space.",
+            "data": None,
+        }
+    except (KeyError, Exception) as err:
+        print(f"{common.PRNT_API} Error: {err}", flush=True)
+        raise HTTPException(
+            status_code=400, detail=f"Something went wrong. Reason: {err}"
+        )
+
+
+# Get embedding model info from HuggingFace
+@router.get("/getEmbedModelInfo")
+def get_embedding_model_info(params: classes.GetModelInfoRequest = Depends()):
+    try:
+        repo_id = params.repoId
+
+        # Fetch model info from HuggingFace
+        info = model_info(repo_id)
+
+        return {
+            "success": True,
+            "message": f"Retrieved info for {repo_id}",
+            "data": {
+                "repoId": repo_id,
+                "modelId": info.id,
+                "author": info.author,
+                "lastModified": str(info.lastModified) if info.lastModified else None,
+                "private": info.private,
+                "downloads": info.downloads,
+                "likes": info.likes,
+                "tags": info.tags,
+            },
+        }
+    except Exception as err:
+        print(f"{common.PRNT_API} Error: {err}", flush=True)
+        raise HTTPException(
+            status_code=400, detail=f"Failed to fetch model info. Reason: {err}"
+        )

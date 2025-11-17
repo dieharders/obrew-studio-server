@@ -244,9 +244,16 @@ def install_llama_cpp(gpu: dict, tag: str, target_path: str):
         # Extract llama-cli binary and other files required for GPU acceleration
         files_to_extract = [
             "llama-cli",
-            # "ggml-metal.metal",      # Metal shader source (loaded at runtime)
-            # "ggml-common.h",         # Common headers (required by Metal shader)
-            # "ggml-metal-impl.h",     # Metal implementation header
+            "ggml-metal.metal",      # Metal shader source (loaded at runtime)
+            "ggml-common.h",         # Common headers (required by Metal shader)
+            "ggml-metal-impl.h",     # Metal implementation header
+            "libggml-base.dylib",    # Base GGML library
+            "libggml-blas.dylib",    # BLAS support
+            "libggml-cpu.dylib",     # CPU support
+            "libggml-metal.dylib",   # Metal GPU support
+            "libggml-rpc.dylib",     # RPC support
+            "libggml.dylib",         # Core GGML library
+            "libllama.dylib",        # Main llama library (REQUIRED)
         ]
 
         # Download llama.cpp binaries for Apple Silicon (ARM64 with Metal)

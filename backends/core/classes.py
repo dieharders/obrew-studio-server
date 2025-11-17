@@ -136,6 +136,78 @@ class DeleteTextModelRequest(BaseModel):
     repoId: str
 
 
+class DownloadEmbeddingModelRequest(BaseModel):
+    repo_id: str
+    filename: str
+
+
+class DeleteEmbeddingModelRequest(BaseModel):
+    repoId: str
+
+
+class InstalledEmbeddingModelMetadata(BaseModel):
+    repoId: str
+    modelName: str
+    savePath: Optional[str] = ""
+    size: Optional[int] = 0
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "repoId": "intfloat/multilingual-e5-large-instruct",
+                    "modelName": "multilingual-e5-large-instruct",
+                    "savePath": "C:\\project\\embed_models\\models--intfloat--multilingual-e5-large-instruct",
+                    "size": 2240000000,
+                }
+            ]
+        }
+    }
+
+
+class EmbeddingModelConfigsResponse(BaseModel):
+    success: bool
+    message: str
+    data: dict
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "success": True,
+                    "message": "Returned 7 embedding model configs",
+                    "data": {},
+                }
+            ]
+        }
+    }
+
+
+class InstalledEmbeddingModelsResponse(BaseModel):
+    success: bool
+    message: str
+    data: List[InstalledEmbeddingModelMetadata]
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "success": True,
+                    "message": "Returned 2 installed embedding models",
+                    "data": [
+                        {
+                            "repoId": "intfloat/multilingual-e5-large-instruct",
+                            "modelName": "multilingual-e5-large-instruct",
+                            "savePath": "C:\\project\\embed_models",
+                            "size": 2240000000,
+                        }
+                    ],
+                }
+            ]
+        }
+    }
+
+
 class PreProcessRequest(BaseModel):
     document_id: Optional[str] = ""
     document_name: str
@@ -173,6 +245,7 @@ class AddCollectionRequest(BaseModel):
     description: Optional[str] = ""
     tags: Optional[str] = ""
     icon: Optional[str] = ""
+    embeddingModel: Optional[str] = None
 
 
 class AddCollectionResponse(BaseModel):
