@@ -59,7 +59,7 @@ class LLAMA_CPP:
         n_threads = model_init_kwargs.n_threads
         n_gpu_layers = model_init_kwargs.n_gpu_layers
         if model_init_kwargs.n_gpu_layers == -1:
-            n_gpu_layers = 100  # offload all layers (diff models have diff max layers)
+            n_gpu_layers = 999  # offload all layers (diff models have diff max layers)
 
         init_kwargs = {
             "--n-gpu-layers": n_gpu_layers,
