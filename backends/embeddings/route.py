@@ -1,8 +1,17 @@
 import os
 import json
+import shutil
 from datetime import datetime, timezone
 from core import classes, common
-from fastapi import APIRouter, Request, Depends, File, BackgroundTasks, UploadFile, HTTPException
+from fastapi import (
+    APIRouter,
+    Request,
+    Depends,
+    File,
+    BackgroundTasks,
+    UploadFile,
+    HTTPException,
+)
 from embeddings.vector_storage import VECTOR_STORAGE_PATH, Vector_Storage
 from embeddings.embedder import Embedder
 from . import file_parsers
@@ -381,6 +390,7 @@ def wipe_all_memories(
 def download_embedding_model(payload: classes.DownloadEmbeddingModelRequest):
     try:
         repo_id = payload.repo_id
+        filename = payload.filename
         cache_dir = common.app_path(common.EMBEDDING_MODELS_CACHE_DIR)
         resume_download = True
 
@@ -392,7 +402,7 @@ def download_embedding_model(payload: classes.DownloadEmbeddingModelRequest):
             {
                 "repoId": repo_id,
                 "modelName": model_name,
-                "savePath": "",
+                "savePath": filename,
                 "size": 0,
             }
         )
@@ -433,7 +443,10 @@ def download_embedding_model(payload: classes.DownloadEmbeddingModelRequest):
                             resume_download=resume_download,
                         )
                         downloaded_files.append("pytorch_model.bin")
-                        print(f"{common.PRNT_API} Downloaded pytorch_model.bin", flush=True)
+                        print(
+                            f"{common.PRNT_API} Downloaded pytorch_model.bin",
+                            flush=True,
+                        )
                     except:
                         pass
                 # Continue with other files even if one fails
@@ -516,7 +529,9 @@ def get_installed_embedding_models() -> classes.InstalledEmbeddingModelsResponse
 def get_available_embedding_models() -> classes.EmbeddingModelConfigsResponse:
     try:
         # Get data from file
-        config_path = common.dep_path(os.path.join("public", "embedding_model_configs.json"))
+        config_path = common.dep_path(
+            os.path.join("public", "embedding_model_configs.json")
+        )
         with open(config_path, "r") as file:
             embedding_models = json.load(file)
 
@@ -557,7 +572,6 @@ def delete_embedding_model(payload: classes.DeleteEmbeddingModelRequest):
                     total_size += os.path.getsize(fp)
 
         # Delete the model directory
-        import shutil
         shutil.rmtree(model_path)
 
         # Delete install record from json file

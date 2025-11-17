@@ -138,6 +138,7 @@ class DeleteTextModelRequest(BaseModel):
 
 class DownloadEmbeddingModelRequest(BaseModel):
     repo_id: str
+    filename: str
 
 
 class DeleteEmbeddingModelRequest(BaseModel):
