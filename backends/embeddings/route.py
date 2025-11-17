@@ -397,63 +397,89 @@ def download_embedding_model(payload: classes.DownloadEmbeddingModelRequest):
         # Extract model name from repo_id (e.g., "intfloat/multilingual-e5-large-instruct" -> "multilingual-e5-large-instruct")
         model_name = repo_id.split("/")[-1]
 
-        # Save initial metadata to json file
-        common.save_embedding_model(
-            {
-                "repoId": repo_id,
-                "modelName": model_name,
-                "savePath": filename,
-                "size": 0,
-            }
-        )
+        # Check if this is a GGUF model (single file download)
+        is_gguf = filename.lower().endswith('.gguf')
 
         print(f"{common.PRNT_API} Downloading embedding model {repo_id}...", flush=True)
 
-        # Download model files using hf_hub_download (same pattern as text models)
-        # Embedding models typically have these core files
-        files_to_download = [
-            "config.json",
-            "tokenizer_config.json",
-            "tokenizer.json",
-            "special_tokens_map.json",
-            "vocab.txt",
-            "model.safetensors",  # or pytorch_model.bin
-        ]
+        if is_gguf:
+            # GGUF models are single files, similar to text model downloads
+            # Save initial metadata to json file
+            common.save_embedding_model(
+                {
+                    "repoId": repo_id,
+                    "modelName": model_name,
+                    "savePath": filename,
+                    "size": 0,
+                }
+            )
 
-        downloaded_files = []
-        for filename in files_to_download:
-            try:
-                hf_hub_download(
-                    repo_id=repo_id,
-                    filename=filename,
-                    cache_dir=cache_dir,
-                    resume_download=resume_download,
-                )
-                downloaded_files.append(filename)
-                print(f"{common.PRNT_API} Downloaded {filename}", flush=True)
-            except Exception:
-                # Some files might not exist (e.g., model.safetensors vs pytorch_model.bin)
-                # Try pytorch_model.bin if safetensors fails
-                if filename == "model.safetensors":
-                    try:
-                        hf_hub_download(
-                            repo_id=repo_id,
-                            filename="pytorch_model.bin",
-                            cache_dir=cache_dir,
-                            resume_download=resume_download,
-                        )
-                        downloaded_files.append("pytorch_model.bin")
-                        print(
-                            f"{common.PRNT_API} Downloaded pytorch_model.bin",
-                            flush=True,
-                        )
-                    except:
-                        pass
-                # Continue with other files even if one fails
-                continue
+            # Download the single GGUF file
+            hf_hub_download(
+                repo_id=repo_id,
+                filename=filename,
+                cache_dir=cache_dir,
+                resume_download=resume_download,
+            )
+            print(f"{common.PRNT_API} Downloaded {filename}", flush=True)
 
-        if not downloaded_files:
-            raise Exception("No model files were successfully downloaded")
+        else:
+            # Standard Transformer models with multiple files
+            # Save initial metadata to json file
+            common.save_embedding_model(
+                {
+                    "repoId": repo_id,
+                    "modelName": model_name,
+                    "savePath": filename,
+                    "size": 0,
+                }
+            )
+
+            # Download model files using hf_hub_download (same pattern as text models)
+            # Embedding models typically have these core files
+            files_to_download = [
+                "config.json",
+                "tokenizer_config.json",
+                "tokenizer.json",
+                "special_tokens_map.json",
+                "vocab.txt",
+                "model.safetensors",  # or pytorch_model.bin
+            ]
+
+            downloaded_files = []
+            for file in files_to_download:
+                try:
+                    hf_hub_download(
+                        repo_id=repo_id,
+                        filename=file,
+                        cache_dir=cache_dir,
+                        resume_download=resume_download,
+                    )
+                    downloaded_files.append(file)
+                    print(f"{common.PRNT_API} Downloaded {file}", flush=True)
+                except Exception:
+                    # Some files might not exist (e.g., model.safetensors vs pytorch_model.bin)
+                    # Try pytorch_model.bin if safetensors fails
+                    if file == "model.safetensors":
+                        try:
+                            hf_hub_download(
+                                repo_id=repo_id,
+                                filename="pytorch_model.bin",
+                                cache_dir=cache_dir,
+                                resume_download=resume_download,
+                            )
+                            downloaded_files.append("pytorch_model.bin")
+                            print(
+                                f"{common.PRNT_API} Downloaded pytorch_model.bin",
+                                flush=True,
+                            )
+                        except:
+                            pass
+                    # Continue with other files even if one fails
+                    continue
+
+            if not downloaded_files:
+                raise Exception("No model files were successfully downloaded")
 
         # Scan cache to verify download
         common.scan_cached_repo(cache_dir=cache_dir, repo_id=repo_id)
