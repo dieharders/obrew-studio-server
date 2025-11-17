@@ -11,6 +11,7 @@ import ctypes
 from ui.view import Webview
 from ui.api_ui import ApiUI
 from core import common
+from core.certificate_manager import CertificateManager
 from updater import Updater
 
 ###############
@@ -78,10 +79,11 @@ def _get_screen_res() -> Tuple:
         # macOS - Use AppKit to get screen resolution
         if platform.system() == "Darwin":
             from AppKit import NSScreen
+
             screen = NSScreen.mainScreen()
             screen_size = (
                 int(screen.frame().size.width),
-                int(screen.frame().size.height)
+                int(screen.frame().size.height),
             )
             return screen_size
         # Windows - Use ctypes to get screen resolution
@@ -111,6 +113,11 @@ def _get_screen_res() -> Tuple:
 
 def main():
     try:
+        # Check and install SSL certificates if needed (macOS first launch)
+        if common.get_ssl_env():
+            cert_manager = CertificateManager()
+            cert_manager.check_and_install_ssl_certificates_macos()
+
         # Webview api
         window_api = ApiUI(
             port=port,
@@ -156,11 +163,15 @@ def main():
 
             # Handle window closing
             def on_window_closing():
-                print(f"{common.PRNT_APP} Window closing, shutting down server...", flush=True)
+                print(
+                    f"{common.PRNT_APP} Window closing, shutting down server...",
+                    flush=True,
+                )
                 if view_instance.api_server:
                     view_instance.api_server.shutdown()
                 # Give server time to cleanup
                 import time
+
                 time.sleep(0.5)
                 return True
 
