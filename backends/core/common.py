@@ -6,6 +6,7 @@ import socket
 import glob
 import httpx
 import subprocess
+import platform
 from typing import Any, List, Optional, Tuple
 from core import classes
 from core.classes import BotSettings, InstalledTextModelMetadata, InstalledTextModel
@@ -134,21 +135,42 @@ def parse_mentions(input_string) -> Tuple[List[str], str]:
 
 # Return all file names found in dir
 def find_file_names(path: str):
-    file_names = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f)) and f.endswith('.py')]
+    file_names = [
+        f
+        for f in os.listdir(path)
+        if os.path.isfile(os.path.join(path, f)) and f.endswith(".py")
+    ]
     return file_names
 
 
 # Open a native file explorer at location of given source
 def file_explore(path: str):
-    FILEBROWSER_PATH = os.path.join(os.getenv("WINDIR"), "explorer.exe")
-
-    # explorer would choke on forward slashes
+    # Normalize path for the current platform
     path = os.path.normpath(path)
 
-    if os.path.isdir(path):
-        subprocess.run([FILEBROWSER_PATH, path])
-    elif os.path.isfile(path):
-        subprocess.run([FILEBROWSER_PATH, "/select,", path])
+    # macOS - Use 'open' command
+    if platform.system() == "Darwin":
+        if os.path.isdir(path):
+            subprocess.run(["open", path])
+        elif os.path.isfile(path):
+            # Open parent directory and select the file
+            subprocess.run(["open", "-R", path])
+
+    # Windows - Use explorer.exe
+    elif platform.system() == "Windows":
+        FILEBROWSER_PATH = os.path.join(os.getenv("WINDIR"), "explorer.exe")
+        if os.path.isdir(path):
+            subprocess.run([FILEBROWSER_PATH, path])
+        elif os.path.isfile(path):
+            subprocess.run([FILEBROWSER_PATH, "/select,", path])
+
+    # Linux or other platforms
+    else:
+        # Try xdg-open for Linux
+        try:
+            subprocess.run(["xdg-open", path])
+        except FileNotFoundError:
+            print(f"File explorer not available for this platform", flush=True)
 
 
 async def get_file_from_url(url: str, pathname: str, app: classes.FastAPIApp):
@@ -642,9 +664,8 @@ def get_file_extension_from_path(path: str):
 
 
 def get_ssl_env():
-    val = os.getenv("ENABLE_SSL", "False").lower() in ("true", "1", "t")
-    if val is None:
-        return False
+    # Enable by default if no setting found
+    val = os.getenv("ENABLE_SSL", "True").lower() in ("true", "1", "t")
     return val
 
 

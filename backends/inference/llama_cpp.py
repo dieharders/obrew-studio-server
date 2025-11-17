@@ -99,7 +99,9 @@ class LLAMA_CPP:
         self._generate_kwargs = generate_kwargs  # proxy
         deps_path = common.dep_path()
         BINARY_FOLDER_PATH = os.path.join(deps_path, "servers", "llama.cpp")
-        self.BINARY_PATH: str = os.path.join(BINARY_FOLDER_PATH, "llama-cli.exe")
+        # Platform-aware binary name
+        binary_name = "llama-cli.exe" if platform.system() == "Windows" else "llama-cli"
+        self.BINARY_PATH: str = os.path.join(BINARY_FOLDER_PATH, binary_name)
 
     # Getter
     @property

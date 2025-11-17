@@ -26,7 +26,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest] # builds for each platform, in seperate vm's, in this order
+        os: [windows-latest, macos-latest] # builds for each platform, in seperate vm's, in this order
     continue-on-error: true
     steps:
       # 1. Pull down repo
@@ -59,7 +59,7 @@ jobs:
           path: .venv
 
       # 4. Create virtual environment, Install package manager and dependencies for Python
-      - name: Setup venv (install deps)
+      - name: Setup venv - Windows (install deps)
         shell: bash
         if: runner.os == 'Windows'
         run: |
@@ -70,6 +70,18 @@ jobs:
           .venv/Scripts/python --version
           .venv/Scripts/python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
           .venv/Scripts/python -m pip install -r requirements.txt # install deps, use --prefer-binary to install from wheels instead of source
+
+      - name: Setup venv - macOS (install deps)
+        shell: bash
+        if: runner.os == 'macOS'
+        run: |
+          python -m venv .venv # noop if cache is found
+          source .venv/bin/activate
+          .venv/bin/python -m pip list  # Verify installed packages
+          # Install pip and Python deps
+          .venv/bin/python --version
+          .venv/bin/python -m pip install --upgrade pip setuptools wheel # upgrades pip to latest
+          .venv/bin/python -m pip install -r requirements.txt # install deps, use --prefer-binary to install from wheels instead of source
 
       # 5. Cache python virtual environment for later runs
       - name: Save cached venv
@@ -114,6 +126,12 @@ jobs:
             source .venv/bin/activate
           fi
           # PyInstaller will output to "build/Obrew-Studio" folder in root | --upx-dir C:/upx/upx-4.0.2-win64 \
+          # Platform-specific hnswlib binary handling
+          if [ $RUNNER_OS == 'Windows' ]; then
+            HNSWLIB_BINARY=".venv/lib/site-packages/hnswlib.cp312-win_amd64.pyd"
+          else
+            HNSWLIB_BINARY=".venv/lib/python3.12/site-packages/hnswlib.cpython-312-darwin.so"
+          fi
           pyinstaller --noconfirm --clean --onedir --windowed \
             --log-level DEBUG \
             --contents-directory _deps \
@@ -129,7 +147,7 @@ jobs:
             --add-data .venv/lib/site-packages/importlib_resources:importlib_resources/ \
             --add-data .venv/lib/site-packages/backoff:backoff/ \
             --add-data .venv/lib/site-packages/pypika:pypika/ \
-            --add-data .venv/lib/site-packages/hnswlib.cp312-win_amd64.pyd:. \
+            --add-data "$HNSWLIB_BINARY:." \
             "${{ github.workspace }}/backends/main.py"
           # Create a "servers" dir to be included in installer
           mkdir -p "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers"
@@ -186,6 +204,23 @@ jobs:
           mkdir -p ./artifacts/windows-latest
           Compress-Archive -Path "output/*.*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
 
+      - name: Zip assets (macOS)
+        shell: bash
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p ./artifacts/macos-latest
+          # CMake/CPack creates the DMG in build_temp directory
+          if [ -d "build_temp" ]; then
+            cp build_temp/*.dmg ./artifacts/macos-latest/ 2>/dev/null || true
+          fi
+          # Also check output directory
+          if [ -d "output" ]; then
+            cp output/*.dmg ./artifacts/macos-latest/ 2>/dev/null || true
+          fi
+          # Zip all DMG files
+          cd ./artifacts/macos-latest
+          zip -r macos-latest-artifacts.zip *.dmg
+
       # 10. Upload Installer Artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -226,6 +261,13 @@ jobs:
           name: windows-latest-artifact
           path: ./artifacts/windows
 
+      - name: Download macOS artifact
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-latest-artifact
+          path: ./artifacts/macos
+
       - name: Upload Windows asset archive
         if: always()
         uses: actions/upload-release-asset@v1
@@ -235,4 +277,15 @@ jobs:
           upload_url: ${{ needs.create_release.outputs.release_upload_url }}
           asset_path: ./artifacts/windows/windows-latest-artifacts.zip # file location
           asset_name: Obrew-Studio.WIN.Setup.zip # display name on release page (not file name)
+          asset_content_type: application/zip
+
+      - name: Upload macOS asset archive
+        if: always()
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.release_upload_url }}
+          asset_path: ./artifacts/macos/macos-latest-artifacts.zip # file location
+          asset_name: Obrew-Studio.macOS.Setup.zip # display name on release page (not file name)
           asset_content_type: application/zip
