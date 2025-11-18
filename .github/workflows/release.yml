@@ -85,6 +85,7 @@ jobs:
 
       # 5. Cache python virtual environment for later runs
       - name: Save cached venv
+        if: steps.restore-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.txt') }}
