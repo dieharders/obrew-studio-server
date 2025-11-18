@@ -254,7 +254,7 @@ def install_llama_cpp(gpu: dict, tag: str, target_path: str):
         # Extract llama-cli binary and other files required for GPU acceleration
         files_to_extract = [
             "llama-cli",  # Main CLI (also used for embeddings with --embedding flag)
-            # "llama-embedding",  # Embedding binary for GGUF models
+            # "llama-embedding",  # Embedding binary for GGUF models - This will be compiled and bundled
             "ggml-metal.metal",  # Metal shader source (loaded at runtime)
             "ggml-common.h",  # Common headers (required by Metal shader)
             "ggml-metal-impl.h",  # Metal implementation header
@@ -283,7 +283,7 @@ def install_llama_cpp(gpu: dict, tag: str, target_path: str):
             files_to_extract=files_to_extract,
         )
         # Make the binaries executable on Unix-like systems
-        for binary_name in ["llama-cli", "llama-embedding"]:
+        for binary_name in ["llama-cli"]:
             binary_path = os.path.join(target_path, binary_name)
             if os.path.exists(binary_path):
                 os.chmod(binary_path, 0o755)  # rwxr-xr-x permissions
@@ -296,8 +296,8 @@ def install_llama_cpp(gpu: dict, tag: str, target_path: str):
     # For Windows - Nvidia
     elif platform.system() == "Windows":
         if is_nvidia_gpu:
-            # Extract llama-cli and llama-embedding binaries
-            llama_files = ["llama-cli.exe", "llama-embedding.exe"]
+            # Extract llama-cli binaries
+            llama_files = ["llama-cli.exe"]
 
             # Download llama.cpp binaries
             download_and_extract(
@@ -378,13 +378,13 @@ class Updater:
             # macOS - llama-cli and llama-embedding binaries
             required_files = [
                 os.path.join(target_path, "llama-cli"),
-                os.path.join(target_path, "llama-embedding"),
+                # os.path.join(target_path, "llama-embedding"), # bundled
             ]
         elif platform.system() == "Windows":
             # Windows - llama-cli.exe, llama-embedding.exe + CUDA DLLs
             required_files = [
                 os.path.join(target_path, "llama-cli.exe"),
-                os.path.join(target_path, "llama-embedding.exe"),
+                # os.path.join(target_path, "llama-embedding.exe"), # bundled
                 os.path.join(target_path, "cublas64_12.dll"),
                 os.path.join(target_path, "cublasLt64_12.dll"),
                 os.path.join(target_path, "cudart64_12.dll"),
