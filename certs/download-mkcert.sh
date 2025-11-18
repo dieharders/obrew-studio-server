@@ -12,11 +12,22 @@ BASE_URL="https://github.com/FiloSottile/mkcert/releases/download/${MKCERT_VERSI
 mkdir -p "$BUNDLED_DIR"
 
 # SHA256 checksums for mkcert v1.4.4
-declare -A CHECKSUMS
-CHECKSUMS["mkcert-darwin-arm64"]="c8af0df44bce04359794dad8ea28d750437411d632748049d08644ffb66a60c6"
-CHECKSUMS["mkcert-darwin-amd64"]="a32dfab51f1845d51e810db8e47dcf0e6b51ae3422426514bf5a2b8302e97d4e"
-CHECKSUMS["mkcert-windows-amd64.exe"]="6fb0ff2b45db27a23afb6c04e04bf689cf3e0a95d0d734e5c0c4ea2e6e8e89e6"
-CHECKSUMS["mkcert-linux-amd64"]="3f8b47e64d9e28c4fd1c54eac6afe12f4379e817ecb06597bb55e45c7eb2ec87"
+get_checksum() {
+    case "$1" in
+        "mkcert-darwin-arm64")
+            echo "c8af0df44bce04359794dad8ea28d750437411d632748049d08644ffb66a60c6"
+            ;;
+        "mkcert-darwin-amd64")
+            echo "a32dfab51f1845d51e810db8e47dcf0e6b51ae3422426514bf5a2b8302e97d4e"
+            ;;
+        "mkcert-windows-amd64.exe")
+            echo "d2660b50a9ed59eada480750561c96abc2ed4c9a38c6a24d93e30e0977631398"
+            ;;
+        "mkcert-linux-amd64")
+            echo "6d31c65b03972c6dc4a14ab429f2928300518b26503f58723e532d1b0a3bbb52"
+            ;;
+    esac
+}
 
 # Download and verify each binary
 for binary in "mkcert-darwin-arm64" "mkcert-darwin-amd64" "mkcert-windows-amd64.exe" "mkcert-linux-amd64"; do
@@ -34,7 +45,8 @@ for binary in "mkcert-darwin-arm64" "mkcert-darwin-amd64" "mkcert-windows-amd64.
             continue
         fi
 
-        if [ "$actual_checksum" = "${CHECKSUMS[$binary]}" ]; then
+        expected_checksum=$(get_checksum "$binary")
+        if [ "$actual_checksum" = "$expected_checksum" ]; then
             echo "✓ $binary checksum verified"
             continue
         else
@@ -66,7 +78,7 @@ for binary in "mkcert-darwin-arm64" "mkcert-darwin-amd64" "mkcert-windows-amd64.
         continue
     fi
 
-    expected_checksum="${CHECKSUMS[$binary]}"
+    expected_checksum=$(get_checksum "$binary")
     if [ "$actual_checksum" = "$expected_checksum" ]; then
         echo "✓ $binary verified successfully"
     else
