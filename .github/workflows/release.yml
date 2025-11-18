@@ -220,8 +220,6 @@ jobs:
       # 6. Build the app .exe (pyinstaller)
       - name: Build app
         shell: bash
-        env:
-          PATH: .venv/Scripts
         run: |
           # Must activate env before each step
           # `env.pythonLocation` should be used if no venv
