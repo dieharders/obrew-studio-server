@@ -100,7 +100,3 @@ echo ""
 echo "✅ All mkcert binaries downloaded and verified successfully!"
 echo ""
 ls -lh "$BUNDLED_DIR"/mkcert-*
-
-echo ""
-echo "Generating self-signed fallback certificates..."
-bash "$(dirname "$0")/generate-fallback-certs.sh"
