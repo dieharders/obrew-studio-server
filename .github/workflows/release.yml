@@ -317,17 +317,17 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           mkdir -p ./artifacts/macos-latest
-          # CMake/CPack creates the DMG in build_temp directory
+          # CMake/CPack creates the PKG in build_temp directory
           if [ -d "build_temp" ]; then
-            cp build_temp/*.dmg ./artifacts/macos-latest/ 2>/dev/null || true
+            cp build_temp/*.pkg ./artifacts/macos-latest/ 2>/dev/null || true
           fi
           # Also check output directory
           if [ -d "output" ]; then
-            cp output/*.dmg ./artifacts/macos-latest/ 2>/dev/null || true
+            cp output/*.pkg ./artifacts/macos-latest/ 2>/dev/null || true
           fi
-          # Zip all DMG files
+          # Zip all PKG files
           cd ./artifacts/macos-latest
-          zip -r macos-latest-artifacts.zip *.dmg
+          zip -r macos-latest-artifacts.zip *.pkg
 
       # 10. Upload Installer Artifact
       - name: Upload artifact

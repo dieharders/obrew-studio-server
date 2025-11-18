@@ -1,6 +1,7 @@
 #!/bin/bash
 # Post-install script for macOS to install trusted SSL certificates
-# This script runs on first app launch with elevated privileges
+# This script runs with elevated privileges.
+# This script is NOT currently used, you may delete. Here for development use.
 
 set -e
 

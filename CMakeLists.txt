@@ -17,7 +17,6 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The tool for building personal Ai agents"
 set(CPACK_PACKAGE_FILE_NAME "Obrew-Studio.WIN.Setup")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
-set(CPACK_POST_INSTALL_SCRIPT "${CMAKE_SOURCE_DIR}/certs/download_and_extract.cmake")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "Obrew-Studio")
 # Specify the output directory for the package
 set(CPACK_OUTPUT_FILE_PREFIX "${CMAKE_SOURCE_DIR}/output")
@@ -36,7 +35,9 @@ if(WIN32)
       file(WRITE \"\${CMAKE_INSTALL_PREFIX}/Desktop/Obrew-Studio-headless.lnk\"
       \"[InternetShortcut]\nURL=file:///\${CMAKE_INSTALL_PREFIX}/Obrew-Studio.exe --headless=True\n\")")
 elseif(APPLE)
-  set(CPACK_GENERATOR "DragNDrop")
+  set(CPACK_GENERATOR "productbuild")
+  # Configure post-install script for certificate installation
+  set(CPACK_PRODUCTBUILD_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/certs")
 elseif(UNIX)
   set(CPACK_GENERATOR "DEB;RPM")
 endif()
