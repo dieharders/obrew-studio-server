@@ -13,6 +13,7 @@ from .file_parsers import copy_file_to_disk, create_parsed_id, process_documents
 from .text_splitters import markdown_heading_split, markdown_document_split
 from .chunking import chunks_from_documents, create_source_record
 from .file_loaders import documents_from_sources
+from .gguf_embedder import GGUFEmbedder
 
 if TYPE_CHECKING:
     from embeddings.vector_storage import Vector_Storage
@@ -33,10 +34,19 @@ embedding_model_names = dict(
 
 DEFAULT_EMBEDDING_MODEL_NAME = embedding_model_names["multilingual_large"]
 EMBEDDING_MODEL_CACHE_PATH = common.app_path("embed_models")
+EMBEDDING_MODELS_CACHE_DIR = common.app_path(common.EMBEDDING_MODELS_CACHE_DIR)
 CHUNKING_STRATEGIES = {
     "MARKDOWN_HEADING_SPLIT": markdown_heading_split,
     "MARKDOWN_DOCUMENT_SPLIT": markdown_document_split,
 }
+
+
+def is_gguf_model(model_name: str) -> bool:
+    """Check if a model identifier refers to a GGUF model."""
+    if not model_name:
+        return False
+    # GGUF models will have repo names with "GGUF" in them
+    return "GGUF" in model_name.upper() or model_name.lower().endswith(".gguf")
 
 
 # How to use local embeddings: https://docs.llamaindex.ai/en/stable/examples/embeddings/huggingface/
@@ -46,13 +56,83 @@ class Embedder:
     """Handle vector embeddings."""
 
     def __init__(
-        self, app: FastAPIApp, embed_model: str = None, cache_path: str = None
+        self,
+        app: FastAPIApp,
+        embed_model: str = None,
+        cache_path: str = None,
+        n_ctx: int = 2048,
+        n_batch: int = None,
     ):
         self.app = app
         self.cache = cache_path or EMBEDDING_MODEL_CACHE_PATH
         self.embed_model_name = embed_model or DEFAULT_EMBEDDING_MODEL_NAME
-        self.embed_model = HuggingFaceEmbedding(
-            self.embed_model_name, cache_folder=self.cache
+        self.is_gguf = is_gguf_model(self.embed_model_name)
+
+        if self.is_gguf:
+            # For GGUF models, we need to find the model file path
+            model_path = self._find_gguf_model_path()
+            # Ensure n_batch >= n_ctx to avoid assertion failure
+            # When n_ctx=0 or None, use model defaults (don't force n_batch)
+            if n_ctx and n_ctx > 0:
+                if n_batch is None or n_batch < n_ctx:
+                    n_batch = n_ctx
+            self.embed_model = GGUFEmbedder(
+                app=app,
+                model_path=model_path,
+                embed_model=self.embed_model_name,
+                n_ctx=n_ctx,
+                n_batch=n_batch,
+            )
+            print(
+                f"{common.PRNT_EMBED} Using GGUF embedder with model: {self.embed_model_name}",
+                flush=True,
+            )
+        else:
+            # Standard transformer model
+            self.embed_model = HuggingFaceEmbedding(
+                self.embed_model_name,
+                cache_folder=self.cache,
+                trust_remote_code=True,
+            )
+            print(
+                f"{common.PRNT_EMBED} Using HuggingFace embedder with model: {self.embed_model_name}",
+                flush=True,
+            )
+
+    def _find_gguf_model_path(self) -> str:
+        """Find the path to a GGUF model file."""
+        # First check if embed_model_name is already a path
+        if os.path.exists(self.embed_model_name) and self.embed_model_name.endswith(
+            ".gguf"
+        ):
+            return self.embed_model_name
+
+        # Look for GGUF files in the embedding models cache
+        # The repo format is usually "owner/repo-name-GGUF"
+        # Huggingface cache format: models--owner--repo-name-GGUF/snapshots/hash/*.gguf
+        repo_slug = self.embed_model_name.replace("/", "--")
+        repo_path = os.path.join(EMBEDDING_MODELS_CACHE_DIR, f"models--{repo_slug}")
+
+        if os.path.exists(repo_path):
+            # Look for .gguf files in snapshots subdirectories
+            snapshots_path = os.path.join(repo_path, "snapshots")
+            if os.path.exists(snapshots_path):
+                for snapshot_dir in os.listdir(snapshots_path):
+                    snapshot_full_path = os.path.join(snapshots_path, snapshot_dir)
+                    if os.path.isdir(snapshot_full_path):
+                        # Find all .gguf files in this snapshot
+                        for file in os.listdir(snapshot_full_path):
+                            if file.endswith(".gguf"):
+                                gguf_path = os.path.join(snapshot_full_path, file)
+                                print(
+                                    f"{common.PRNT_EMBED} Found GGUF model at: {gguf_path}",
+                                    flush=True,
+                                )
+                                return gguf_path
+
+        raise FileNotFoundError(
+            f"Could not find GGUF model file for {self.embed_model_name}. "
+            f"Please ensure the model is downloaded to {EMBEDDING_MODELS_CACHE_DIR}"
         )
 
     # Create embeddings for one file (input) at a time
@@ -128,11 +208,8 @@ class Embedder:
 
     def embed_text(self, text: str) -> List[float]:
         """Create vector embeddings from query text."""
-        embedding_model = HuggingFaceEmbedding(
-            self.embed_model_name, cache_folder=self.cache
-        )
-        # Both work
-        return embedding_model.get_text_embedding(text)
+        # Use the already initialized embed_model
+        return self.embed_model.get_text_embedding(text)
         # Or
         # embedding_model = SentenceTransformer(
         #     self.embed_model_name, cache_folder=self.cache

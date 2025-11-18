@@ -40,7 +40,12 @@ def create_memory_collection(
             )
         # Create payload. ChromaDB only accepts strings, numbers, bools.
         # Use specified embedding model or default
-        embedder = Embedder(app=app, embed_model=form.embeddingModel)
+        embedder = Embedder(
+            app=app,
+            embed_model=form.embeddingModel,
+            n_ctx=form.n_ctx,
+            n_batch=form.n_batch,
+        )
         metadata = {
             "icon": form.icon or "",
             "created_at": datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S"),
@@ -48,6 +53,8 @@ def create_memory_collection(
             "description": form.description,
             "sources": json.dumps([]),
             "embedding_model": embedder.embed_model_name,
+            "n_ctx": form.n_ctx,
+            "n_batch": form.n_batch,
         }
         vector_storage = Vector_Storage(app=app)
         vector_storage.db_client.create_collection(
@@ -88,7 +95,14 @@ async def create_memory(
         vector_storage = Vector_Storage(app=app)
         collection = vector_storage.get_collection(name=collection_name)
         embed_model = collection.metadata.get("embedding_model")
-        embedder = Embedder(app=app, embed_model=embed_model)
+        n_ctx = collection.metadata.get("n_ctx")
+        n_batch = collection.metadata.get("n_batch")
+        embedder = Embedder(
+            app=app,
+            embed_model=embed_model,
+            n_ctx=n_ctx,
+            n_batch=n_batch,
+        )
         vector_storage = Vector_Storage(app=app, embed_model=embedder.embed_model)
         tmp_input_file_path = await embedder.modify_document(
             vector_storage=vector_storage,
@@ -135,7 +149,14 @@ async def update_memory(
         vector_storage = Vector_Storage(app=app)
         collection = vector_storage.get_collection(name=collection_name)
         embed_model = collection.metadata.get("embedding_model")
-        embedder = Embedder(app=app, embed_model=embed_model)
+        n_ctx = collection.metadata.get("n_ctx")
+        n_batch = collection.metadata.get("n_batch")
+        embedder = Embedder(
+            app=app,
+            embed_model=embed_model,
+            n_ctx=n_ctx,
+            n_batch=n_batch,
+        )
         vector_storage = Vector_Storage(app=app, embed_model=embedder.embed_model)
         tmp_input_file_path = await embedder.modify_document(
             vector_storage=vector_storage,
@@ -398,7 +419,7 @@ def download_embedding_model(payload: classes.DownloadEmbeddingModelRequest):
         model_name = repo_id.split("/")[-1]
 
         # Check if this is a GGUF model (single file download)
-        is_gguf = filename.lower().endswith('.gguf')
+        is_gguf = filename.lower().endswith(".gguf")
 
         print(f"{common.PRNT_API} Downloading embedding model {repo_id}...", flush=True)
 
