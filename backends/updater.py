@@ -162,19 +162,29 @@ def download_and_extract(
                     for file_name in files_to_extract:
                         try:
                             # Look for the file in the archive (may be in subdirectory)
-                            matching_files = [f for f in all_files if f.endswith(file_name) and not f.endswith('/')]
+                            matching_files = [
+                                f
+                                for f in all_files
+                                if f.endswith(file_name) and not f.endswith("/")
+                            ]
 
                             if matching_files:
                                 for match in matching_files:
                                     # Extract file and flatten directory structure
                                     source = zip_file.open(match)
-                                    target_file = os.path.join(target_path, os.path.basename(match))
-                                    with open(target_file, 'wb') as target:
+                                    target_file = os.path.join(
+                                        target_path, os.path.basename(match)
+                                    )
+                                    with open(target_file, "wb") as target:
                                         target.write(source.read())
                                     source.close()
-                                    print(f"[UPDATER] Extracted {match} -> {os.path.basename(match)}")
+                                    print(
+                                        f"[UPDATER] Extracted {match} -> {os.path.basename(match)}"
+                                    )
                             else:
-                                print(f"[UPDATER] Warning: {file_name} not found in archive")
+                                print(
+                                    f"[UPDATER] Warning: {file_name} not found in archive"
+                                )
                         except Exception as e:
                             print(f"[UPDATER] Error extracting {file_name}: {e}")
                 else:
@@ -243,18 +253,25 @@ def install_llama_cpp(gpu: dict, tag: str, target_path: str):
     if platform.system() == "Darwin":
         # Extract llama-cli binary and other files required for GPU acceleration
         files_to_extract = [
-            "llama-cli",
-            "llama-embedding",       # Embedding binary for GGUF models
-            "ggml-metal.metal",      # Metal shader source (loaded at runtime)
-            "ggml-common.h",         # Common headers (required by Metal shader)
-            "ggml-metal-impl.h",     # Metal implementation header
-            "libggml-base.dylib",    # Base GGML library
-            "libggml-blas.dylib",    # BLAS support
-            "libggml-cpu.dylib",     # CPU support
-            "libggml-metal.dylib",   # Metal GPU support
-            "libggml-rpc.dylib",     # RPC support
-            "libggml.dylib",         # Core GGML library
-            "libllama.dylib",        # Main llama library (REQUIRED)
+            "llama-cli",  # Main CLI (also used for embeddings with --embedding flag)
+            # "llama-embedding",  # Embedding binary for GGUF models
+            "ggml-metal.metal",  # Metal shader source (loaded at runtime)
+            "ggml-common.h",  # Common headers (required by Metal shader)
+            "ggml-metal-impl.h",  # Metal implementation header
+            "libggml-base.dylib",  # Base GGML library
+            "libggml-blas.dylib",  # BLAS support
+            "libggml-cpu.dylib",  # CPU support
+            "libggml-metal.dylib",  # Metal GPU support
+            "libggml-rpc.dylib",  # RPC support
+            "libggml.dylib",  # Core GGML library
+            "libllama.dylib",  # Main llama library (REQUIRED)
+            "libggml-base.0.dylib",  # Base GGML library
+            "libggml-blas.0.dylib",  # BLAS support
+            "libggml-cpu.0.dylib",  # CPU support
+            "libggml-metal.0.dylib",  # Metal GPU support
+            "libggml-rpc.0.dylib",  # RPC support
+            "libggml.0.dylib",  # Core GGML library
+            "libllama.0.dylib",  # Main llama library (REQUIRED)
         ]
 
         # Download llama.cpp binaries for Apple Silicon (ARM64 with Metal)
