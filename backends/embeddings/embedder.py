@@ -60,8 +60,6 @@ class Embedder:
         app: FastAPIApp,
         embed_model: str = None,
         cache_path: str = None,
-        n_ctx: int = 2048,
-        n_batch: int = None,
     ):
         self.app = app
         self.cache = cache_path or EMBEDDING_MODEL_CACHE_PATH
