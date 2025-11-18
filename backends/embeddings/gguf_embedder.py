@@ -152,7 +152,7 @@ class GGUFEmbedder(BaseEmbedding):
             )
 
             print(
-                f"{LOG_PREFIX} Command completed successfully:\n{result}",
+                f"{LOG_PREFIX} Command completed successfully.",
                 flush=True,
             )
 
