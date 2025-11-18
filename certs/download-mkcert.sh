@@ -14,7 +14,7 @@ mkdir -p "$BUNDLED_DIR"
 # SHA256 checksums for mkcert v1.4.4
 declare -A CHECKSUMS
 CHECKSUMS["mkcert-darwin-arm64"]="c8af0df44bce04359794dad8ea28d750437411d632748049d08644ffb66a60c6"
-CHECKSUMS["mkcert-darwin-amd64"]="c2aa82c14313e1ada48f62e5a9c99caab19264ac3f7e94e84b28bb99ae0c4bbe"
+CHECKSUMS["mkcert-darwin-amd64"]="a32dfab51f1845d51e810db8e47dcf0e6b51ae3422426514bf5a2b8302e97d4e"
 CHECKSUMS["mkcert-windows-amd64.exe"]="6fb0ff2b45db27a23afb6c04e04bf689cf3e0a95d0d734e5c0c4ea2e6e8e89e6"
 CHECKSUMS["mkcert-linux-amd64"]="3f8b47e64d9e28c4fd1c54eac6afe12f4379e817ecb06597bb55e45c7eb2ec87"
 
