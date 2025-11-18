@@ -43,18 +43,14 @@ def create_memory_collection(
         embedder = Embedder(
             app=app,
             embed_model=form.embeddingModel,
-            n_ctx=form.n_ctx,
-            n_batch=form.n_batch,
         )
         metadata = {
             "icon": form.icon or "",
             "created_at": datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S"),
             "tags": parsed_tags,
             "description": form.description,
-            "sources": json.dumps([]),
+            "sources": json.dumps([]),  # @TODO need to add the sources
             "embedding_model": embedder.embed_model_name,
-            "n_ctx": form.n_ctx,
-            "n_batch": form.n_batch,
         }
         vector_storage = Vector_Storage(app=app)
         vector_storage.db_client.create_collection(
@@ -95,13 +91,9 @@ async def create_memory(
         vector_storage = Vector_Storage(app=app)
         collection = vector_storage.get_collection(name=collection_name)
         embed_model = collection.metadata.get("embedding_model")
-        n_ctx = collection.metadata.get("n_ctx")
-        n_batch = collection.metadata.get("n_batch")
         embedder = Embedder(
             app=app,
             embed_model=embed_model,
-            n_ctx=n_ctx,
-            n_batch=n_batch,
         )
         vector_storage = Vector_Storage(app=app, embed_model=embedder.embed_model)
         tmp_input_file_path = await embedder.modify_document(
@@ -149,13 +141,9 @@ async def update_memory(
         vector_storage = Vector_Storage(app=app)
         collection = vector_storage.get_collection(name=collection_name)
         embed_model = collection.metadata.get("embedding_model")
-        n_ctx = collection.metadata.get("n_ctx")
-        n_batch = collection.metadata.get("n_batch")
         embedder = Embedder(
             app=app,
             embed_model=embed_model,
-            n_ctx=n_ctx,
-            n_batch=n_batch,
         )
         vector_storage = Vector_Storage(app=app, embed_model=embedder.embed_model)
         tmp_input_file_path = await embedder.modify_document(

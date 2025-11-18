@@ -71,17 +71,10 @@ class Embedder:
         if self.is_gguf:
             # For GGUF models, we need to find the model file path
             model_path = self._find_gguf_model_path()
-            # Ensure n_batch >= n_ctx to avoid assertion failure
-            # When n_ctx=0 or None, use model defaults (don't force n_batch)
-            if n_ctx and n_ctx > 0:
-                if n_batch is None or n_batch < n_ctx:
-                    n_batch = n_ctx
             self.embed_model = GGUFEmbedder(
                 app=app,
                 model_path=model_path,
                 embed_model=self.embed_model_name,
-                n_ctx=n_ctx,
-                n_batch=n_batch,
             )
             print(
                 f"{common.PRNT_EMBED} Using GGUF embedder with model: {self.embed_model_name}",
@@ -92,7 +85,7 @@ class Embedder:
             self.embed_model = HuggingFaceEmbedding(
                 self.embed_model_name,
                 cache_folder=self.cache,
-                trust_remote_code=True,
+                # trust_remote_code=True,
             )
             print(
                 f"{common.PRNT_EMBED} Using HuggingFace embedder with model: {self.embed_model_name}",
