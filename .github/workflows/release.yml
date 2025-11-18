@@ -104,7 +104,7 @@ jobs:
       - name: Download mkcert binaries
         shell: bash
         run: |
-          bash scripts/download-mkcert.sh
+          bash certs/download-mkcert.sh
           echo "mkcert binaries downloaded:"
           ls -lh certs/mkcert-*
 
