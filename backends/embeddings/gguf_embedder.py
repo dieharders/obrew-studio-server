@@ -12,22 +12,18 @@ LOG_PREFIX = "[GGUF-EMBEDDER]"
 
 
 class GGUFEmbedder(BaseEmbedding):
-    """Handle GGUF embedding models using llama-embedding binary."""
+    """Handle GGUF embedding models using llama-cli binary."""
 
     # Use PrivateAttr for attributes not part of the pydantic model
     _app: Any = PrivateAttr()
     _model_path: str = PrivateAttr()
     _binary_path: str = PrivateAttr()
-    _n_ctx: int = PrivateAttr()
-    _n_batch: int = PrivateAttr()
 
     def __init__(
         self,
         app: FastAPIApp,
         model_path: str = None,
         embed_model: str = None,
-        n_ctx: int = 2048,
-        n_batch: int = None,
         **kwargs: Any,
     ):
         # Initialize BaseEmbedding
@@ -35,13 +31,6 @@ class GGUFEmbedder(BaseEmbedding):
 
         self._app = app
         self._model_path = model_path
-        self._n_ctx = n_ctx if n_ctx else 0
-        # Ensure n_batch >= n_ctx to avoid assertion failure
-        # When n_ctx is 0 or None, also set n_batch to 0 (use model defaults)
-        if n_ctx and n_ctx > 0:
-            self._n_batch = n_batch if n_batch and n_batch >= n_ctx else n_ctx
-        else:
-            self._n_batch = 0
 
         # Get path to llama-embedding binary
         deps_path = common.dep_path()
@@ -58,15 +47,6 @@ class GGUFEmbedder(BaseEmbedding):
         print(f"{LOG_PREFIX} Initialized with model: {self.model_name}", flush=True)
         print(f"{LOG_PREFIX} Binary path: {self._binary_path}", flush=True)
         print(f"{LOG_PREFIX} Model path: {self._model_path}", flush=True)
-        if self._n_ctx > 0:
-            print(
-                f"{LOG_PREFIX} Context size: {self._n_ctx}, Batch size: {self._n_batch}",
-                flush=True,
-            )
-        else:
-            print(
-                f"{LOG_PREFIX} Using model's default context and batch size", flush=True
-            )
 
     @classmethod
     def class_name(cls) -> str:
@@ -130,28 +110,22 @@ class GGUFEmbedder(BaseEmbedding):
             temp_file.close()
 
             # Build command
-            # Format: ./llama-embedding -m model.gguf -f temp_file.txt
+            # Format: ./llama-embedding -m /embed_models/models--nomic-ai--nomic-embed-text-v1.5-GGUF/snapshots/0188c9bf409793f810680a5a431e7b899c46104c/nomic-embed-text-v1.5.Q8_0.gguf -p 'Hello World!' --pooling mean --n-gpu-layers 99 --embd-output-format array --embd-normalize 2
             # Note: batch-size must be >= ctx-size to avoid assertion failure
             cmd = [
                 self._binary_path,
                 "-m",
                 self._model_path,
+                # "-p",
+                # "Hello World!",
                 "-f",
                 temp_file.name,  # Use file instead of -p for better handling of special chars
             ]
+            cmd.extend(["--pooling", "mean"])
+            cmd.extend(["--n-gpu-layers", "99"])
 
-            # Only add context and batch size if they are specified (> 0)
-            # When 0, let llama-embedding use the model's default context length
-            if self._n_ctx and self._n_ctx > 0:
-                cmd.extend(["-c", str(self._n_ctx)])
-                # Also set batch size to match context to avoid assertion failure
-                if self._n_batch and self._n_batch > 0:
-                    cmd.extend(["-b", str(self._n_batch)])
-                else:
-                    cmd.extend(["-b", str(self._n_ctx)])
-
-            # Optionally disable verbose logging
-            cmd.append("--log-disable")
+            # Set output format to JSON array for easy parsing
+            cmd.extend(["--embd-output-format", "array"])
 
             # Add normalization parameter with proper value
             # -1=none, 0=max absolute, 2=L2 norm (default)
@@ -160,8 +134,12 @@ class GGUFEmbedder(BaseEmbedding):
             else:
                 cmd.extend(["--embd-normalize", "-1"])
 
+            # NOTE: Do NOT use --log-disable as it suppresses the embedding output!
+            # Performance stats go to stderr, so they don't interfere with stdout parsing
+
             print(
-                f"{LOG_PREFIX} Running embedding command: {' '.join(cmd)}", flush=True
+                f"{LOG_PREFIX} Running GGUF embedding command: {' '.join(cmd)}",
+                flush=True,
             )
 
             # Run the command
@@ -173,22 +151,23 @@ class GGUFEmbedder(BaseEmbedding):
                 timeout=60,  # 60 second timeout
             )
 
-            print(f"{LOG_PREFIX} Command completed successfully", flush=True)
+            print(
+                f"{LOG_PREFIX} Command completed successfully:\n{result}",
+                flush=True,
+            )
 
             # Parse output
-            # llama-embedding outputs embeddings as JSON array on stdout
+            # With --embd-output-format array, we get: [[embedding_vector]]
+            # Performance stats go to stderr, so stdout contains only the JSON array
             output = result.stdout.strip()
 
-            # The output format is typically: embedding <array>
-            # We need to extract just the array part
-            if "embedding" in output:
-                # Find the JSON array in the output
-                start_idx = output.find("[")
-                end_idx = output.rfind("]") + 1
+            try:
+                # Parse JSON array directly from stdout
+                result_array = json.loads(output)
 
-                if start_idx >= 0 and end_idx > start_idx:
-                    json_str = output[start_idx:end_idx]
-                    embeddings = json.loads(json_str)
+                # The format is [[embedding]], so we need the first (and only) element
+                if isinstance(result_array, list) and len(result_array) > 0:
+                    embeddings = result_array[0]  # Get first embedding from array
 
                     if isinstance(embeddings, list) and len(embeddings) > 0:
                         print(
@@ -196,20 +175,19 @@ class GGUFEmbedder(BaseEmbedding):
                             flush=True,
                         )
                         return embeddings
-
-            # Fallback: try to parse entire output as JSON
-            try:
-                embeddings = json.loads(output)
-                if isinstance(embeddings, list):
-                    print(
-                        f"{LOG_PREFIX} Generated embedding with {len(embeddings)} dimensions",
-                        flush=True,
+                    else:
+                        raise ValueError(
+                            f"Invalid embedding format: expected list of floats, got {type(embeddings)}"
+                        )
+                else:
+                    raise ValueError(
+                        f"Invalid output format: expected non-empty array, got {type(result_array)}"
                     )
-                    return embeddings
-            except json.JSONDecodeError:
-                pass
 
-            raise ValueError(f"Failed to parse embedding output: {output[:100]}...")
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"Failed to parse JSON output: {e}. Extracted JSON: {output[:200]}"
+                )
 
         except subprocess.TimeoutExpired:
             raise TimeoutError(
