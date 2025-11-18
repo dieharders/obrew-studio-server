@@ -70,7 +70,7 @@ class CertificateManager:
                     # We need to go up 2 levels to reach project root
                     base_dir = Path(__file__).parent.parent.parent
 
-                script_path = base_dir / "cmake" / "install_certificates_macos.sh"
+                script_path = base_dir / "certs" / "install_certificates_macos.sh"
 
                 if not script_path.exists():
                     print(

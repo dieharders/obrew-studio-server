@@ -17,7 +17,7 @@ set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The tool for building personal Ai agents"
 set(CPACK_PACKAGE_FILE_NAME "Obrew-Studio.WIN.Setup")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
-set(CPACK_POST_INSTALL_SCRIPT "${CMAKE_SOURCE_DIR}/cmake/download_and_extract.cmake")
+set(CPACK_POST_INSTALL_SCRIPT "${CMAKE_SOURCE_DIR}/certs/download_and_extract.cmake")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "Obrew-Studio")
 # Specify the output directory for the package
 set(CPACK_OUTPUT_FILE_PREFIX "${CMAKE_SOURCE_DIR}/output")

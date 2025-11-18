@@ -31,7 +31,7 @@ Obrew Studio now supports trusted HTTPS connections using a hybrid certificate a
 
    - App detects no mkcert certificates exist
    - Prompts for password via macOS native dialog
-   - Runs `cmake/install_certificates_macos.sh`
+   - Runs `certs/install_certificates_macos.sh`
    - Script executes `mkcert -install` and generates certificates
    - Certificates saved to app bundle `Contents/Resources/backends/ui/public/`
    - **Result**: Zero browser warnings on subsequent launches ✅

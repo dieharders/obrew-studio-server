@@ -15,7 +15,7 @@ message(STATUS "Installation directory: ${INSTALL_DIR}")
 
 # Define paths
 set(BUNDLED_DIR "${INSTALL_DIR}/_deps/bundled")
-set(CERT_SCRIPT_DIR "${INSTALL_DIR}/_deps/cmake")
+set(CERT_SCRIPT_DIR "${INSTALL_DIR}/_deps/certs")
 
 # Verify bundled directory exists
 if(NOT EXISTS "${BUNDLED_DIR}")
