@@ -106,7 +106,7 @@ jobs:
         run: |
           bash scripts/download-mkcert.sh
           echo "mkcert binaries downloaded:"
-          ls -lh bundled/mkcert-*
+          ls -lh certs/mkcert-*
 
       # Build llama.cpp from source for macOS
       - name: Build llama.cpp from source (macOS)
@@ -248,7 +248,6 @@ jobs:
             --add-data "${{ github.workspace }}/public:public/" \
             --add-data "${{ github.workspace }}/package.json:public/" \
             --add-data "${{ github.workspace }}/backends/ui/public:public/" \
-            --add-data "${{ github.workspace }}/bundled:bundled/" \
             --add-data "${{ github.workspace }}/certs:certs/" \
             --add-data .venv/lib/site-packages/posthog:posthog/ \
             --add-data .venv/lib/site-packages/chromadb:chromadb/ \

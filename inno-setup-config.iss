@@ -50,8 +50,8 @@ Name: "{userdesktop}\{#MyAppName}-headless"; Filename: "{app}\{#MyAppExeName}"; 
 
 [Run]
 ; Install trusted SSL certificates using mkcert (requires admin privileges)
-Filename: "{app}\_deps\bundled\mkcert-windows-amd64.exe"; Parameters: "-install"; StatusMsg: "Installing SSL certificate authority..."; Flags: runhidden
-Filename: "{app}\_deps\bundled\mkcert-windows-amd64.exe"; Parameters: "-cert-file ""{app}\_deps\backends\ui\public\cert.pem"" -key-file ""{app}\_deps\backends\ui\public\key.pem"" localhost 127.0.0.1 ::1"; StatusMsg: "Generating localhost certificates..."; Flags: runhidden
+Filename: "{app}\_deps\certs\mkcert-windows-amd64.exe"; Parameters: "-install"; StatusMsg: "Installing SSL certificate authority..."; Flags: runhidden
+Filename: "{app}\_deps\certs\mkcert-windows-amd64.exe"; Parameters: "-cert-file ""{app}\_deps\backends\ui\public\cert.pem"" -key-file ""{app}\_deps\backends\ui\public\key.pem"" localhost 127.0.0.1 ::1"; StatusMsg: "Generating localhost certificates..."; Flags: runhidden
 ; Launch application after installation
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 

@@ -5,10 +5,10 @@
 set -e
 
 MKCERT_VERSION="v1.4.4"
-BUNDLED_DIR="bundled"
+BUNDLED_DIR="certs"
 BASE_URL="https://github.com/FiloSottile/mkcert/releases/download/${MKCERT_VERSION}"
 
-# Create bundled directory if it doesn't exist
+# Create certs directory if it doesn't exist
 mkdir -p "$BUNDLED_DIR"
 
 # SHA256 checksums for mkcert v1.4.4

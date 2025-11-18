@@ -13,7 +13,7 @@ APP_PATH="$INSTALL_DIR/Obrew-Studio.app/Contents/MacOS"
 DEPS_DIR="$APP_PATH/_deps"
 
 # Paths to mkcert and certificate directory
-MKCERT_BIN="$DEPS_DIR/bundled/mkcert-darwin-$(uname -m)"
+MKCERT_BIN="$DEPS_DIR/certs/mkcert-darwin-$(uname -m)"
 CERT_DIR="$DEPS_DIR/backends/ui/public"
 
 # Validate installation directory
@@ -26,9 +26,9 @@ fi
 if [ ! -f "$MKCERT_BIN" ]; then
     # Try alternative architecture
     if [ "$(uname -m)" = "arm64" ]; then
-        MKCERT_BIN="$DEPS_DIR/bundled/mkcert-darwin-amd64"
+        MKCERT_BIN="$DEPS_DIR/certs/mkcert-darwin-amd64"
     else
-        MKCERT_BIN="$DEPS_DIR/bundled/mkcert-darwin-arm64"
+        MKCERT_BIN="$DEPS_DIR/certs/mkcert-darwin-arm64"
     fi
 
     if [ ! -f "$MKCERT_BIN" ]; then
