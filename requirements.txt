@@ -26,11 +26,11 @@ pywebview==5.3.2
 # For retrieving embeddings
 llama-index==0.10.29
 llama-index-vector-stores-chroma==0.1.8
-llama-index-embeddings-huggingface==0.2.0
+llama-index-embeddings-huggingface==0.2.0 # dont need if using GGUF Embedder
 llama-parse==0.4.9
 # For embeddings creation and storage
 chromadb==0.5.0
-sentence-transformers==2.6.1
+sentence-transformers==2.6.1 # dont need if using GGUF Embedder
 # For building single exe python
 pyinstaller==6.11.1
 python-multipart==0.0.18

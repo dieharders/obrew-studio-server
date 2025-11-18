@@ -246,6 +246,9 @@ class AddCollectionRequest(BaseModel):
     tags: Optional[str] = ""
     icon: Optional[str] = ""
     embeddingModel: Optional[str] = None
+    # Pass to change embedding model settings
+    n_ctx: Optional[int] = None  # not currently used
+    n_batch: Optional[int] = None  # not currently used
 
 
 class AddCollectionResponse(BaseModel):

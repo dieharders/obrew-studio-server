@@ -76,35 +76,57 @@ class Agent:
             # Choose a tool to use, then execute it
             else:
                 # Always use the first tool if only one is assigned
-                if len(self.tools) == 1:
-                    chosen_tool_name = self.tools[0]
-                # Use Universal tool calling
-                else:
+                if len(assigned_tool_defs) == 1:
+                    assigned_tool = assigned_tool_defs[0]
+                    print(
+                        f"{common.PRNT_API} Single tool assigned, using: {assigned_tool.get('name')}",
+                        flush=True,
+                    )
+                # Use Universal tool calling to choose from multiple tools
+                elif len(assigned_tool_defs) > 1:
                     # Choose a tool explicitly or implicitly specified in the user query
                     chosen_tool_name = await tool.choose_tool_from_description(
                         llm=self.llm,
                         query_prompt=prompt,
                         assigned_tools=assigned_tool_defs,
                     )
-                # Get the function associated with the chosen tool name
-                assigned_tool = next(
-                    (
-                        item
-                        for item in assigned_tool_defs
-                        if item["name"] == chosen_tool_name
-                    ),
-                    None,
-                )
-                # Execute the tool. For now tool use is limited to one chosen tool.
-                # @TODO In future we could have MultiTool(tools=tools) which can execute multiple chained tools.
-                tool_call_result = await tool.universal_call(
-                    llm=self.llm,
-                    tool_def=assigned_tool,
-                    query=prompt,
-                    prompt_template=prompt_template,
-                    system_message=system_message,
-                    collections=collections,
-                )
+                    # Get the function associated with the chosen tool name
+                    assigned_tool = next(
+                        (
+                            item
+                            for item in assigned_tool_defs
+                            if item["name"] == chosen_tool_name
+                        ),
+                        None,
+                    )
+                    if not assigned_tool:
+                        print(
+                            f"{common.PRNT_API} Warning: No matching tool found for chosen tool name: {chosen_tool_name}",
+                            flush=True,
+                        )
+                else:
+                    # No valid tool definitions found
+                    assigned_tool = None
+                    print(
+                        f"{common.PRNT_API} Error: No valid tool definitions found for tools: {self.tools}",
+                        flush=True,
+                    )
+
+                # Execute the tool if one was successfully assigned
+                if assigned_tool:
+                    # Execute the tool. For now tool use is limited to one chosen tool.
+                    # @TODO In future we could have MultiTool(tools=tools) which can execute multiple chained tools.
+                    tool_call_result = await tool.universal_call(
+                        llm=self.llm,
+                        tool_def=assigned_tool,
+                        query=prompt,
+                        prompt_template=prompt_template,
+                        system_message=system_message,
+                        collections=collections,
+                    )
+                else:
+                    # Set tool_call_result to None to trigger error handling below
+                    tool_call_result = None
             print(
                 f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4) if tool_call_result else 'None'}"
             )

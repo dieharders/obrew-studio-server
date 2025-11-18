@@ -104,12 +104,12 @@ async def main(**kwargs: Params) -> str:
     if not query:
         print(f"{common.PRNT_RAG} Warning: query does not exist.", flush=True)
     similarity_top_k = kwargs.get("similarity_top_k")
+    strategy = kwargs.get("strategy")
     collection_names = kwargs.get("memories", [])
     if len(collection_names) == 0:
         raise Exception(
             "Retrieval Tool: Please provide collection names for memory retrieval."
         )
-    strategy = kwargs.get("strategy")
 
     # Setup embedding llm
     vector_storage = Vector_Storage(app=app)
@@ -142,6 +142,7 @@ async def main(**kwargs: Params) -> str:
         embedder = Embedder(app=app, embed_model=embed_model_name)
 
         # Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
+        # @TODO Perform the different "strategies" done by llama-index (tree-summarize, etc)
         match strategy:
             case RESPONSE_SYNTHESIS_MODES.CONTEXT_ONLY.value:
                 retriever = SimpleRAG(
@@ -161,7 +162,7 @@ async def main(**kwargs: Params) -> str:
             question=query or "",
             # system_message=system_message, # overridden internally
             # template=template, # overridden internally
-            top_k=similarity_top_k,
+            top_k=similarity_top_k or 5,
         )
         answer = result.get("text")
         cumulative_answer += f"\n\n{answer}"
