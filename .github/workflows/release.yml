@@ -337,29 +337,10 @@ jobs:
 
   # Assumes you created a git tag already
   create_release:
-    name: Create GitHub Release
+    name: Create GitHub Release and Upload Assets
     needs: [build]
     runs-on: ubuntu-latest
     if: ${{ success() }}
-    outputs:
-      release_upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-      - name: Create a release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.event.inputs.ref || github.ref_name }}
-          release_name: ${{ github.event.inputs.release_name }}
-          body: ${{ github.event.inputs.release_notes }}
-          draft: ${{ github.event.inputs.release_type == 'draft' }} # not visible to the public
-          prerelease: ${{ github.event.inputs.release_type == 'private' }} # visible only to collaborators
-
-  upload_assets:
-    name: Upload Assets to Release
-    needs: [build, create_release]
-    runs-on: ubuntu-latest
     steps:
       - name: Download Windows artifact
         if: always()
@@ -375,24 +356,24 @@ jobs:
           name: macos-latest-artifact
           path: ./artifacts/macos
 
-      - name: Upload Windows asset archive
-        if: always()
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create_release.outputs.release_upload_url }}
-          asset_path: ./artifacts/windows/windows-latest-artifacts.zip # file location
-          asset_name: Obrew-Studio.WIN.Setup.zip # display name on release page (not file name)
-          asset_content_type: application/zip
+      - name: Rename artifacts
+        shell: bash
+        run: |
+          mv ./artifacts/windows/windows-latest-artifacts.zip ./artifacts/Obrew-Studio.WIN.Setup.zip || true
+          mv ./artifacts/macos/macos-latest-artifacts.zip ./artifacts/Obrew-Studio.macOS.Setup.zip || true
 
-      - name: Upload macOS asset archive
-        if: always()
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create release and upload assets
+        uses: ncipollo/release-action@v1
         with:
-          upload_url: ${{ needs.create_release.outputs.release_upload_url }}
-          asset_path: ./artifacts/macos/macos-latest-artifacts.zip # file location
-          asset_name: Obrew-Studio.macOS.Setup.zip # display name on release page (not file name)
-          asset_content_type: application/zip
+          tag: ${{ github.event.inputs.ref || github.ref_name }}
+          name: ${{ github.event.inputs.release_name }}
+          body: ${{ github.event.inputs.release_notes }}
+          draft: ${{ github.event.inputs.release_type == 'draft' }}
+          prerelease: ${{ github.event.inputs.release_type == 'private' }}
+          artifacts: |
+            ./artifacts/Obrew-Studio.WIN.Setup.zip
+            ./artifacts/Obrew-Studio.macOS.Setup.zip
+          artifactContentType: application/zip
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
+          artifactErrorsFailBuild: false
