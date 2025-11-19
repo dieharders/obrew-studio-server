@@ -242,13 +242,8 @@ jobs:
             HNSWLIB_BINARY="$SITE_PACKAGES/hnswlib.cpython-312-darwin.so"
           fi
           # Debug: Show the paths we're using
-          echo "RUNNER_OS: $RUNNER_OS"
-          echo "SITE_PACKAGES: $SITE_PACKAGES"
-          echo "HNSWLIB_BINARY: $HNSWLIB_BINARY"
           echo "Checking if paths exist:"
-          ls -la "$SITE_PACKAGES" | head -20
-          ls -la "$SITE_PACKAGES/posthog" || echo "posthog directory not found!"
-          ls -la "$SITE_PACKAGES/chromadb" || echo "chromadb directory not found!"
+          find "$SITE_PACKAGES" -maxdepth 1 | head -20
           # Convert to absolute paths
           ABS_SITE_PACKAGES="${{ github.workspace }}/$SITE_PACKAGES"
           ABS_HNSWLIB_BINARY="${{ github.workspace }}/$HNSWLIB_BINARY"
