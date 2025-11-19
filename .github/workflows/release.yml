@@ -217,23 +217,16 @@ jobs:
       - name: Build app
         shell: bash
         run: |
-          # Must activate env before each step
-          # `env.pythonLocation` should be used if no venv
-          # For Windows
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            .venv/Scripts/activate
-          # For Linux/macOS
-          else
-            source .venv/bin/activate
-          fi
           # PyInstaller will output to "build/Obrew-Studio" folder in root | --upx-dir C:/upx/upx-4.0.2-win64 \
           # Platform-specific paths handling
           if [ "$RUNNER_OS" == "Windows" ]; then
             SITE_PACKAGES=".venv/lib/site-packages"
             HNSWLIB_BINARY="$SITE_PACKAGES/hnswlib.cp312-win_amd64.pyd"
+            PYINSTALLER=".venv/Scripts/pyinstaller"
           else
             SITE_PACKAGES=".venv/lib/python3.12/site-packages"
             HNSWLIB_BINARY="$SITE_PACKAGES/hnswlib.cpython-312-darwin.so"
+            PYINSTALLER=".venv/bin/pyinstaller"
           fi
           # Debug: Show the paths we're using
           echo "Checking if paths exist:"
@@ -244,7 +237,7 @@ jobs:
           echo "Absolute paths:"
           echo "ABS_SITE_PACKAGES: $ABS_SITE_PACKAGES"
           echo "ABS_HNSWLIB_BINARY: $ABS_HNSWLIB_BINARY"
-          pyinstaller --noconfirm --clean --onedir --windowed \
+          $PYINSTALLER --noconfirm --clean --onedir --windowed \
             --log-level DEBUG \
             --contents-directory _deps \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
