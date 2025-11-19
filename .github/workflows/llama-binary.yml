@@ -167,50 +167,50 @@ jobs:
           New-Item -ItemType Directory -Force -Path "llama-output"
 
           # Debug: Check what directories exist
-          Write-Host "🔍 Checking build directory structure..."
+          Write-Host "[DEBUG] Checking build directory structure..."
           if (Test-Path "llama-cpp-build\build\bin") {
-            Write-Host "✅ Found llama-cpp-build\build\bin"
+            Write-Host "[OK] Found llama-cpp-build\build\bin"
             Get-ChildItem "llama-cpp-build\build\bin" -Directory | ForEach-Object {
-              Write-Host "  📁 $($_.Name)"
+              Write-Host "  [DIR] $($_.Name)"
             }
           } else {
-            Write-Host "❌ llama-cpp-build\build\bin does not exist"
+            Write-Host "[ERROR] llama-cpp-build\build\bin does not exist"
           }
 
           # Copy ALL files from build/bin/Release directory (executables, DLLs, etc.)
-          Write-Host "📋 Copying all files from build/bin/Release..."
+          Write-Host "[INFO] Copying all files from build/bin/Release..."
           if (Test-Path "llama-cpp-build\build\bin\Release") {
             $files = Get-ChildItem "llama-cpp-build\build\bin\Release" -File
             if ($files.Count -eq 0) {
-              Write-Host "⚠️ No files found in llama-cpp-build\build\bin\Release"
+              Write-Host "[WARNING] No files found in llama-cpp-build\build\bin\Release"
             } else {
               $files | ForEach-Object {
                 Copy-Item $_.FullName "llama-output" -ErrorAction Stop
-                Write-Host "  ✅ Copied: $($_.Name)"
+                Write-Host "  [OK] Copied: $($_.Name)"
               }
             }
           } else {
-            Write-Host "❌ Directory llama-cpp-build\build\bin\Release does not exist!"
+            Write-Host "[ERROR] Directory llama-cpp-build\build\bin\Release does not exist!"
             exit 1
           }
 
           # Copy CUDA runtime DLLs
-          Write-Host "📋 Copying CUDA runtime DLLs..."
+          Write-Host "[INFO] Copying CUDA runtime DLLs..."
           $cudaPath = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin"
           if (Test-Path $cudaPath) {
             Copy-Item "$cudaPath\cublas64_12.dll" "llama-output" -ErrorAction Continue
             Copy-Item "$cudaPath\cublasLt64_12.dll" "llama-output" -ErrorAction Continue
             Copy-Item "$cudaPath\cudart64_12.dll" "llama-output" -ErrorAction Continue
-            Write-Host "  ✅ Copied CUDA runtime DLLs"
+            Write-Host "  [OK] Copied CUDA runtime DLLs"
           } else {
-            Write-Host "⚠️ CUDA path not found at $cudaPath"
+            Write-Host "[WARNING] CUDA path not found at $cudaPath"
           }
 
           # List compiled files
-          Write-Host "📦 Compiled llama.cpp files:"
+          Write-Host "[INFO] Compiled llama.cpp files:"
           $outputFiles = Get-ChildItem "llama-output"
           if ($outputFiles.Count -eq 0) {
-            Write-Host "❌ ERROR: No files in llama-output directory!"
+            Write-Host "[ERROR] No files in llama-output directory!"
             exit 1
           }
           $outputFiles | Format-Table Name, Length
@@ -220,10 +220,10 @@ jobs:
         run: |
           # Verify llama-output has files before compressing
           $fileCount = (Get-ChildItem "llama-output" -File).Count
-          Write-Host "📊 Files to compress: $fileCount"
+          Write-Host "[INFO] Files to compress: $fileCount"
 
           if ($fileCount -eq 0) {
-            Write-Host "❌ ERROR: llama-output is empty, cannot create archive"
+            Write-Host "[ERROR] llama-output is empty, cannot create archive"
             exit 1
           }
 
@@ -232,9 +232,9 @@ jobs:
           # Verify zip was created
           if (Test-Path "llama-windows-cuda.zip") {
             $zipSize = (Get-Item "llama-windows-cuda.zip").Length / 1MB
-            Write-Host "✅ Created llama-windows-cuda.zip ($([math]::Round($zipSize, 2)) MB)"
+            Write-Host "[OK] Created llama-windows-cuda.zip ($([math]::Round($zipSize, 2)) MB)"
           } else {
-            Write-Host "❌ ERROR: Failed to create llama-windows-cuda.zip"
+            Write-Host "[ERROR] Failed to create llama-windows-cuda.zip"
             exit 1
           }
 
@@ -300,38 +300,38 @@ jobs:
           New-Item -ItemType Directory -Force -Path "llama-output"
 
           # Debug: Check what directories exist
-          Write-Host "🔍 Checking build directory structure..."
+          Write-Host "[DEBUG] Checking build directory structure..."
           if (Test-Path "llama-cpp-build\build\bin") {
-            Write-Host "✅ Found llama-cpp-build\build\bin"
+            Write-Host "[OK] Found llama-cpp-build\build\bin"
             Get-ChildItem "llama-cpp-build\build\bin" -Directory | ForEach-Object {
-              Write-Host "  📁 $($_.Name)"
+              Write-Host "  [DIR] $($_.Name)"
             }
           } else {
-            Write-Host "❌ llama-cpp-build\build\bin does not exist"
+            Write-Host "[ERROR] llama-cpp-build\build\bin does not exist"
           }
 
           # Copy ALL files from build/bin/Release directory (executables, DLLs, etc.)
-          Write-Host "📋 Copying all files from build/bin/Release..."
+          Write-Host "[INFO] Copying all files from build/bin/Release..."
           if (Test-Path "llama-cpp-build\build\bin\Release") {
             $files = Get-ChildItem "llama-cpp-build\build\bin\Release" -File
             if ($files.Count -eq 0) {
-              Write-Host "⚠️ No files found in llama-cpp-build\build\bin\Release"
+              Write-Host "[WARNING] No files found in llama-cpp-build\build\bin\Release"
             } else {
               $files | ForEach-Object {
                 Copy-Item $_.FullName "llama-output" -ErrorAction Stop
-                Write-Host "  ✅ Copied: $($_.Name)"
+                Write-Host "  [OK] Copied: $($_.Name)"
               }
             }
           } else {
-            Write-Host "❌ Directory llama-cpp-build\build\bin\Release does not exist!"
+            Write-Host "[ERROR] Directory llama-cpp-build\build\bin\Release does not exist!"
             exit 1
           }
 
           # List compiled files
-          Write-Host "📦 Compiled llama.cpp files:"
+          Write-Host "[INFO] Compiled llama.cpp files:"
           $outputFiles = Get-ChildItem "llama-output"
           if ($outputFiles.Count -eq 0) {
-            Write-Host "❌ ERROR: No files in llama-output directory!"
+            Write-Host "[ERROR] No files in llama-output directory!"
             exit 1
           }
           $outputFiles | Format-Table Name, Length
@@ -341,10 +341,10 @@ jobs:
         run: |
           # Verify llama-output has files before compressing
           $fileCount = (Get-ChildItem "llama-output" -File).Count
-          Write-Host "📊 Files to compress: $fileCount"
+          Write-Host "[INFO] Files to compress: $fileCount"
 
           if ($fileCount -eq 0) {
-            Write-Host "❌ ERROR: llama-output is empty, cannot create archive"
+            Write-Host "[ERROR] llama-output is empty, cannot create archive"
             exit 1
           }
 
@@ -353,9 +353,9 @@ jobs:
           # Verify zip was created
           if (Test-Path "llama-windows-cpu.zip") {
             $zipSize = (Get-Item "llama-windows-cpu.zip").Length / 1MB
-            Write-Host "✅ Created llama-windows-cpu.zip ($([math]::Round($zipSize, 2)) MB)"
+            Write-Host "[OK] Created llama-windows-cpu.zip ($([math]::Round($zipSize, 2)) MB)"
           } else {
-            Write-Host "❌ ERROR: Failed to create llama-windows-cpu.zip"
+            Write-Host "[ERROR] Failed to create llama-windows-cpu.zip"
             exit 1
           }
 
@@ -387,14 +387,14 @@ jobs:
           cat > build-summary.md << 'EOF'
           # llama.cpp Build Summary
 
-          ## 🚀 GPU-Accelerated Builds Available
+          ## GPU-Accelerated Builds Available
 
           ### macOS with Metal (Universal Binary)
           - **Universal Binary**: Runs natively on both Apple Silicon and Intel Macs
-          - ✅ Full Metal GPU acceleration for all Macs with Metal support
-          - ✅ Accelerate framework optimizations
-          - ✅ Embedded Metal shaders for easy distribution
-          - 🏗️ Architecture: arm64 + x86_64 (universal)
+          - Full Metal GPU acceleration for all Macs with Metal support
+          - Accelerate framework optimizations
+          - Embedded Metal shaders for easy distribution
+          - Architecture: arm64 + x86_64 (universal)
 
           ### Windows with CUDA
           - **NVIDIA GPUs**: Full CUDA acceleration
@@ -407,7 +407,7 @@ jobs:
           - For systems without NVIDIA GPUs
           - Multi-threaded performance
 
-          ## 📊 Performance Expectations
+          ## Performance Expectations
 
           | Configuration | 7B Model (Q4) | 13B Model (Q4) |
           |--------------|---------------|----------------|
@@ -418,21 +418,21 @@ jobs:
 
           *Actual performance varies by model, quantization, and context size
 
-          ## 🎯 Which Build to Choose?
+          ## Which Build to Choose?
 
           - **macOS users**: Use the universal Metal build (works on all Macs)
           - **Windows + NVIDIA GPU**: Use the CUDA build
           - **Windows + AMD/Intel GPU**: Use the CPU build
           - **No GPU**: Use the CPU build
 
-          ## 📥 Installation
+          ## Installation
 
           1. Download the appropriate ZIP file
           2. Extract to reveal the `_deps/servers/llama.cpp/` directory structure
           3. Copy the `_deps` folder to your project root or commit to your repository
           4. The binaries are now ready to use with your app!
 
-          ## 🔗 Resources
+          ## Resources
 
           - [llama.cpp GitHub](https://github.com/ggml-org/llama.cpp)
           - [GGUF Models on Hugging Face](https://huggingface.co/models?library=gguf&sort=trending)
