@@ -305,12 +305,34 @@ jobs:
             echo "macOS app bundle prepared"
           fi
           # Debug
+          echo "=== POST-BUILD DEBUGGING ==="
           echo "Workspace directory:"
           ls -al "${{ github.workspace }}"
+          echo ""
           echo "Build directory:"
           ls -al build/ 2>/dev/null || echo "No build directory"
-          echo "Dist directory:"
-          ls -al dist/
+          echo ""
+          echo "Dist directory contents:"
+          ls -la dist/
+          echo ""
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            echo "=== macOS App Bundle Verification ==="
+            if [ -d "dist/Obrew-Studio.app" ]; then
+              echo "✓ App bundle exists at dist/Obrew-Studio.app"
+              echo "App bundle structure:"
+              find dist/Obrew-Studio.app -maxdepth 3 -type f -o -type d | head -30
+              echo ""
+              echo "App bundle size:"
+              du -sh dist/Obrew-Studio.app
+              echo ""
+              echo "Info.plist contents:"
+              cat dist/Obrew-Studio.app/Contents/Info.plist 2>/dev/null || echo "No Info.plist found"
+            else
+              echo "✗ App bundle NOT found at dist/Obrew-Studio.app"
+              echo "Checking what files exist in dist/:"
+              find dist/ -type f | head -20
+            fi
+          fi
 
       # 7a. Package with Inno-Setup (Windows)
       - name: Create Installer (Inno-Setup)
@@ -341,6 +363,43 @@ jobs:
         shell: bash
         if: runner.os != 'Windows'
         run: cmake --build build_temp
+
+      - name: Debug - Verify app bundle before packaging
+        shell: bash
+        if: runner.os != 'Windows'
+        run: |
+          echo "=== DEBUGGING: Checking app bundle structure ==="
+          echo "Contents of dist directory:"
+          ls -la "${{ github.workspace }}/dist/"
+          echo ""
+          echo "Checking if app bundle exists:"
+          if [ -d "${{ github.workspace }}/dist/Obrew-Studio.app" ]; then
+            echo "✓ App bundle found at dist/Obrew-Studio.app"
+            echo ""
+            echo "App bundle top-level contents:"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/"
+            echo ""
+            echo "App bundle Contents directory:"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/" 2>/dev/null || echo "No Contents directory"
+            echo ""
+            echo "App bundle MacOS directory:"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/" 2>/dev/null || echo "No MacOS directory"
+            echo ""
+            echo "App bundle Resources directory:"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/" 2>/dev/null || echo "No Resources directory"
+            echo ""
+            echo "App bundle Info.plist:"
+            cat "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Info.plist" 2>/dev/null || echo "No Info.plist"
+            echo ""
+            echo "Total size of app bundle:"
+            du -sh "${{ github.workspace }}/dist/Obrew-Studio.app"
+          else
+            echo "✗ ERROR: App bundle NOT found at dist/Obrew-Studio.app"
+            echo "This will cause CPack to create an empty package!"
+          fi
+          echo ""
+          echo "CMAKE_SOURCE_DIR will be: ${{ github.workspace }}"
+          echo "CMake will look for: ${{ github.workspace }}/dist/Obrew-Studio.app"
 
       - name: Create Installer (CPack)
         shell: bash
