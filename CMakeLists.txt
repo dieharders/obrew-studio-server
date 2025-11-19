@@ -5,6 +5,7 @@ project(Obrew-Studio)
 # Copy pre-existing executable/app bundle to installation directory
 if(APPLE)
   # On macOS, PyInstaller creates an app bundle
+  # Install to Applications directory (CMAKE_INSTALL_PREFIX should be set to "/" via cmake config)
   install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist/Obrew-Studio.app" DESTINATION Applications USE_SOURCE_PERMISSIONS)
 elseif(WIN32)
   # On Windows, PyInstaller creates a directory with the executable and dependencies

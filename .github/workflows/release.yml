@@ -292,8 +292,8 @@ jobs:
           echo "Listing files in the GitHub workspace: ${{ github.workspace }}"
           echo "Checking dist directory for app bundle:"
           ls -la "${{ github.workspace }}/dist/" || echo "No dist directory yet"
-          # Configure CMake without overriding install prefix - let CMakeLists.txt handle it
-          cmake -S "${{ github.workspace }}" -B build_temp
+          # Configure CMake with install prefix set to root for macOS productbuild
+          cmake -S "${{ github.workspace }}" -B build_temp -DCMAKE_INSTALL_PREFIX="/"
 
       - name: Build Project (CMake)
         shell: bash
