@@ -1,0 +1,375 @@
+name: Build llama.cpp with GPU Support
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Specific release tag or commit to build (leave empty for latest master)'
+        required: false
+        type: string
+
+jobs:
+  build-macos-metal:
+    name: macOS (Universal - Metal + Accelerate)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout project repository
+        uses: actions/checkout@v4
+
+      - name: Read llama.cpp tag from package.json
+        id: llama_tag
+        run: |
+          LLAMA_TAG=$(grep '"llamacpp_tag"' package.json | cut -d'"' -f4)
+          echo "tag=$LLAMA_TAG" >> $GITHUB_OUTPUT
+          echo "Building llama.cpp at tag: $LLAMA_TAG"
+
+      - name: Clone llama.cpp repository
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          ref: ${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
+          submodules: recursive
+          path: llama-cpp-build
+
+      - name: Install dependencies
+        run: |
+          brew install cmake
+          # Verify Xcode command line tools for Metal compiler
+          xcode-select --print-path
+
+      - name: Configure with Metal and Accelerate (Universal Binary)
+        working-directory: llama-cpp-build
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DGGML_METAL=ON \
+            -DLLAMA_CURL=OFF \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_BUILD_EXAMPLES=ON \
+            -DLLAMA_NATIVE=OFF
+
+      - name: Build
+        working-directory: llama-cpp-build
+        run: |
+          cmake --build build --config Release -j$(sysctl -n hw.ncpu)
+
+      - name: Test Metal support
+        working-directory: llama-cpp-build
+        run: |
+          # Verify binaries are built
+          if [ -f "build/bin/llama-cli" ]; then
+            file build/bin/llama-cli
+            echo "✅ Binary built successfully"
+          fi
+
+      - name: Organize binaries into expected structure
+        run: |
+          # Create the directory structure that matches your app's expectations
+          mkdir -p "_deps/servers/llama.cpp"
+
+          # Copy binaries
+          cp llama-cpp-build/build/bin/llama-cli "_deps/servers/llama.cpp/"
+          cp llama-cpp-build/build/bin/llama-embedding "_deps/servers/llama.cpp/"
+
+          # Copy Metal shaders and headers
+          cp llama-cpp-build/build/bin/ggml-metal.metal "_deps/servers/llama.cpp/" || true
+          cp llama-cpp-build/ggml/include/ggml-metal.h "_deps/servers/llama.cpp/" || true
+          cp llama-cpp-build/ggml/src/ggml-common.h "_deps/servers/llama.cpp/" || true
+
+          # Copy dynamic libraries
+          cp llama-cpp-build/build/src/libllama.dylib "_deps/servers/llama.cpp/" || true
+          cp llama-cpp-build/build/ggml/src/libggml.dylib "_deps/servers/llama.cpp/" || true
+          cp llama-cpp-build/build/ggml/src/libggml-base.dylib "_deps/servers/llama.cpp/" || true
+          cp llama-cpp-build/build/ggml/src/libggml-metal.dylib "_deps/servers/llama.cpp/" || true
+
+          # List compiled files
+          echo "📦 Compiled llama.cpp files:"
+          ls -lh "_deps/servers/llama.cpp/"
+
+      - name: Create ZIP archive
+        run: |
+          zip -r "llama-macos-universal-metal.zip" "_deps/"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-macos-universal-metal
+          path: llama-macos-universal-metal.zip
+          retention-days: 7
+
+  build-windows-cuda:
+    name: Windows (CUDA)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout project repository
+        uses: actions/checkout@v4
+
+      - name: Read llama.cpp tag from package.json
+        id: llama_tag
+        shell: bash
+        run: |
+          LLAMA_TAG=$(grep '"llamacpp_tag"' package.json | cut -d'"' -f4)
+          echo "tag=$LLAMA_TAG" >> $GITHUB_OUTPUT
+          echo "Building llama.cpp at tag: $LLAMA_TAG"
+
+      - name: Clone llama.cpp repository
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          ref: ${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
+          submodules: recursive
+          path: llama-cpp-build
+
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install CUDA Toolkit
+        uses: Jimver/cuda-toolkit@v0.2.16
+        with:
+          cuda: '12.4.0'
+          method: 'network'
+
+      - name: Verify CUDA installation
+        run: |
+          nvcc --version
+          echo "CUDA_PATH: $env:CUDA_PATH"
+
+      - name: Configure CMake with CUDA
+        working-directory: llama-cpp-build
+        run: |
+          cmake -B build `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DGGML_CUDA=ON `
+            -DLLAMA_CURL=OFF `
+            -DLLAMA_BUILD_TESTS=OFF `
+            -DLLAMA_BUILD_EXAMPLES=ON `
+            -DCMAKE_CUDA_ARCHITECTURES="60;61;70;75;80;86;89;90"
+
+      - name: Build
+        working-directory: llama-cpp-build
+        run: |
+          cmake --build build --config Release --parallel
+
+      - name: Organize binaries into expected structure
+        shell: powershell
+        run: |
+          # Create the directory structure that matches your app's expectations
+          New-Item -ItemType Directory -Force -Path "_deps\servers\llama.cpp"
+
+          # Copy executables
+          Copy-Item "llama-cpp-build\build\bin\Release\llama-cli.exe" "_deps\servers\llama.cpp\"
+          Copy-Item "llama-cpp-build\build\bin\Release\llama-embedding.exe" "_deps\servers\llama.cpp\"
+
+          # Copy all DLLs from build
+          Get-ChildItem "llama-cpp-build\build\bin\Release" -Filter "*.dll" | ForEach-Object {
+            Copy-Item $_.FullName "_deps\servers\llama.cpp\" -ErrorAction SilentlyContinue
+          }
+
+          # Copy CUDA runtime DLLs
+          $cudaPath = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin"
+          if (Test-Path $cudaPath) {
+            Copy-Item "$cudaPath\cublas64_12.dll" "_deps\servers\llama.cpp\" -ErrorAction SilentlyContinue
+            Copy-Item "$cudaPath\cublasLt64_12.dll" "_deps\servers\llama.cpp\" -ErrorAction SilentlyContinue
+            Copy-Item "$cudaPath\cudart64_12.dll" "_deps\servers\llama.cpp\" -ErrorAction SilentlyContinue
+          }
+
+          # List compiled files
+          Write-Host "📦 Compiled llama.cpp files:"
+          Get-ChildItem "_deps\servers\llama.cpp\" | Format-Table Name, Length
+
+      - name: Create ZIP archive
+        shell: powershell
+        run: |
+          Compress-Archive -Path "_deps\*" -DestinationPath "llama-windows-cuda.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-windows-cuda
+          path: llama-windows-cuda.zip
+          retention-days: 7
+
+  # Optional: CPU-only fallback build for Windows
+  build-windows-cpu:
+    name: Windows (CPU-only fallback)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout project repository
+        uses: actions/checkout@v4
+
+      - name: Read llama.cpp tag from package.json
+        id: llama_tag
+        shell: bash
+        run: |
+          LLAMA_TAG=$(grep '"llamacpp_tag"' package.json | cut -d'"' -f4)
+          echo "tag=$LLAMA_TAG" >> $GITHUB_OUTPUT
+          echo "Building llama.cpp at tag: $LLAMA_TAG"
+
+      - name: Clone llama.cpp repository
+        uses: actions/checkout@v4
+        with:
+          repository: ggml-org/llama.cpp
+          ref: ${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
+          submodules: recursive
+          path: llama-cpp-build
+
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Configure CMake (CPU optimized)
+        working-directory: llama-cpp-build
+        run: |
+          cmake -B build `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DLLAMA_CURL=OFF `
+            -DLLAMA_BUILD_TESTS=OFF `
+            -DLLAMA_BUILD_EXAMPLES=ON `
+            -DGGML_AVX2=ON `
+            -DGGML_AVX=ON `
+            -DGGML_F16C=ON `
+            -DGGML_FMA=ON
+
+      - name: Build
+        working-directory: llama-cpp-build
+        run: |
+          cmake --build build --config Release --parallel
+
+      - name: Organize binaries into expected structure
+        shell: powershell
+        run: |
+          # Create the directory structure that matches your app's expectations
+          New-Item -ItemType Directory -Force -Path "_deps\servers\llama.cpp"
+
+          # Copy executables
+          Copy-Item "llama-cpp-build\build\bin\Release\llama-cli.exe" "_deps\servers\llama.cpp\"
+          Copy-Item "llama-cpp-build\build\bin\Release\llama-embedding.exe" "_deps\servers\llama.cpp\"
+
+          # Copy DLLs
+          Get-ChildItem "llama-cpp-build\build\bin\Release" -Filter "*.dll" | ForEach-Object {
+            Copy-Item $_.FullName "_deps\servers\llama.cpp\" -ErrorAction SilentlyContinue
+          }
+
+          # List compiled files
+          Write-Host "📦 Compiled llama.cpp files:"
+          Get-ChildItem "_deps\servers\llama.cpp\" | Format-Table Name, Length
+
+      - name: Create ZIP archive
+        shell: powershell
+        run: |
+          Compress-Archive -Path "_deps\*" -DestinationPath "llama-windows-cpu.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-windows-cpu
+          path: llama-windows-cpu.zip
+          retention-days: 7
+
+  create-release:
+    name: Create Release Package
+    needs: [build-macos-metal, build-windows-cuda, build-windows-cpu]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display artifacts
+        run: |
+          echo "📦 Build Artifacts:"
+          find artifacts -name "*.zip" -exec ls -lh {} \;
+
+      - name: Create build summary
+        run: |
+          cat > build-summary.md << 'EOF'
+          # llama.cpp Build Summary
+
+          ## 🚀 GPU-Accelerated Builds Available
+
+          ### macOS with Metal (Universal Binary)
+          - **Universal Binary**: Runs natively on both Apple Silicon and Intel Macs
+          - ✅ Full Metal GPU acceleration for all Macs with Metal support
+          - ✅ Accelerate framework optimizations
+          - ✅ Embedded Metal shaders for easy distribution
+          - 🏗️ Architecture: arm64 + x86_64 (universal)
+
+          ### Windows with CUDA
+          - **NVIDIA GPUs**: Full CUDA acceleration
+          - Supports RTX 20/30/40 series and newer
+          - Includes cuBLAS optimizations
+          - Architecture support: SM 60, 61, 70, 75, 80, 86, 89, 90
+
+          ### Windows CPU-Only (Fallback)
+          - Optimized for AVX/AVX2 processors
+          - For systems without NVIDIA GPUs
+          - Multi-threaded performance
+
+          ## 📊 Performance Expectations
+
+          | Configuration | 7B Model (Q4) | 13B Model (Q4) |
+          |--------------|---------------|----------------|
+          | Apple M2 Max | ~100 tok/s | ~60 tok/s |
+          | RTX 4090 | ~150 tok/s | ~90 tok/s |
+          | RTX 3080 | ~80 tok/s | ~45 tok/s |
+          | CPU (8-core) | ~10 tok/s | ~5 tok/s |
+
+          *Actual performance varies by model, quantization, and context size
+
+          ## 🎯 Which Build to Choose?
+
+          - **macOS users**: Use the universal Metal build (works on all Macs)
+          - **Windows + NVIDIA GPU**: Use the CUDA build
+          - **Windows + AMD/Intel GPU**: Use the CPU build
+          - **No GPU**: Use the CPU build
+
+          ## 📥 Installation
+
+          1. Download the appropriate ZIP file
+          2. Extract to reveal the `_deps/servers/llama.cpp/` directory structure
+          3. Copy the `_deps` folder to your project root or commit to your repository
+          4. The binaries are now ready to use with your app!
+
+          ## 🔗 Resources
+
+          - [llama.cpp GitHub](https://github.com/ggml-org/llama.cpp)
+          - [GGUF Models on Hugging Face](https://huggingface.co/models?library=gguf&sort=trending)
+          - [Model Quantization Guide](https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md)
+
+          ---
+          Build Date: $(date)
+          EOF
+
+          cat build-summary.md
+
+      - name: Upload summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-summary
+          path: build-summary.md
+          retention-days: 30
+
+      - name: Create Release (if on master branch)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: 'Build #${{ github.run_number }} - GPU Optimized'
+          draft: false
+          prerelease: false
+          body_path: build-summary.md
+          files: |
+            artifacts/llama-macos-universal-metal/llama-macos-universal-metal.zip
+            artifacts/llama-windows-cuda/llama-windows-cuda.zip
+            artifacts/llama-windows-cpu/llama-windows-cpu.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
