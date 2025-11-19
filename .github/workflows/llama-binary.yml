@@ -1,8 +1,6 @@
-name: Build llama.cpp with GPU Support
+name: Build llama.cpp (GPU)
 
 on:
-  push:
-    branches: [feature/HBAI-413]
   workflow_dispatch:
     inputs:
       release_tag:
@@ -164,25 +162,25 @@ jobs:
           New-Item -ItemType Directory -Force -Path "_deps\servers\llama.cpp"
 
           # Copy executables
-          Copy-Item "llama-cpp-build\build\bin\Release\llama-cli.exe" "_deps\servers\llama.cpp\"
-          Copy-Item "llama-cpp-build\build\bin\Release\llama-embedding.exe" "_deps\servers\llama.cpp\"
+          Copy-Item "llama-cpp-build\build\bin\Release\llama-cli.exe" "_deps\servers\llama.cpp"
+          Copy-Item "llama-cpp-build\build\bin\Release\llama-embedding.exe" "_deps\servers\llama.cpp"
 
           # Copy all DLLs from build
           Get-ChildItem "llama-cpp-build\build\bin\Release" -Filter "*.dll" | ForEach-Object {
-            Copy-Item $_.FullName "_deps\servers\llama.cpp\" -ErrorAction SilentlyContinue
+            Copy-Item $_.FullName "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
           }
 
           # Copy CUDA runtime DLLs
           $cudaPath = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin"
           if (Test-Path $cudaPath) {
-            Copy-Item "$cudaPath\cublas64_12.dll" "_deps\servers\llama.cpp\" -ErrorAction SilentlyContinue
-            Copy-Item "$cudaPath\cublasLt64_12.dll" "_deps\servers\llama.cpp\" -ErrorAction SilentlyContinue
-            Copy-Item "$cudaPath\cudart64_12.dll" "_deps\servers\llama.cpp\" -ErrorAction SilentlyContinue
+            Copy-Item "$cudaPath\cublas64_12.dll" "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
+            Copy-Item "$cudaPath\cublasLt64_12.dll" "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
+            Copy-Item "$cudaPath\cudart64_12.dll" "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
           }
 
           # List compiled files
           Write-Host "📦 Compiled llama.cpp files:"
-          Get-ChildItem "_deps\servers\llama.cpp\" | Format-Table Name, Length
+          Get-ChildItem "_deps\servers\llama.cpp" | Format-Table Name, Length
 
       - name: Create ZIP archive
         shell: powershell
@@ -251,17 +249,17 @@ jobs:
           New-Item -ItemType Directory -Force -Path "_deps\servers\llama.cpp"
 
           # Copy executables
-          Copy-Item "llama-cpp-build\build\bin\Release\llama-cli.exe" "_deps\servers\llama.cpp\"
-          Copy-Item "llama-cpp-build\build\bin\Release\llama-embedding.exe" "_deps\servers\llama.cpp\"
+          Copy-Item "llama-cpp-build\build\bin\Release\llama-cli.exe" "_deps\servers\llama.cpp"
+          Copy-Item "llama-cpp-build\build\bin\Release\llama-embedding.exe" "_deps\servers\llama.cpp"
 
           # Copy DLLs
           Get-ChildItem "llama-cpp-build\build\bin\Release" -Filter "*.dll" | ForEach-Object {
-            Copy-Item $_.FullName "_deps\servers\llama.cpp\" -ErrorAction SilentlyContinue
+            Copy-Item $_.FullName "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
           }
 
           # List compiled files
           Write-Host "📦 Compiled llama.cpp files:"
-          Get-ChildItem "_deps\servers\llama.cpp\" | Format-Table Name, Length
+          Get-ChildItem "_deps\servers\llama.cpp" | Format-Table Name, Length
 
       - name: Create ZIP archive
         shell: powershell
