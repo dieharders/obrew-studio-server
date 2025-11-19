@@ -226,7 +226,7 @@ jobs:
           # Must activate env before each step
           # `env.pythonLocation` should be used if no venv
           # For Windows
-          if [ $RUNNER_OS == 'Windows' ]; then
+          if [ "$RUNNER_OS" == "Windows" ]; then
             .venv/Scripts/activate
           # For Linux/macOS
           else
@@ -234,13 +234,27 @@ jobs:
           fi
           # PyInstaller will output to "build/Obrew-Studio" folder in root | --upx-dir C:/upx/upx-4.0.2-win64 \
           # Platform-specific paths handling
-          if [ $RUNNER_OS == 'Windows' ]; then
+          if [ "$RUNNER_OS" == "Windows" ]; then
             SITE_PACKAGES=".venv/lib/site-packages"
             HNSWLIB_BINARY="$SITE_PACKAGES/hnswlib.cp312-win_amd64.pyd"
           else
             SITE_PACKAGES=".venv/lib/python3.12/site-packages"
             HNSWLIB_BINARY="$SITE_PACKAGES/hnswlib.cpython-312-darwin.so"
           fi
+          # Debug: Show the paths we're using
+          echo "RUNNER_OS: $RUNNER_OS"
+          echo "SITE_PACKAGES: $SITE_PACKAGES"
+          echo "HNSWLIB_BINARY: $HNSWLIB_BINARY"
+          echo "Checking if paths exist:"
+          ls -la "$SITE_PACKAGES" | head -20
+          ls -la "$SITE_PACKAGES/posthog" || echo "posthog directory not found!"
+          ls -la "$SITE_PACKAGES/chromadb" || echo "chromadb directory not found!"
+          # Convert to absolute paths
+          ABS_SITE_PACKAGES="${{ github.workspace }}/$SITE_PACKAGES"
+          ABS_HNSWLIB_BINARY="${{ github.workspace }}/$HNSWLIB_BINARY"
+          echo "Absolute paths:"
+          echo "ABS_SITE_PACKAGES: $ABS_SITE_PACKAGES"
+          echo "ABS_HNSWLIB_BINARY: $ABS_HNSWLIB_BINARY"
           pyinstaller --noconfirm --clean --onedir --windowed \
             --log-level DEBUG \
             --contents-directory _deps \
@@ -252,12 +266,12 @@ jobs:
             --add-data "${{ github.workspace }}/package.json:public/" \
             --add-data "${{ github.workspace }}/backends/ui/public:public/" \
             --add-data "${{ github.workspace }}/certs:certs/" \
-            --add-data "$SITE_PACKAGES/posthog:posthog/" \
-            --add-data "$SITE_PACKAGES/chromadb:chromadb/" \
-            --add-data "$SITE_PACKAGES/importlib_resources:importlib_resources/" \
-            --add-data "$SITE_PACKAGES/backoff:backoff/" \
-            --add-data "$SITE_PACKAGES/pypika:pypika/" \
-            --add-data "$HNSWLIB_BINARY:." \
+            --add-data "$ABS_SITE_PACKAGES/posthog:posthog/" \
+            --add-data "$ABS_SITE_PACKAGES/chromadb:chromadb/" \
+            --add-data "$ABS_SITE_PACKAGES/importlib_resources:importlib_resources/" \
+            --add-data "$ABS_SITE_PACKAGES/backoff:backoff/" \
+            --add-data "$ABS_SITE_PACKAGES/pypika:pypika/" \
+            --add-data "$ABS_HNSWLIB_BINARY:." \
             "${{ github.workspace }}/backends/main.py"
           # Create a "servers" dir to be included in installer
           mkdir -p "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers"
