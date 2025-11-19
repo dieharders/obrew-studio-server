@@ -100,13 +100,13 @@ jobs:
 
       - name: Create ZIP archive
         run: |
-          cd "llama-output" && zip -r "../llama-macos-universal-metal.zip" . && cd ..
+          cd "llama-output" && zip -r "../llama-macos-metal.zip" . && cd ..
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llama-macos-universal-metal
-          path: llama-macos-universal-metal.zip
+          name: llama-macos-metal-${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
+          path: llama-macos-metal.zip
           retention-days: ${{ inputs.retention_days }}
 
   build-windows-cuda:
@@ -251,7 +251,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llama-windows-cuda
+          name: llama-windows-cuda-${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
           path: llama-windows-cuda.zip
           retention-days: ${{ inputs.retention_days }}
 
@@ -376,7 +376,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llama-windows-cpu
+          name: llama-windows-cpu-${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
           path: llama-windows-cpu.zip
           retention-days: ${{ inputs.retention_days }}
 
@@ -386,6 +386,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout project repository
+        uses: actions/checkout@v4
+
+      - name: Read llama.cpp tag from package.json
+        id: llama_tag
+        run: |
+          LLAMA_TAG=$(grep '"llamacpp_tag"' package.json | cut -d'"' -f4)
+          echo "tag=$LLAMA_TAG" >> $GITHUB_OUTPUT
+          echo "Using llama.cpp tag: $LLAMA_TAG"
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -393,12 +403,12 @@ jobs:
 
       - name: Display artifacts
         run: |
-          echo "📦 Build Artifacts:"
+          echo "Build Artifacts:"
           find artifacts -name "*.zip" -exec ls -lh {} \;
 
       - name: Create build summary
         run: |
-          cat > build-summary.md << 'EOF'
+          cat > build-summary.md << EOF
           # llama.cpp Build Summary
 
           ## GPU-Accelerated Builds Available
@@ -442,8 +452,8 @@ jobs:
           ## Installation
 
           1. Download the appropriate ZIP file
-          2. Extract to reveal the `_deps/servers/llama.cpp/` directory structure
-          3. Copy the `_deps` folder to your project root or commit to your repository
+          2. Extract out all the binaries, drivers, dlls, etc
+          3. Copy the contents to project \`servers/llama.cpp/\`
           4. The binaries are now ready to use with your app!
 
           ## Resources
@@ -454,6 +464,7 @@ jobs:
 
           ---
           Build Date: $(date)
+          Llama release tag: ${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
           EOF
 
           cat build-summary.md
@@ -461,6 +472,6 @@ jobs:
       - name: Upload summary
         uses: actions/upload-artifact@v4
         with:
-          name: build-summary
+          name: build-summary-${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
           path: build-summary.md
           retention-days: ${{ inputs.retention_days }}
