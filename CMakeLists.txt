@@ -5,8 +5,8 @@ project(Obrew-Studio)
 # Copy pre-existing executable/app bundle to installation directory
 if(APPLE)
   # On macOS, PyInstaller creates an app bundle
-  # Install to Applications directory (CMAKE_INSTALL_PREFIX should be set to "/" via cmake config)
-  install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist/Obrew-Studio.app" DESTINATION Applications USE_SOURCE_PERMISSIONS)
+  # Install to root - productbuild generator will handle the Applications directory automatically
+  install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist/Obrew-Studio.app" DESTINATION . USE_SOURCE_PERMISSIONS)
 elseif(WIN32)
   # On Windows, PyInstaller creates a directory with the executable and dependencies
   install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist/Obrew-Studio/" DESTINATION .)
@@ -44,6 +44,8 @@ if(WIN32)
 elseif(APPLE)
   set(CPACK_GENERATOR "productbuild")
   set(CPACK_PACKAGE_FILE_NAME "Obrew-Studio.macOS.Setup")
+  # Set install location to /Applications for macOS packages
+  set(CPACK_PACKAGING_INSTALL_PREFIX "/Applications")
   # Configure post-install script for certificate installation
   set(CPACK_PRODUCTBUILD_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/certs")
   # Don't include LICENSE/README for productbuild - it has strict file extension requirements
