@@ -69,38 +69,38 @@ jobs:
             echo "✅ Binary built successfully"
           fi
 
-      - name: Organize binaries into expected structure
+      - name: Organize binaries for packaging
         run: |
-          # Create the directory structure that matches your app's expectations
-          mkdir -p "_deps/servers/llama.cpp"
+          # Create a flat directory for all files
+          mkdir -p "llama-output"
 
           # Copy ALL files from build/bin directory (binaries, Metal shaders, etc.)
           echo "📋 Copying all files from build/bin..."
           if [ -d "llama-cpp-build/build/bin" ]; then
-            cp -r llama-cpp-build/build/bin/* "_deps/servers/llama.cpp/" 2>/dev/null || true
+            cp -r llama-cpp-build/build/bin/* "llama-output/" 2>/dev/null || true
             echo "✅ Copied all build/bin contents"
           fi
 
           # Copy Metal headers
           echo "📋 Copying Metal headers..."
-          find llama-cpp-build -name "ggml-metal.h" -exec cp {} "_deps/servers/llama.cpp/" \; 2>/dev/null || true
-          find llama-cpp-build -name "ggml-metal-impl.h" -exec cp {} "_deps/servers/llama.cpp/" \; 2>/dev/null || true
-          find llama-cpp-build -name "ggml-common.h" -exec cp {} "_deps/servers/llama.cpp/" \; 2>/dev/null || true
+          find llama-cpp-build -name "ggml-metal.h" -exec cp {} "llama-output/" \; 2>/dev/null || true
+          find llama-cpp-build -name "ggml-metal-impl.h" -exec cp {} "llama-output/" \; 2>/dev/null || true
+          find llama-cpp-build -name "ggml-common.h" -exec cp {} "llama-output/" \; 2>/dev/null || true
 
           # Copy all versioned dylibs (like libggml-base.0.dylib)
           echo "📋 Copying dynamic libraries..."
-          find llama-cpp-build/build -name "*.dylib" -exec cp {} "_deps/servers/llama.cpp/" \; 2>/dev/null || true
+          find llama-cpp-build/build -name "*.dylib" -exec cp {} "llama-output/" \; 2>/dev/null || true
 
           # Copy Metal shader file if not already copied
-          find llama-cpp-build -name "ggml-metal.metal" -exec cp {} "_deps/servers/llama.cpp/" \; 2>/dev/null || true
+          find llama-cpp-build -name "ggml-metal.metal" -exec cp {} "llama-output/" \; 2>/dev/null || true
 
           # List compiled files
           echo "📦 Compiled llama.cpp files:"
-          ls -lh "_deps/servers/llama.cpp/"
+          ls -lh "llama-output/"
 
       - name: Create ZIP archive
         run: |
-          zip -r "llama-macos-universal-metal.zip" "_deps/"
+          cd "llama-output" && zip -r "../llama-macos-universal-metal.zip" . && cd ..
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -165,17 +165,17 @@ jobs:
         run: |
           cmake --build build --config Release --parallel
 
-      - name: Organize binaries into expected structure
+      - name: Organize binaries for packaging
         shell: powershell
         run: |
-          # Create the directory structure that matches your app's expectations
-          New-Item -ItemType Directory -Force -Path "_deps\servers\llama.cpp"
+          # Create a flat directory for all files
+          New-Item -ItemType Directory -Force -Path "llama-output"
 
           # Copy ALL files from build/bin/Release directory (executables, DLLs, etc.)
           Write-Host "📋 Copying all files from build/bin/Release..."
           if (Test-Path "llama-cpp-build\build\bin\Release") {
             Get-ChildItem "llama-cpp-build\build\bin\Release" -File | ForEach-Object {
-              Copy-Item $_.FullName "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
+              Copy-Item $_.FullName "llama-output" -ErrorAction SilentlyContinue
               Write-Host "  ✅ Copied: $($_.Name)"
             }
           }
@@ -184,20 +184,20 @@ jobs:
           Write-Host "📋 Copying CUDA runtime DLLs..."
           $cudaPath = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin"
           if (Test-Path $cudaPath) {
-            Copy-Item "$cudaPath\cublas64_12.dll" "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
-            Copy-Item "$cudaPath\cublasLt64_12.dll" "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
-            Copy-Item "$cudaPath\cudart64_12.dll" "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
+            Copy-Item "$cudaPath\cublas64_12.dll" "llama-output" -ErrorAction SilentlyContinue
+            Copy-Item "$cudaPath\cublasLt64_12.dll" "llama-output" -ErrorAction SilentlyContinue
+            Copy-Item "$cudaPath\cudart64_12.dll" "llama-output" -ErrorAction SilentlyContinue
             Write-Host "  ✅ Copied CUDA runtime DLLs"
           }
 
           # List compiled files
           Write-Host "📦 Compiled llama.cpp files:"
-          Get-ChildItem "_deps\servers\llama.cpp" | Format-Table Name, Length
+          Get-ChildItem "llama-output" | Format-Table Name, Length
 
       - name: Create ZIP archive
         shell: powershell
         run: |
-          Compress-Archive -Path "_deps\*" -DestinationPath "llama-windows-cuda.zip"
+          Compress-Archive -Path "llama-output\*" -DestinationPath "llama-windows-cuda.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -254,29 +254,29 @@ jobs:
         run: |
           cmake --build build --config Release --parallel
 
-      - name: Organize binaries into expected structure
+      - name: Organize binaries for packaging
         shell: powershell
         run: |
-          # Create the directory structure that matches your app's expectations
-          New-Item -ItemType Directory -Force -Path "_deps\servers\llama.cpp"
+          # Create a flat directory for all files
+          New-Item -ItemType Directory -Force -Path "llama-output"
 
           # Copy ALL files from build/bin/Release directory (executables, DLLs, etc.)
           Write-Host "📋 Copying all files from build/bin/Release..."
           if (Test-Path "llama-cpp-build\build\bin\Release") {
             Get-ChildItem "llama-cpp-build\build\bin\Release" -File | ForEach-Object {
-              Copy-Item $_.FullName "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
+              Copy-Item $_.FullName "llama-output" -ErrorAction SilentlyContinue
               Write-Host "  ✅ Copied: $($_.Name)"
             }
           }
 
           # List compiled files
           Write-Host "📦 Compiled llama.cpp files:"
-          Get-ChildItem "_deps\servers\llama.cpp" | Format-Table Name, Length
+          Get-ChildItem "llama-output" | Format-Table Name, Length
 
       - name: Create ZIP archive
         shell: powershell
         run: |
-          Compress-Archive -Path "_deps\*" -DestinationPath "llama-windows-cpu.zip"
+          Compress-Archive -Path "llama-output\*" -DestinationPath "llama-windows-cpu.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
