@@ -265,73 +265,9 @@ jobs:
             # Copy and rename .env.example to .env then place in _deps/
             cp "${{ github.workspace }}/.env.example" "${{ github.workspace }}/dist/Obrew-Studio/_deps/.env"
           else
-            # On macOS, PyInstaller with --onefile --windowed creates an app bundle
-            # The app bundle should be in dist/Obrew-Studio.app
-            echo "macOS build completed"
-            # Ensure the app bundle exists
-            if [ ! -d "${{ github.workspace }}/dist/Obrew-Studio.app" ]; then
-              echo "ERROR: App bundle not found at dist/Obrew-Studio.app"
-              echo "Checking what PyInstaller created:"
-              ls -la "${{ github.workspace }}/dist/"
-              echo "Checking build directory:"
-              ls -la "${{ github.workspace }}/build/" 2>/dev/null || echo "No build directory"
-              # If PyInstaller created just an executable, we need to manually create an app bundle structure
-              if [ -f "${{ github.workspace }}/dist/Obrew-Studio" ]; then
-                echo "Found executable, creating app bundle structure..."
-                mkdir -p "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS"
-                mkdir -p "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources"
-                mv "${{ github.workspace }}/dist/Obrew-Studio" "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/"
-                # Create minimal Info.plist
-                cat > "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Info.plist" << 'EOF'
-                <?xml version="1.0" encoding="UTF-8"?>
-                <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-                <plist version="1.0">
-                <dict>
-                    <key>CFBundleExecutable</key>
-                    <string>Obrew-Studio</string>
-                    <key>CFBundleIdentifier</key>
-                    <string>com.openbrewai.obrew-studio</string>
-                    <key>CFBundleName</key>
-                    <string>Obrew Studio</string>
-                    <key>CFBundleVersion</key>
-                    <string>0.9.0</string>
-                    <key>CFBundlePackageType</key>
-                    <string>APPL</string>
-                </dict>
-                </plist>
-                EOF
-              fi
-            fi
-            echo "macOS app bundle prepared"
-          fi
-          # Debug
-          echo "=== POST-BUILD DEBUGGING ==="
-          echo "Workspace directory:"
-          ls -al "${{ github.workspace }}"
-          echo ""
-          echo "Build directory:"
-          ls -al build/ 2>/dev/null || echo "No build directory"
-          echo ""
-          echo "Dist directory contents:"
-          ls -la dist/
-          echo ""
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            echo "=== macOS App Bundle Verification ==="
-            if [ -d "dist/Obrew-Studio.app" ]; then
-              echo "✓ App bundle exists at dist/Obrew-Studio.app"
-              echo "App bundle structure:"
-              find dist/Obrew-Studio.app -maxdepth 3 -type f -o -type d | head -30
-              echo ""
-              echo "App bundle size:"
-              du -sh dist/Obrew-Studio.app
-              echo ""
-              echo "Info.plist contents:"
-              cat dist/Obrew-Studio.app/Contents/Info.plist 2>/dev/null || echo "No Info.plist found"
-            else
-              echo "✗ App bundle NOT found at dist/Obrew-Studio.app"
-              echo "Checking what files exist in dist/:"
-              find dist/ -type f | head -20
-            fi
+            # Run macOS app bundle creation script
+            chmod +x "${{ github.workspace }}/scripts/build-macos-app-bundle.sh"
+            "${{ github.workspace }}/scripts/build-macos-app-bundle.sh" "${{ github.workspace }}"
           fi
 
       # 7a. Package with Inno-Setup (Windows)
