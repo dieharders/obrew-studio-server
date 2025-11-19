@@ -14,6 +14,7 @@ mkdir -p "$CERT_DIR"
 echo "Generating self-signed fallback SSL certificates..."
 
 # Generate self-signed certificate
+# * For dev use
 # - RSA 4096-bit key
 # - Valid for 100 years (36500 days)
 # - Subject: CN=localhost (for localhost HTTPS)
