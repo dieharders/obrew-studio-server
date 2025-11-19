@@ -126,6 +126,7 @@ jobs:
           # Build with Metal support
           cmake -B build \
             -DGGML_METAL=ON \
+            -DLLAMA_CURL=OFF \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
           cmake --build build --config Release -j $(sysctl -n hw.ncpu)
@@ -180,6 +181,7 @@ jobs:
           # Build with CUDA support
           cmake -B build `
             -DGGML_CUDA=ON `
+            -DLLAMA_CURL=OFF `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_CUDA_ARCHITECTURES="60;61;70;75;80;86;89;90"
           cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS
