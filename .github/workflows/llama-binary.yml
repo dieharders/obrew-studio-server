@@ -69,20 +69,25 @@ jobs:
           # Create the directory structure that matches your app's expectations
           mkdir -p "_deps/servers/llama.cpp"
 
-          # Copy binaries
-          cp llama-cpp-build/build/bin/llama-cli "_deps/servers/llama.cpp/"
-          cp llama-cpp-build/build/bin/llama-embedding "_deps/servers/llama.cpp/"
+          # Copy ALL files from build/bin directory (binaries, Metal shaders, etc.)
+          echo "📋 Copying all files from build/bin..."
+          if [ -d "llama-cpp-build/build/bin" ]; then
+            cp -r llama-cpp-build/build/bin/* "_deps/servers/llama.cpp/" 2>/dev/null || true
+            echo "✅ Copied all build/bin contents"
+          fi
 
-          # Copy Metal shaders and headers
-          cp llama-cpp-build/build/bin/ggml-metal.metal "_deps/servers/llama.cpp/" || true
-          cp llama-cpp-build/ggml/include/ggml-metal.h "_deps/servers/llama.cpp/" || true
-          cp llama-cpp-build/ggml/src/ggml-common.h "_deps/servers/llama.cpp/" || true
+          # Copy Metal headers
+          echo "📋 Copying Metal headers..."
+          find llama-cpp-build -name "ggml-metal.h" -exec cp {} "_deps/servers/llama.cpp/" \; 2>/dev/null || true
+          find llama-cpp-build -name "ggml-metal-impl.h" -exec cp {} "_deps/servers/llama.cpp/" \; 2>/dev/null || true
+          find llama-cpp-build -name "ggml-common.h" -exec cp {} "_deps/servers/llama.cpp/" \; 2>/dev/null || true
 
-          # Copy dynamic libraries
-          cp llama-cpp-build/build/src/libllama.dylib "_deps/servers/llama.cpp/" || true
-          cp llama-cpp-build/build/ggml/src/libggml.dylib "_deps/servers/llama.cpp/" || true
-          cp llama-cpp-build/build/ggml/src/libggml-base.dylib "_deps/servers/llama.cpp/" || true
-          cp llama-cpp-build/build/ggml/src/libggml-metal.dylib "_deps/servers/llama.cpp/" || true
+          # Copy all versioned dylibs (like libggml-base.0.dylib)
+          echo "📋 Copying dynamic libraries..."
+          find llama-cpp-build/build -name "*.dylib" -exec cp {} "_deps/servers/llama.cpp/" \; 2>/dev/null || true
+
+          # Copy Metal shader file if not already copied
+          find llama-cpp-build -name "ggml-metal.metal" -exec cp {} "_deps/servers/llama.cpp/" \; 2>/dev/null || true
 
           # List compiled files
           echo "📦 Compiled llama.cpp files:"
@@ -161,21 +166,23 @@ jobs:
           # Create the directory structure that matches your app's expectations
           New-Item -ItemType Directory -Force -Path "_deps\servers\llama.cpp"
 
-          # Copy executables
-          Copy-Item "llama-cpp-build\build\bin\Release\llama-cli.exe" "_deps\servers\llama.cpp"
-          Copy-Item "llama-cpp-build\build\bin\Release\llama-embedding.exe" "_deps\servers\llama.cpp"
-
-          # Copy all DLLs from build
-          Get-ChildItem "llama-cpp-build\build\bin\Release" -Filter "*.dll" | ForEach-Object {
-            Copy-Item $_.FullName "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
+          # Copy ALL files from build/bin/Release directory (executables, DLLs, etc.)
+          Write-Host "📋 Copying all files from build/bin/Release..."
+          if (Test-Path "llama-cpp-build\build\bin\Release") {
+            Get-ChildItem "llama-cpp-build\build\bin\Release" -File | ForEach-Object {
+              Copy-Item $_.FullName "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
+              Write-Host "  ✅ Copied: $($_.Name)"
+            }
           }
 
           # Copy CUDA runtime DLLs
+          Write-Host "📋 Copying CUDA runtime DLLs..."
           $cudaPath = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin"
           if (Test-Path $cudaPath) {
             Copy-Item "$cudaPath\cublas64_12.dll" "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
             Copy-Item "$cudaPath\cublasLt64_12.dll" "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
             Copy-Item "$cudaPath\cudart64_12.dll" "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
+            Write-Host "  ✅ Copied CUDA runtime DLLs"
           }
 
           # List compiled files
@@ -248,13 +255,13 @@ jobs:
           # Create the directory structure that matches your app's expectations
           New-Item -ItemType Directory -Force -Path "_deps\servers\llama.cpp"
 
-          # Copy executables
-          Copy-Item "llama-cpp-build\build\bin\Release\llama-cli.exe" "_deps\servers\llama.cpp"
-          Copy-Item "llama-cpp-build\build\bin\Release\llama-embedding.exe" "_deps\servers\llama.cpp"
-
-          # Copy DLLs
-          Get-ChildItem "llama-cpp-build\build\bin\Release" -Filter "*.dll" | ForEach-Object {
-            Copy-Item $_.FullName "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
+          # Copy ALL files from build/bin/Release directory (executables, DLLs, etc.)
+          Write-Host "📋 Copying all files from build/bin/Release..."
+          if (Test-Path "llama-cpp-build\build\bin\Release") {
+            Get-ChildItem "llama-cpp-build\build\bin\Release" -File | ForEach-Object {
+              Copy-Item $_.FullName "_deps\servers\llama.cpp" -ErrorAction SilentlyContinue
+              Write-Host "  ✅ Copied: $($_.Name)"
+            }
           }
 
           # List compiled files
