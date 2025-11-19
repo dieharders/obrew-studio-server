@@ -1,4 +1,4 @@
-name: Build llama.cpp (GPU)
+name: Build llama.cpp
 
 on:
   workflow_dispatch:
@@ -201,9 +201,9 @@ jobs:
           path: llama-windows-cuda.zip
           retention-days: 7
 
-  # Optional: CPU-only fallback build for Windows
+  # CPU-only build for Windows
   build-windows-cpu:
-    name: Windows (CPU-only fallback)
+    name: Windows (CPU)
     runs-on: windows-latest
 
     steps:
