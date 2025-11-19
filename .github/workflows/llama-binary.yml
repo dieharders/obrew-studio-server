@@ -166,33 +166,77 @@ jobs:
           # Create a flat directory for all files
           New-Item -ItemType Directory -Force -Path "llama-output"
 
+          # Debug: Check what directories exist
+          Write-Host "🔍 Checking build directory structure..."
+          if (Test-Path "llama-cpp-build\build\bin") {
+            Write-Host "✅ Found llama-cpp-build\build\bin"
+            Get-ChildItem "llama-cpp-build\build\bin" -Directory | ForEach-Object {
+              Write-Host "  📁 $($_.Name)"
+            }
+          } else {
+            Write-Host "❌ llama-cpp-build\build\bin does not exist"
+          }
+
           # Copy ALL files from build/bin/Release directory (executables, DLLs, etc.)
           Write-Host "📋 Copying all files from build/bin/Release..."
           if (Test-Path "llama-cpp-build\build\bin\Release") {
-            Get-ChildItem "llama-cpp-build\build\bin\Release" -File | ForEach-Object {
-              Copy-Item $_.FullName "llama-output" -ErrorAction SilentlyContinue
-              Write-Host "  ✅ Copied: $($_.Name)"
+            $files = Get-ChildItem "llama-cpp-build\build\bin\Release" -File
+            if ($files.Count -eq 0) {
+              Write-Host "⚠️ No files found in llama-cpp-build\build\bin\Release"
+            } else {
+              $files | ForEach-Object {
+                Copy-Item $_.FullName "llama-output" -ErrorAction Stop
+                Write-Host "  ✅ Copied: $($_.Name)"
+              }
             }
+          } else {
+            Write-Host "❌ Directory llama-cpp-build\build\bin\Release does not exist!"
+            exit 1
           }
 
           # Copy CUDA runtime DLLs
           Write-Host "📋 Copying CUDA runtime DLLs..."
           $cudaPath = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.4\bin"
           if (Test-Path $cudaPath) {
-            Copy-Item "$cudaPath\cublas64_12.dll" "llama-output" -ErrorAction SilentlyContinue
-            Copy-Item "$cudaPath\cublasLt64_12.dll" "llama-output" -ErrorAction SilentlyContinue
-            Copy-Item "$cudaPath\cudart64_12.dll" "llama-output" -ErrorAction SilentlyContinue
+            Copy-Item "$cudaPath\cublas64_12.dll" "llama-output" -ErrorAction Continue
+            Copy-Item "$cudaPath\cublasLt64_12.dll" "llama-output" -ErrorAction Continue
+            Copy-Item "$cudaPath\cudart64_12.dll" "llama-output" -ErrorAction Continue
             Write-Host "  ✅ Copied CUDA runtime DLLs"
+          } else {
+            Write-Host "⚠️ CUDA path not found at $cudaPath"
           }
 
           # List compiled files
           Write-Host "📦 Compiled llama.cpp files:"
-          Get-ChildItem "llama-output" | Format-Table Name, Length
+          $outputFiles = Get-ChildItem "llama-output"
+          if ($outputFiles.Count -eq 0) {
+            Write-Host "❌ ERROR: No files in llama-output directory!"
+            exit 1
+          }
+          $outputFiles | Format-Table Name, Length
 
       - name: Create ZIP archive
         shell: powershell
         run: |
-          Compress-Archive -Path "llama-output\*" -DestinationPath "llama-windows-cuda.zip"
+          # Verify llama-output has files before compressing
+          $fileCount = (Get-ChildItem "llama-output" -File).Count
+          Write-Host "📊 Files to compress: $fileCount"
+
+          if ($fileCount -eq 0) {
+            Write-Host "❌ ERROR: llama-output is empty, cannot create archive"
+            exit 1
+          }
+
+          Compress-Archive -Path "llama-output\*" -DestinationPath "llama-windows-cuda.zip" -ErrorAction Stop
+
+          # Verify zip was created
+          if (Test-Path "llama-windows-cuda.zip") {
+            $zipSize = (Get-Item "llama-windows-cuda.zip").Length / 1MB
+            Write-Host "✅ Created llama-windows-cuda.zip ($([math]::Round($zipSize, 2)) MB)"
+          } else {
+            Write-Host "❌ ERROR: Failed to create llama-windows-cuda.zip"
+            exit 1
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -255,23 +299,65 @@ jobs:
           # Create a flat directory for all files
           New-Item -ItemType Directory -Force -Path "llama-output"
 
+          # Debug: Check what directories exist
+          Write-Host "🔍 Checking build directory structure..."
+          if (Test-Path "llama-cpp-build\build\bin") {
+            Write-Host "✅ Found llama-cpp-build\build\bin"
+            Get-ChildItem "llama-cpp-build\build\bin" -Directory | ForEach-Object {
+              Write-Host "  📁 $($_.Name)"
+            }
+          } else {
+            Write-Host "❌ llama-cpp-build\build\bin does not exist"
+          }
+
           # Copy ALL files from build/bin/Release directory (executables, DLLs, etc.)
           Write-Host "📋 Copying all files from build/bin/Release..."
           if (Test-Path "llama-cpp-build\build\bin\Release") {
-            Get-ChildItem "llama-cpp-build\build\bin\Release" -File | ForEach-Object {
-              Copy-Item $_.FullName "llama-output" -ErrorAction SilentlyContinue
-              Write-Host "  ✅ Copied: $($_.Name)"
+            $files = Get-ChildItem "llama-cpp-build\build\bin\Release" -File
+            if ($files.Count -eq 0) {
+              Write-Host "⚠️ No files found in llama-cpp-build\build\bin\Release"
+            } else {
+              $files | ForEach-Object {
+                Copy-Item $_.FullName "llama-output" -ErrorAction Stop
+                Write-Host "  ✅ Copied: $($_.Name)"
+              }
             }
+          } else {
+            Write-Host "❌ Directory llama-cpp-build\build\bin\Release does not exist!"
+            exit 1
           }
 
           # List compiled files
           Write-Host "📦 Compiled llama.cpp files:"
-          Get-ChildItem "llama-output" | Format-Table Name, Length
+          $outputFiles = Get-ChildItem "llama-output"
+          if ($outputFiles.Count -eq 0) {
+            Write-Host "❌ ERROR: No files in llama-output directory!"
+            exit 1
+          }
+          $outputFiles | Format-Table Name, Length
 
       - name: Create ZIP archive
         shell: powershell
         run: |
-          Compress-Archive -Path "llama-output\*" -DestinationPath "llama-windows-cpu.zip"
+          # Verify llama-output has files before compressing
+          $fileCount = (Get-ChildItem "llama-output" -File).Count
+          Write-Host "📊 Files to compress: $fileCount"
+
+          if ($fileCount -eq 0) {
+            Write-Host "❌ ERROR: llama-output is empty, cannot create archive"
+            exit 1
+          }
+
+          Compress-Archive -Path "llama-output\*" -DestinationPath "llama-windows-cpu.zip" -ErrorAction Stop
+
+          # Verify zip was created
+          if (Test-Path "llama-windows-cpu.zip") {
+            $zipSize = (Get-Item "llama-windows-cpu.zip").Length / 1MB
+            Write-Host "✅ Created llama-windows-cpu.zip ($([math]::Round($zipSize, 2)) MB)"
+          } else {
+            Write-Host "❌ ERROR: Failed to create llama-windows-cpu.zip"
+            exit 1
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
