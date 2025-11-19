@@ -217,7 +217,7 @@ jobs:
       - name: Build app
         shell: bash
         run: |
-          # PyInstaller will output to "build/Obrew-Studio" folder in root | --upx-dir C:/upx/upx-4.0.2-win64 \
+          # PyInstaller will output to "build/Obrew-Studio" folder in root
           # Platform-specific paths handling
           if [ "$RUNNER_OS" == "Windows" ]; then
             SITE_PACKAGES=".venv/lib/site-packages"
