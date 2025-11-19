@@ -7,11 +7,6 @@ on:
         description: 'Specific release tag or commit to build (leave empty to use package.json)'
         required: false
         type: string
-  push:
-    branches:
-      - feature/HBAI-413
-    paths:
-      - '.github/workflows/llama-binary.yml'
 
 jobs:
   build-macos-metal:
