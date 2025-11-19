@@ -337,32 +337,23 @@ jobs:
           echo "CMAKE_SOURCE_DIR will be: ${{ github.workspace }}"
           echo "CMake will look for: ${{ github.workspace }}/dist/Obrew-Studio.app"
 
-      - name: Create Installer (CPack)
+      - name: Create Installer (macOS - Custom Script)
         shell: bash
-        if: runner.os != 'Windows'
+        if: runner.os == 'macOS'
         run: |
-          echo "Creating macOS installer package..."
+          echo "Creating macOS installer package using custom script..."
           echo "Contents of dist directory before packaging:"
           ls -la "${{ github.workspace }}/dist/"
-          # Run CPack with verbose output
-          cd build_temp
-          cpack -V
-          cd "${{ github.workspace }}"
+
+          # Make the script executable
+          chmod +x "${{ github.workspace }}/scripts/package-macos.sh"
+
+          # Run the custom packaging script
+          "${{ github.workspace }}/scripts/package-macos.sh"
+
           echo ""
-          echo "=== DEBUGGING: CPack staging directory ==="
-          STAGING_DIR="build_temp/_CPack_Packages/Darwin/productbuild/Obrew-Studio.macOS.Setup"
-          if [ -d "$STAGING_DIR" ]; then
-            echo "Contents of CPack staging directory:"
-            ls -lhR "$STAGING_DIR" | head -100
-            echo ""
-            echo "Size of staged app bundle (if exists):"
-            du -sh "$STAGING_DIR/Applications" 2>/dev/null || echo "No Applications directory in staging"
-            du -sh "$STAGING_DIR"/*.app 2>/dev/null || echo "No .app bundle in staging root"
-          fi
-          echo ""
-          echo "Checking output directories:"
-          ls -la "${{ github.workspace }}/output" 2>/dev/null || echo "No output directory"
-          ls -la "${{ github.workspace }}/build_temp" | grep -E "\.pkg|\.dmg" || echo "No packages in build_temp"
+          echo "Checking output directory:"
+          ls -lh "${{ github.workspace }}/output/"
 
       # 9. Zip all package files/folders in /build and put in /artifacts/windows-latest/
       - name: Zip assets (Windows)

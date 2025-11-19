@@ -5,8 +5,8 @@ project(Obrew-Studio)
 # Copy pre-existing executable/app bundle to installation directory
 if(APPLE)
   # On macOS, PyInstaller creates an app bundle
-  # Install to root, and pkgbuild will use --install-location "/Applications"
-  # This avoids the double Applications directory issue
+  # Install the app bundle to the root of the install directory
+  # CPack productbuild will handle the /Applications installation
   install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist/Obrew-Studio.app" DESTINATION . USE_SOURCE_PERMISSIONS)
 elseif(WIN32)
   # On Windows, PyInstaller creates a directory with the executable and dependencies
@@ -45,12 +45,14 @@ if(WIN32)
 elseif(APPLE)
   set(CPACK_GENERATOR "productbuild")
   set(CPACK_PACKAGE_FILE_NAME "Obrew-Studio.macOS.Setup")
-  # Set the installation prefix to /Applications for productbuild
-  set(CPACK_PACKAGING_INSTALL_PREFIX "/Applications")
-  # Configure post-install script for certificate installation
-  set(CPACK_PRODUCTBUILD_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/certs")
   # Set package identifier for productbuild
   set(CPACK_PRODUCTBUILD_IDENTIFIER "com.OpenBrewAi.Obrew-Studio")
+  # Important: Don't use CPACK_PACKAGING_INSTALL_PREFIX as it causes double nesting
+  # The install() command with DESTINATION . will handle the correct placement
+  # Configure post-install script for certificate installation if available
+  if(EXISTS "${CMAKE_SOURCE_DIR}/certs")
+    set(CPACK_PRODUCTBUILD_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/certs")
+  endif()
   # Don't include LICENSE/README for productbuild - it has strict file extension requirements
 elseif(UNIX)
   set(CPACK_GENERATOR "DEB;RPM")
