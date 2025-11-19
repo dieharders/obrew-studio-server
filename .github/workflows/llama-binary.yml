@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Specific release tag or commit to build (leave empty for latest master)'
+        description: 'Specific release tag or commit to build (leave empty to use package.json)'
         required: false
         type: string
 
@@ -357,19 +357,3 @@ jobs:
           name: build-summary
           path: build-summary.md
           retention-days: 30
-
-      - name: Create Release (if on master branch)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ github.run_number }}
-          name: 'Build #${{ github.run_number }} - GPU Optimized'
-          draft: false
-          prerelease: false
-          body_path: build-summary.md
-          files: |
-            artifacts/llama-macos-universal-metal/llama-macos-universal-metal.zip
-            artifacts/llama-windows-cuda/llama-windows-cuda.zip
-            artifacts/llama-windows-cpu/llama-windows-cpu.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
