@@ -348,6 +348,18 @@ jobs:
           cd build_temp
           cpack -V
           cd "${{ github.workspace }}"
+          echo ""
+          echo "=== DEBUGGING: CPack staging directory ==="
+          STAGING_DIR="build_temp/_CPack_Packages/Darwin/productbuild/Obrew-Studio.macOS.Setup"
+          if [ -d "$STAGING_DIR" ]; then
+            echo "Contents of CPack staging directory:"
+            ls -lhR "$STAGING_DIR" | head -100
+            echo ""
+            echo "Size of staged app bundle (if exists):"
+            du -sh "$STAGING_DIR/Applications" 2>/dev/null || echo "No Applications directory in staging"
+            du -sh "$STAGING_DIR"/*.app 2>/dev/null || echo "No .app bundle in staging root"
+          fi
+          echo ""
           echo "Checking output directories:"
           ls -la "${{ github.workspace }}/output" 2>/dev/null || echo "No output directory"
           ls -la "${{ github.workspace }}/build_temp" | grep -E "\.pkg|\.dmg" || echo "No packages in build_temp"
