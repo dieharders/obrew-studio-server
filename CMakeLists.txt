@@ -14,9 +14,6 @@ set(CPACK_PACKAGE_VERSION "0.9.0")
 set(CPACK_PACKAGE_VENDOR "OpenBrewAi")
 set(CPACK_PACKAGE_DESCRIPTION "Obrew Studio - Ai Toolkit")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The tool for building personal Ai agents")
-set(CPACK_PACKAGE_FILE_NAME "Obrew-Studio.WIN.Setup")
-set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
-set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
 set(CPACK_PACKAGE_INSTALL_DIRECTORY "Obrew-Studio")
 # Specify the output directory for the package
 set(CPACK_OUTPUT_FILE_PREFIX "${CMAKE_SOURCE_DIR}/output")
@@ -26,6 +23,9 @@ set(CPACK_PACKAGE_EXECUTABLES "Obrew-Studio" "${CMAKE_SOURCE_DIR}/backends/ui/fa
 # Platform-specific settings
 if(WIN32)
   set(CPACK_GENERATOR "NSIS")
+  set(CPACK_PACKAGE_FILE_NAME "Obrew-Studio.WIN.Setup")
+  set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/LICENSE")
+  set(CPACK_RESOURCE_FILE_README "${CMAKE_SOURCE_DIR}/README.md")
   # Create shortcut to .exe on the Desktop
   install(CODE "
       file(WRITE \"\${CMAKE_INSTALL_PREFIX}/Desktop/Obrew-Studio.lnk\"
@@ -36,10 +36,13 @@ if(WIN32)
       \"[InternetShortcut]\nURL=file:///\${CMAKE_INSTALL_PREFIX}/Obrew-Studio.exe --headless=True\n\")")
 elseif(APPLE)
   set(CPACK_GENERATOR "productbuild")
+  set(CPACK_PACKAGE_FILE_NAME "Obrew-Studio.macOS.Setup")
   # Configure post-install script for certificate installation
   set(CPACK_PRODUCTBUILD_SCRIPTS_DIR "${CMAKE_SOURCE_DIR}/certs")
+  # Don't include LICENSE/README for productbuild - it has strict file extension requirements
 elseif(UNIX)
   set(CPACK_GENERATOR "DEB;RPM")
+  set(CPACK_PACKAGE_FILE_NAME "Obrew-Studio.Linux.Setup")
 endif()
 
 # Include CPack module
