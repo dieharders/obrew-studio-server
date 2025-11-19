@@ -2,11 +2,17 @@ cmake_minimum_required(VERSION 3.31.4)
 
 project(Obrew-Studio)
 
-# Copy pre-existing executable in source folder to root installation directory
-# install(FILES "${CMAKE_SOURCE_DIR}/dist/Obrew-Studio/Obrew-Studio.exe" DESTINATION .)
-# Copy pre-existing files in source folder to root installation directory
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist/Obrew-Studio/" DESTINATION .)
-# install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist" DESTINATION build_temp)
+# Copy pre-existing executable/app bundle to installation directory
+if(APPLE)
+  # On macOS, PyInstaller creates an app bundle
+  install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist/Obrew-Studio.app" DESTINATION . USE_SOURCE_PERMISSIONS)
+elseif(WIN32)
+  # On Windows, PyInstaller creates a directory with the executable and dependencies
+  install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist/Obrew-Studio/" DESTINATION .)
+else()
+  # On Linux, PyInstaller creates a directory with the executable and dependencies
+  install(DIRECTORY "${CMAKE_SOURCE_DIR}/dist/Obrew-Studio/" DESTINATION .)
+endif()
 
 # Set package information
 set(CPACK_PACKAGE_NAME "Obrew-Studio")

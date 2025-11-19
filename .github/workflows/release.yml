@@ -223,10 +223,13 @@ jobs:
             SITE_PACKAGES=".venv/lib/site-packages"
             HNSWLIB_BINARY="$SITE_PACKAGES/hnswlib.cp312-win_amd64.pyd"
             PYINSTALLER=".venv/Scripts/pyinstaller"
+            PYINSTALLER_OPTS="--onedir"
           else
             SITE_PACKAGES=".venv/lib/python3.12/site-packages"
             HNSWLIB_BINARY="$SITE_PACKAGES/hnswlib.cpython-312-darwin.so"
             PYINSTALLER=".venv/bin/pyinstaller"
+            # On macOS, use --onefile to create the app bundle properly
+            PYINSTALLER_OPTS="--onefile"
           fi
           # Debug: Show the paths we're using
           echo "Checking if paths exist:"
@@ -237,7 +240,7 @@ jobs:
           echo "Absolute paths:"
           echo "ABS_SITE_PACKAGES: $ABS_SITE_PACKAGES"
           echo "ABS_HNSWLIB_BINARY: $ABS_HNSWLIB_BINARY"
-          $PYINSTALLER --noconfirm --clean --onedir --windowed \
+          $PYINSTALLER --noconfirm --clean $PYINSTALLER_OPTS --windowed \
             --log-level DEBUG \
             --contents-directory _deps \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
@@ -255,17 +258,59 @@ jobs:
             --add-data "$ABS_SITE_PACKAGES/pypika:pypika/" \
             --add-data "$ABS_HNSWLIB_BINARY:." \
             "${{ github.workspace }}/backends/main.py"
-          # Create a "servers" dir to be included in installer
-          mkdir -p "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers"
-          # Copy and rename .env.example to .env then place in _deps/
-          cp "${{ github.workspace }}/.env.example" "${{ github.workspace }}/dist/Obrew-Studio/_deps/.env"
+          # Platform-specific post-build steps
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            # Create a "servers" dir to be included in installer
+            mkdir -p "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers"
+            # Copy and rename .env.example to .env then place in _deps/
+            cp "${{ github.workspace }}/.env.example" "${{ github.workspace }}/dist/Obrew-Studio/_deps/.env"
+          else
+            # On macOS, PyInstaller with --onefile --windowed creates an app bundle
+            # The app bundle should be in dist/Obrew-Studio.app
+            echo "macOS build completed"
+            # Ensure the app bundle exists
+            if [ ! -d "${{ github.workspace }}/dist/Obrew-Studio.app" ]; then
+              echo "ERROR: App bundle not found at dist/Obrew-Studio.app"
+              echo "Checking what PyInstaller created:"
+              ls -la "${{ github.workspace }}/dist/"
+              echo "Checking build directory:"
+              ls -la "${{ github.workspace }}/build/" 2>/dev/null || echo "No build directory"
+              # If PyInstaller created just an executable, we need to manually create an app bundle structure
+              if [ -f "${{ github.workspace }}/dist/Obrew-Studio" ]; then
+                echo "Found executable, creating app bundle structure..."
+                mkdir -p "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS"
+                mkdir -p "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources"
+                mv "${{ github.workspace }}/dist/Obrew-Studio" "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/"
+                # Create minimal Info.plist
+                cat > "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Info.plist" << 'EOF'
+                <?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+                <plist version="1.0">
+                <dict>
+                    <key>CFBundleExecutable</key>
+                    <string>Obrew-Studio</string>
+                    <key>CFBundleIdentifier</key>
+                    <string>com.openbrewai.obrew-studio</string>
+                    <key>CFBundleName</key>
+                    <string>Obrew Studio</string>
+                    <key>CFBundleVersion</key>
+                    <string>0.9.0</string>
+                    <key>CFBundlePackageType</key>
+                    <string>APPL</string>
+                </dict>
+                </plist>
+                EOF
+              fi
+            fi
+            echo "macOS app bundle prepared"
+          fi
           # Debug
           echo "Workspace directory:"
           ls -al "${{ github.workspace }}"
           echo "Build directory:"
-          ls -al build/Obrew-Studio
+          ls -al build/ 2>/dev/null || echo "No build directory"
           echo "Dist directory:"
-          ls -al dist/Obrew-Studio
+          ls -al dist/
 
       # 7a. Package with Inno-Setup (Windows)
       - name: Create Installer (Inno-Setup)
@@ -287,7 +332,10 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           echo "Listing files in the GitHub workspace: ${{ github.workspace }}"
-          cmake -S "${{ github.workspace }}" -B build_temp -D CMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/Obrew-Studio"
+          echo "Checking dist directory for app bundle:"
+          ls -la "${{ github.workspace }}/dist/" || echo "No dist directory yet"
+          # Configure CMake without overriding install prefix - let CMakeLists.txt handle it
+          cmake -S "${{ github.workspace }}" -B build_temp
 
       - name: Build Project (CMake)
         shell: bash
@@ -298,8 +346,16 @@ jobs:
         shell: bash
         if: runner.os != 'Windows'
         run: |
-          cmake --build build_temp --target package --config Release
-          ls -la "${{ github.workspace }}/output"
+          echo "Creating macOS installer package..."
+          echo "Contents of dist directory before packaging:"
+          ls -la "${{ github.workspace }}/dist/"
+          # Run CPack with verbose output
+          cd build_temp
+          cpack -V
+          cd "${{ github.workspace }}"
+          echo "Checking output directories:"
+          ls -la "${{ github.workspace }}/output" 2>/dev/null || echo "No output directory"
+          ls -la "${{ github.workspace }}/build_temp" | grep -E "\.pkg|\.dmg" || echo "No packages in build_temp"
 
       # 9. Zip all package files/folders in /build and put in /artifacts/windows-latest/
       - name: Zip assets (Windows)
