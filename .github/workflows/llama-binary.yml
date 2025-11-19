@@ -7,6 +7,11 @@ on:
         description: 'Specific release tag or commit to build (leave empty to use package.json)'
         required: false
         type: string
+      retention_days:
+        description: 'Number of days to retain artifacts'
+        required: false
+        type: number
+        default: 7
 
 jobs:
   build-macos-metal:
@@ -61,7 +66,7 @@ jobs:
           # Verify binaries are built
           if [ -f "build/bin/llama-cli" ]; then
             file build/bin/llama-cli
-            echo "✅ Binary built successfully"
+            echo "Binary built successfully"
           fi
 
       - name: Organize binaries for packaging
@@ -70,27 +75,27 @@ jobs:
           mkdir -p "llama-output"
 
           # Copy ALL files from build/bin directory (binaries, Metal shaders, etc.)
-          echo "📋 Copying all files from build/bin..."
+          echo "Copying all files from build/bin..."
           if [ -d "llama-cpp-build/build/bin" ]; then
             cp -r llama-cpp-build/build/bin/* "llama-output/" 2>/dev/null || true
-            echo "✅ Copied all build/bin contents"
+            echo "Copied all build/bin contents"
           fi
 
           # Copy Metal headers
-          echo "📋 Copying Metal headers..."
+          echo "Copying Metal headers..."
           find llama-cpp-build -name "ggml-metal.h" -exec cp {} "llama-output/" \; 2>/dev/null || true
           find llama-cpp-build -name "ggml-metal-impl.h" -exec cp {} "llama-output/" \; 2>/dev/null || true
           find llama-cpp-build -name "ggml-common.h" -exec cp {} "llama-output/" \; 2>/dev/null || true
 
           # Copy all versioned dylibs (like libggml-base.0.dylib)
-          echo "📋 Copying dynamic libraries..."
+          echo "Copying dynamic libraries..."
           find llama-cpp-build/build -name "*.dylib" -exec cp {} "llama-output/" \; 2>/dev/null || true
 
           # Copy Metal shader file if not already copied
           find llama-cpp-build -name "ggml-metal.metal" -exec cp {} "llama-output/" \; 2>/dev/null || true
 
           # List compiled files
-          echo "📦 Compiled llama.cpp files:"
+          echo "Compiled llama.cpp files:"
           ls -lh "llama-output/"
 
       - name: Create ZIP archive
@@ -102,7 +107,7 @@ jobs:
         with:
           name: llama-macos-universal-metal
           path: llama-macos-universal-metal.zip
-          retention-days: 7
+          retention-days: ${{ inputs.retention_days }}
 
   build-windows-cuda:
     name: Windows (CUDA)
@@ -248,7 +253,7 @@ jobs:
         with:
           name: llama-windows-cuda
           path: llama-windows-cuda.zip
-          retention-days: 7
+          retention-days: ${{ inputs.retention_days }}
 
   # CPU-only build for Windows
   build-windows-cpu:
@@ -373,7 +378,7 @@ jobs:
         with:
           name: llama-windows-cpu
           path: llama-windows-cpu.zip
-          retention-days: 7
+          retention-days: ${{ inputs.retention_days }}
 
   create-release:
     name: Create Release Package
@@ -458,4 +463,4 @@ jobs:
         with:
           name: build-summary
           path: build-summary.md
-          retention-days: 30
+          retention-days: ${{ inputs.retention_days }}
