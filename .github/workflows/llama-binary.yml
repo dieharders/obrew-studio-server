@@ -170,10 +170,12 @@ jobs:
           Write-Host "[DEBUG] Checking build directory structure..."
           if (Test-Path "llama-cpp-build\build\bin") {
             Write-Host "[OK] Found llama-cpp-build\build\bin"
-            Get-ChildItem "llama-cpp-build\build\bin" -Directory | ForEach-Object {
-              Write-Host "  [DIR] $($_.Name)"
+            $dirs = Get-ChildItem "llama-cpp-build\build\bin" -Directory
+            foreach ($dir in $dirs) {
+              Write-Host "  [DIR] $($dir.Name)"
             }
-          } else {
+          }
+          else {
             Write-Host "[ERROR] llama-cpp-build\build\bin does not exist"
           }
 
@@ -183,13 +185,15 @@ jobs:
             $files = Get-ChildItem "llama-cpp-build\build\bin\Release" -File
             if ($files.Count -eq 0) {
               Write-Host "[WARNING] No files found in llama-cpp-build\build\bin\Release"
-            } else {
-              $files | ForEach-Object {
-                Copy-Item $_.FullName "llama-output" -ErrorAction Stop
-                Write-Host "  [OK] Copied: $($_.Name)"
+            }
+            else {
+              foreach ($file in $files) {
+                Copy-Item $file.FullName "llama-output" -ErrorAction Stop
+                Write-Host "  [OK] Copied: $($file.Name)"
               }
             }
-          } else {
+          }
+          else {
             Write-Host "[ERROR] Directory llama-cpp-build\build\bin\Release does not exist!"
             exit 1
           }
@@ -202,7 +206,8 @@ jobs:
             Copy-Item "$cudaPath\cublasLt64_12.dll" "llama-output" -ErrorAction Continue
             Copy-Item "$cudaPath\cudart64_12.dll" "llama-output" -ErrorAction Continue
             Write-Host "  [OK] Copied CUDA runtime DLLs"
-          } else {
+          }
+          else {
             Write-Host "[WARNING] CUDA path not found at $cudaPath"
           }
 
@@ -303,10 +308,12 @@ jobs:
           Write-Host "[DEBUG] Checking build directory structure..."
           if (Test-Path "llama-cpp-build\build\bin") {
             Write-Host "[OK] Found llama-cpp-build\build\bin"
-            Get-ChildItem "llama-cpp-build\build\bin" -Directory | ForEach-Object {
-              Write-Host "  [DIR] $($_.Name)"
+            $dirs = Get-ChildItem "llama-cpp-build\build\bin" -Directory
+            foreach ($dir in $dirs) {
+              Write-Host "  [DIR] $($dir.Name)"
             }
-          } else {
+          }
+          else {
             Write-Host "[ERROR] llama-cpp-build\build\bin does not exist"
           }
 
@@ -316,13 +323,15 @@ jobs:
             $files = Get-ChildItem "llama-cpp-build\build\bin\Release" -File
             if ($files.Count -eq 0) {
               Write-Host "[WARNING] No files found in llama-cpp-build\build\bin\Release"
-            } else {
-              $files | ForEach-Object {
-                Copy-Item $_.FullName "llama-output" -ErrorAction Stop
-                Write-Host "  [OK] Copied: $($_.Name)"
+            }
+            else {
+              foreach ($file in $files) {
+                Copy-Item $file.FullName "llama-output" -ErrorAction Stop
+                Write-Host "  [OK] Copied: $($file.Name)"
               }
             }
-          } else {
+          }
+          else {
             Write-Host "[ERROR] Directory llama-cpp-build\build\bin\Release does not exist!"
             exit 1
           }
