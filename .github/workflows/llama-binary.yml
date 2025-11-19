@@ -1,6 +1,8 @@
 name: Build llama.cpp with GPU Support
 
 on:
+  push:
+    branches: [feature/HBAI-413]
   workflow_dispatch:
     inputs:
       release_tag:
