@@ -10,7 +10,7 @@ on:
 
 jobs:
   build-macos-metal:
-    name: macOS (Universal - Metal + Accelerate)
+    name: macOS (Metal)
     runs-on: macos-latest
 
     steps:
