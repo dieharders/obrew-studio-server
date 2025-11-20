@@ -13,6 +13,10 @@ on:
       release_notes:
         description: 'Release notes'
         required: false
+      ref:
+        description: 'Git ref to checkout (branch, tag, or commit)'
+        required: false
+        type: string
       llama_tag:
         description: 'llama.cpp tag to use (leave empty to read from package.json)'
         required: false
