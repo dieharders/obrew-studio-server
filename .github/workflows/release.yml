@@ -205,7 +205,7 @@ jobs:
             --hidden-import "sklearn.utils._weight_vector" \
             --add-data "${{ github.workspace }}/public:public/" \
             --add-data "${{ github.workspace }}/package.json:public/" \
-            --add-data "${{ github.workspace }}/backends/ui/public:public/" \
+            --add-data "${{ github.workspace }}/backends/ui/public:backends/ui/public/" \
             --add-data "${{ github.workspace }}/certs:certs/" \
             --add-data "$ABS_SITE_PACKAGES/posthog:posthog/" \
             --add-data "$ABS_SITE_PACKAGES/chromadb:chromadb/" \
