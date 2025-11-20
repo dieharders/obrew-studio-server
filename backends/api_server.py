@@ -62,9 +62,13 @@ class ApiServer:
                 sys.stdout = open(os.devnull, "w")
                 sys.stderr = open(os.devnull, "w")
 
-            # Get paths for SSL certificate - certificates are in root public directory
-            self.SSL_KEY: str = common.dep_path(os.path.join("public", "key.pem"))
-            self.SSL_CERT: str = common.dep_path(os.path.join("public", "cert.pem"))
+            # Get paths for SSL certificate
+            self.SSL_KEY: str = common.dep_path(
+                os.path.join("backends", "ui", "public", "key.pem")
+            )
+            self.SSL_CERT: str = common.dep_path(
+                os.path.join("backends", "ui", "public", "cert.pem")
+            )
             # Configure CORS settings
             self.CUSTOM_ORIGINS_ENV: str = os.getenv("CUSTOM_ORIGINS")
             CUSTOM_ORIGINS = (
