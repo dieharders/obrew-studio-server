@@ -64,10 +64,10 @@ class ApiServer:
 
             # Get paths for SSL certificate
             self.SSL_KEY: str = common.dep_path(
-                os.path.join("backends", "ui", "public", "key.pem")
+                os.path.join("public", "key.pem")
             )
             self.SSL_CERT: str = common.dep_path(
-                os.path.join("backends", "ui", "public", "cert.pem")
+                os.path.join("public", "cert.pem")
             )
             # Configure CORS settings
             self.CUSTOM_ORIGINS_ENV: str = os.getenv("CUSTOM_ORIGINS")

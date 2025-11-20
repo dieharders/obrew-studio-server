@@ -15,7 +15,7 @@ else
 fi
 
 MKCERT_BIN="$APP_DIR/certs/mkcert-darwin-$(uname -m)"
-CERT_DIR="$APP_DIR/backends/ui/public"
+CERT_DIR="$APP_DIR/public"
 CERT_FILE="$CERT_DIR/cert.pem"
 KEY_FILE="$CERT_DIR/key.pem"
 

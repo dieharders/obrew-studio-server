@@ -14,7 +14,7 @@ DEPS_DIR="$APP_PATH/_deps"
 
 # Paths to mkcert and certificate directory
 MKCERT_BIN="$DEPS_DIR/certs/mkcert-darwin-$(uname -m)"
-CERT_DIR="$DEPS_DIR/backends/ui/public"
+CERT_DIR="$DEPS_DIR/public"
 
 # Validate installation directory
 if [ ! -d "$APP_PATH" ]; then

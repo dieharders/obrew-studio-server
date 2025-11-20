@@ -30,8 +30,8 @@ class CertificateManager:
             # self.cert_dir = base_path / "ui" / "public"
             self.cert_dir = common.dep_path(os.path.join("public"))
 
-        self.cert_file = os.path.join(self.cert_dir, "cert.pem")
-        self.key_file = os.path.join(self.cert_dir, "key.pem")
+        self.cert_file = Path(self.cert_dir) / "cert.pem"
+        self.key_file = Path(self.cert_dir) / "key.pem"
 
     def are_certificates_valid(self) -> bool:
         """
