@@ -454,7 +454,7 @@ jobs:
           1. Download the appropriate ZIP file
           2. Extract out all the binaries, drivers, dlls, etc
           3. Copy the contents to project \`servers/llama.cpp/\`
-          4. The binaries are now ready to use with your app!
+          4. The binaries are now ready to use with your app or bundle!
 
           ## Resources
 
@@ -463,7 +463,7 @@ jobs:
           - [Model Quantization Guide](https://github.com/ggml-org/llama.cpp/blob/master/tools/quantize/README.md)
 
           ---
-          Build Date: $(date)
+          Build Date: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
           Llama release tag: ${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
           EOF
 
