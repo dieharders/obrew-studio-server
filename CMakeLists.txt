@@ -18,7 +18,7 @@ endif()
 
 # Set package information
 set(CPACK_PACKAGE_NAME "Obrew-Studio")
-set(CPACK_PACKAGE_VERSION "0.9.0")
+set(CPACK_PACKAGE_VERSION "0.11.0")
 set(CPACK_PACKAGE_VENDOR "OpenBrewAi")
 set(CPACK_PACKAGE_DESCRIPTION "Obrew Studio - Ai Toolkit")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "The tool for building personal Ai agents")
