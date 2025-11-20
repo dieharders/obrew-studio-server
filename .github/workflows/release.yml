@@ -13,6 +13,10 @@ on:
       release_notes:
         description: 'Release notes'
         required: false
+      llama_tag:
+        description: 'llama.cpp tag to use (leave empty to read from package.json)'
+        required: false
+        type: string
 
 # permissions:
 #     # Give the default GITHUB_TOKEN write permission to commit and push the
@@ -102,6 +106,62 @@ jobs:
           bash certs/download-mkcert.sh
           echo "mkcert binaries downloaded:"
           ls -lh certs/mkcert-*
+
+      # Get llama.cpp tag for artifact download
+      - name: Read llama.cpp tag
+        id: llama_tag
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.llama_tag }}" ]; then
+            TAG="${{ github.event.inputs.llama_tag }}"
+          else
+            TAG=$(grep '"llamacpp_tag"' package.json | cut -d'"' -f4)
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using llama.cpp tag: $TAG"
+
+      # Download llama.cpp artifacts from llama-binary workflow
+      - name: Download llama.cpp artifacts (macOS)
+        if: runner.os == 'macOS'
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: llama-binary.yml
+          name: llama-macos-metal-${{ steps.llama_tag.outputs.tag }}
+          path: llama-artifact
+          search_artifacts: true
+          if_no_artifact_found: fail
+
+      - name: Download llama.cpp artifacts (Windows CUDA)
+        if: runner.os == 'Windows'
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: llama-binary.yml
+          name: llama-windows-cuda-${{ steps.llama_tag.outputs.tag }}
+          path: llama-artifact
+          search_artifacts: true
+          if_no_artifact_found: fail
+
+      # Extract and copy llama.cpp files to servers directory
+      - name: Extract llama.cpp artifacts (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p servers/llama.cpp
+          cd llama-artifact
+          unzip -o llama-macos-metal.zip -d ../servers/llama.cpp/
+          echo "Extracted llama.cpp files:"
+          ls -lh ../servers/llama.cpp/
+
+      - name: Extract llama.cpp artifacts (Windows CUDA)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -Path "servers/llama.cpp" -ItemType Directory -Force
+          Expand-Archive -Path "llama-artifact/llama-windows-cuda.zip" -DestinationPath "servers/llama.cpp/" -Force
+          Write-Host "Extracted llama.cpp files:"
+          Get-ChildItem "servers/llama.cpp/" | Format-Table Name, Length
 
       # Build llama.cpp from source for macOS
       # - name: Build llama.cpp from source (macOS)
@@ -261,10 +321,19 @@ jobs:
           # Platform-specific post-build steps
           if [ "$RUNNER_OS" == "Windows" ]; then
             # Create a "servers" dir to be included in installer
-            mkdir -p "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers"
+            mkdir -p "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers/llama.cpp"
+            # Copy llama.cpp binaries to dist
+            cp -r "${{ github.workspace }}/servers/llama.cpp/"* "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers/llama.cpp/"
+            echo "Copied llama.cpp files to dist:"
+            ls -lh "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers/llama.cpp/"
             # Copy and rename .env.example to .env then place in _deps/
             cp "${{ github.workspace }}/.env.example" "${{ github.workspace }}/dist/Obrew-Studio/_deps/.env"
           else
+            # Copy llama.cpp binaries for macOS
+            mkdir -p "${{ github.workspace }}/dist/servers/llama.cpp"
+            cp -r "${{ github.workspace }}/servers/llama.cpp/"* "${{ github.workspace }}/dist/servers/llama.cpp/"
+            echo "Copied llama.cpp files to dist:"
+            ls -lh "${{ github.workspace }}/dist/servers/llama.cpp/"
             # Run macOS app bundle creation script
             chmod +x "${{ github.workspace }}/scripts/build-macos-app-bundle.sh"
             "${{ github.workspace }}/scripts/build-macos-app-bundle.sh" "${{ github.workspace }}"
