@@ -17,14 +17,14 @@ class CertificateManager:
         Initialize the certificate manager.
 
         Args:
-            cert_dir: Directory where certificates are stored (defaults to backends/ui/public)
+            cert_dir: Directory where certificates are stored (defaults to public)
         """
         if cert_dir:
             self.cert_dir = Path(cert_dir)
         else:
-            # Default to backends/ui/public
-            base_path = Path(__file__).parent.parent
-            self.cert_dir = base_path / "ui" / "public"
+            # Default to root public directory
+            base_path = Path(__file__).parent.parent.parent  # Go up to project root
+            self.cert_dir = base_path / "public"
 
         self.cert_file = self.cert_dir / "cert.pem"
         self.key_file = self.cert_dir / "key.pem"
