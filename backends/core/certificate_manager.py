@@ -1,7 +1,10 @@
+import os
 import subprocess
 import sys
 import platform
 from pathlib import Path
+
+from backends.core import common
 
 
 class CertificateManager:
@@ -17,17 +20,18 @@ class CertificateManager:
         Initialize the certificate manager.
 
         Args:
-            cert_dir: Directory where certificates are stored (defaults to public)
+            cert_dir: Directory where certificates are stored
         """
         if cert_dir:
             self.cert_dir = Path(cert_dir)
         else:
-            # Default to root public directory
-            base_path = Path(__file__).parent.parent.parent  # Go up to project root
-            self.cert_dir = base_path / "public"
+            # Default to backends/ui/public
+            # base_path = Path(__file__).parent.parent
+            # self.cert_dir = base_path / "ui" / "public"
+            self.cert_dir = common.dep_path(os.path.join("public"))
 
-        self.cert_file = self.cert_dir / "cert.pem"
-        self.key_file = self.cert_dir / "key.pem"
+        self.cert_file = os.path.join(self.cert_dir, "cert.pem")
+        self.key_file = os.path.join(self.cert_dir, "key.pem")
 
     def are_certificates_valid(self) -> bool:
         """
