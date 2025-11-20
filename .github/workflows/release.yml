@@ -25,12 +25,21 @@ on:
 
 jobs:
   build:
-    name: Build for ${{ matrix.os }}
+    name: Build for ${{ matrix.platform }}
     # needs: create_release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, macos-latest] # builds for each platform, in seperate vm's, in this order
+        include:
+          - os: windows-latest
+            platform: windows-cuda
+            llama_variant: cuda
+          - os: windows-latest
+            platform: windows-cpu
+            llama_variant: cpu
+          - os: macos-latest
+            platform: macos-metal
+            llama_variant: metal
     continue-on-error: true
     steps:
       # 1. Pull down repo
@@ -121,24 +130,12 @@ jobs:
           echo "Using llama.cpp tag: $TAG"
 
       # Download llama.cpp artifacts from llama-binary workflow
-      - name: Download llama.cpp artifacts (macOS)
-        if: runner.os == 'macOS'
+      - name: Download llama.cpp artifacts (${{ matrix.platform }})
         uses: dawidd6/action-download-artifact@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: llama-binary.yml
-          name: llama-macos-metal-${{ steps.llama_tag.outputs.tag }}
-          path: llama-artifact
-          search_artifacts: true
-          if_no_artifact_found: fail
-
-      - name: Download llama.cpp artifacts (Windows CUDA)
-        if: runner.os == 'Windows'
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: llama-binary.yml
-          name: llama-windows-cuda-${{ steps.llama_tag.outputs.tag }}
+          name: llama-${{ matrix.platform }}-${{ steps.llama_tag.outputs.tag }}
           path: llama-artifact
           search_artifacts: true
           if_no_artifact_found: fail
@@ -150,16 +147,16 @@ jobs:
         run: |
           mkdir -p servers/llama.cpp
           cd llama-artifact
-          unzip -o llama-macos-metal.zip -d ../servers/llama.cpp/
+          unzip -o llama-${{ matrix.platform }}.zip -d ../servers/llama.cpp/
           echo "Extracted llama.cpp files:"
           ls -lh ../servers/llama.cpp/
 
-      - name: Extract llama.cpp artifacts (Windows CUDA)
+      - name: Extract llama.cpp artifacts (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -Path "servers/llama.cpp" -ItemType Directory -Force
-          Expand-Archive -Path "llama-artifact/llama-windows-cuda.zip" -DestinationPath "servers/llama.cpp/" -Force
+          Expand-Archive -Path "llama-artifact/llama-${{ matrix.platform }}.zip" -DestinationPath "servers/llama.cpp/" -Force
           Write-Host "Extracted llama.cpp files:"
           Get-ChildItem "servers/llama.cpp/" | Format-Table Name, Length
 
@@ -424,38 +421,38 @@ jobs:
           echo "Checking output directory:"
           ls -lh "${{ github.workspace }}/output/"
 
-      # 9. Zip all package files/folders in /build and put in /artifacts/windows-latest/
+      # 9. Zip all package files/folders in /build and put in /artifacts/
       - name: Zip assets (Windows)
         shell: pwsh
         if: runner.os == 'Windows'
         # Ensure the output directory matches the OutputDir of CPack
         run: |
-          mkdir -p ./artifacts/windows-latest
-          Compress-Archive -Path "output/*.*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
+          mkdir -p ./artifacts/${{ matrix.platform }}
+          Compress-Archive -Path "output/*.*" -DestinationPath ./artifacts/${{ matrix.platform }}/${{ matrix.platform }}-artifacts.zip
 
       - name: Zip assets (macOS)
         shell: bash
         if: runner.os == 'macOS'
         run: |
-          mkdir -p ./artifacts/macos-latest
+          mkdir -p ./artifacts/${{ matrix.platform }}
           # CMake/CPack creates the PKG in build_temp directory
           if [ -d "build_temp" ]; then
-            cp build_temp/*.pkg ./artifacts/macos-latest/ 2>/dev/null || true
+            cp build_temp/*.pkg ./artifacts/${{ matrix.platform }}/ 2>/dev/null || true
           fi
           # Also check output directory
           if [ -d "output" ]; then
-            cp output/*.pkg ./artifacts/macos-latest/ 2>/dev/null || true
+            cp output/*.pkg ./artifacts/${{ matrix.platform }}/ 2>/dev/null || true
           fi
           # Zip all PKG files
-          cd ./artifacts/macos-latest
-          zip -r macos-latest-artifacts.zip *.pkg
+          cd ./artifacts/${{ matrix.platform }}
+          zip -r ${{ matrix.platform }}-artifacts.zip *.pkg
 
       # 10. Upload Installer Artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-artifact
-          path: ./artifacts/${{ matrix.os }}/${{ matrix.os }}-artifacts.zip # upload from
+          name: ${{ matrix.platform }}-artifact
+          path: ./artifacts/${{ matrix.platform }}/${{ matrix.platform }}-artifacts.zip # upload from
 
   # Assumes you created a git tag already
   create_release:
@@ -464,25 +461,33 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ success() }}
     steps:
-      - name: Download Windows artifact
+      - name: Download Windows CUDA artifact
         if: always()
         uses: actions/download-artifact@v4
         with:
-          name: windows-latest-artifact
-          path: ./artifacts/windows
+          name: windows-cuda-artifact
+          path: ./artifacts/windows-cuda
+
+      - name: Download Windows CPU artifact
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-cpu-artifact
+          path: ./artifacts/windows-cpu
 
       - name: Download macOS artifact
         if: always()
         uses: actions/download-artifact@v4
         with:
-          name: macos-latest-artifact
+          name: macos-metal-artifact
           path: ./artifacts/macos
 
       - name: Rename artifacts
         shell: bash
         run: |
-          mv ./artifacts/windows/windows-latest-artifacts.zip ./artifacts/Obrew-Studio.WIN.Setup.zip || true
-          mv ./artifacts/macos/macos-latest-artifacts.zip ./artifacts/Obrew-Studio.macOS.Setup.zip || true
+          mv ./artifacts/windows-cuda/windows-cuda-artifacts.zip ./artifacts/Obrew-Studio.WIN.CUDA.Setup.zip || true
+          mv ./artifacts/windows-cpu/windows-cpu-artifacts.zip ./artifacts/Obrew-Studio.WIN.CPU.Setup.zip || true
+          mv ./artifacts/macos/macos-metal-artifacts.zip ./artifacts/Obrew-Studio.macOS.Setup.zip || true
 
       - name: Create release and upload assets
         uses: ncipollo/release-action@v1
@@ -493,7 +498,8 @@ jobs:
           draft: ${{ github.event.inputs.release_type == 'draft' }}
           prerelease: ${{ github.event.inputs.release_type == 'private' }}
           artifacts: |
-            ./artifacts/Obrew-Studio.WIN.Setup.zip
+            ./artifacts/Obrew-Studio.WIN.CUDA.Setup.zip
+            ./artifacts/Obrew-Studio.WIN.CPU.Setup.zip
             ./artifacts/Obrew-Studio.macOS.Setup.zip
           artifactContentType: application/zip
           token: ${{ secrets.GITHUB_TOKEN }}
