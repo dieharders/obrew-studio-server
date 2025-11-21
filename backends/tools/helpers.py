@@ -338,14 +338,19 @@ def get_built_in_functions() -> dict:
     from tools import built_in_functions
 
     functions = {}
-
+    # Iterate through all modules in the built_in_functions package
     for _, module_name, ispkg in pkgutil.iter_modules(built_in_functions.__path__):
+        # Skip __init__ and any packages (only import .py files)
         if ispkg or module_name.startswith("_"):
             continue
         try:
+            # Import the module
             module = importlib.import_module(f"tools.built_in_functions.{module_name}")
+            # Add the module to the functions dict using the module name (assuming .py extension as key)
             functions[f"{module_name}.py"] = module
         except Exception as err:
-            print(f"{common.PRNT_API} Failed to import {module_name}: {err}", flush=True)
+            print(
+                f"{common.PRNT_API} Failed to import {module_name}: {err}", flush=True
+            )
 
     return functions
