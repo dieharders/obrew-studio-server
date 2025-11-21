@@ -6,7 +6,7 @@ from typing import List, Any
 from core import common
 from core.classes import FastAPIApp
 from llama_index.core.embeddings import BaseEmbedding
-from llama_index.core.bridge.pydantic import PrivateAttr
+from pydantic.v1 import PrivateAttr
 
 LOG_PREFIX = "[GGUF-EMBEDDER]"
 
@@ -15,9 +15,9 @@ class GGUFEmbedder(BaseEmbedding):
     """Handle GGUF embedding models using llama-cli binary."""
 
     # Use PrivateAttr for attributes not part of the pydantic model
-    _app: Any = PrivateAttr()
-    _model_path: str = PrivateAttr()
-    _binary_path: str = PrivateAttr()
+    _app: Any = PrivateAttr(default=None)
+    _model_path: str = PrivateAttr(default=None)
+    _binary_path: str = PrivateAttr(default=None)
 
     def __init__(
         self,
