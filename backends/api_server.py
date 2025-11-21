@@ -63,12 +63,23 @@ class ApiServer:
                 sys.stderr = open(os.devnull, "w")
 
             # Get paths for SSL certificate
-            self.SSL_KEY: str = common.dep_path(
-                os.path.join("public", "key.pem")
-            )
-            self.SSL_CERT: str = common.dep_path(
-                os.path.join("public", "cert.pem")
-            )
+            # Check multiple locations for certificates to support both dev and production
+            # 1. First check app directory (for user-generated or installer-created certs)
+            # 2. Fall back to bundled certs in PyInstaller temp directory if available
+            app_cert_path = common.app_path(os.path.join("public", "cert.pem"))
+            app_key_path = common.app_path(os.path.join("public", "key.pem"))
+            bundled_cert_path = common.dep_path(os.path.join("public", "cert.pem"))
+            bundled_key_path = common.dep_path(os.path.join("public", "key.pem"))
+
+            # Use app directory certificates if they exist, otherwise use bundled ones
+            if os.path.exists(app_cert_path) and os.path.exists(app_key_path):
+                # MacOS path
+                self.SSL_CERT: str = app_cert_path
+                self.SSL_KEY: str = app_key_path
+            else:
+                # Windows path
+                self.SSL_CERT: str = bundled_cert_path
+                self.SSL_KEY: str = bundled_key_path
             # Configure CORS settings
             self.CUSTOM_ORIGINS_ENV: str = os.getenv("CUSTOM_ORIGINS")
             CUSTOM_ORIGINS = (
