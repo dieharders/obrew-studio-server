@@ -13,8 +13,6 @@ from ui.api_ui import ApiUI
 from core import common
 from updater import Updater
 
-# from core.certificate_manager import CertificateManager
-
 ###############
 ### Methods ###
 ###############
@@ -114,12 +112,6 @@ def _get_screen_res() -> Tuple:
 
 def main():
     try:
-        # Check and install SSL certificates if needed (macOS first launch)
-        # These certs are installed with the app
-        # if common.get_ssl_env():
-        #     cert_manager = CertificateManager()
-        #     cert_manager.check_and_install_ssl_certificates_macos()
-
         # Webview api
         window_api = ApiUI(
             port=port,
