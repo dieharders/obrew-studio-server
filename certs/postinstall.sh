@@ -14,7 +14,9 @@ DEPS_DIR="$APP_PATH/_deps"
 
 # Paths to mkcert and certificate directory
 MKCERT_BIN="$DEPS_DIR/certs/mkcert-darwin-$(uname -m)"
-CERT_DIR="$DEPS_DIR/public"
+# Create certificates in the app's MacOS directory (persistent location)
+# This way they persist across PyInstaller extractions
+CERT_DIR="$APP_PATH/public"
 
 # Validate installation directory
 if [ ! -d "$APP_PATH" ]; then

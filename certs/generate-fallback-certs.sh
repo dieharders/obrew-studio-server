@@ -4,7 +4,7 @@
 
 set -e
 
-CERT_DIR="backends/ui/public"
+CERT_DIR="public"
 CERT_FILE="$CERT_DIR/cert.pem"
 KEY_FILE="$CERT_DIR/key.pem"
 
