@@ -3,6 +3,7 @@ import sys
 import socket
 import signal
 import platform
+import multiprocessing
 from typing import Tuple
 from dotenv import load_dotenv
 import ctypes
@@ -11,7 +12,6 @@ import ctypes
 from ui.view import Webview
 from ui.api_ui import ApiUI
 from core import common
-from core.certificate_manager import CertificateManager
 from updater import Updater
 
 ###############
@@ -113,11 +113,6 @@ def _get_screen_res() -> Tuple:
 
 def main():
     try:
-        # Check and install SSL certificates if needed (macOS first launch)
-        if common.get_ssl_env():
-            cert_manager = CertificateManager()
-            cert_manager.check_and_install_ssl_certificates_macos()
-
         # Webview api
         window_api = ApiUI(
             port=port,
@@ -144,6 +139,9 @@ def main():
         if is_headless:
             config = dict(host=host, port=port)
             window_api.start_headless_server(config)
+            # Keep main thread alive so daemon server thread doesn't exit
+            if window_api.api_server and window_api.api_server.server_thread:
+                window_api.api_server.server_thread.join()
 
         # Show a window (GUI mode)
         if not is_headless:
@@ -187,6 +185,10 @@ def main():
 
 # This script is the loader for the rest of the backend. It only handles UI and starting dependencies.
 if __name__ == "__main__":
+    # Required for PyInstaller on Windows/macOS to prevent spawning duplicate windows
+    # When subprocess operations happen (like downloads), Python may spawn a new process that re-executes the main script, creating a second window.
+    multiprocessing.freeze_support()
+
     print(f"{common.PRNT_APP} Starting app...", flush=True)
 
     # Path to the .env file in either the parent or /_deps directory

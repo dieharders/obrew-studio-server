@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Obrew Studio"
-#define MyAppVersion "0.10.0"
+#define MyAppVersion "0.11.0"
 #define MyAppPublisher "OpenBrewAi"
 #define MyAppURL "https://www.openbrewai.com/"
 #define MyAppExeName "Obrew-Studio.exe"
@@ -49,8 +49,8 @@ Name: "{userdesktop}\{#MyAppName}-headless"; Filename: "{app}\{#MyAppExeName}"; 
 
 [Run]
 ; Install trusted SSL certificates using mkcert (requires admin privileges)
-Filename: "{app}\_deps\bundled\mkcert-windows-amd64.exe"; Parameters: "-install"; StatusMsg: "Installing SSL certificate authority..."; Flags: runhidden
-Filename: "{app}\_deps\bundled\mkcert-windows-amd64.exe"; Parameters: "-cert-file ""{app}\_deps\backends\ui\public\cert.pem"" -key-file ""{app}\_deps\backends\ui\public\key.pem"" localhost 127.0.0.1 ::1"; StatusMsg: "Generating localhost certificates..."; Flags: runhidden
+Filename: "{app}\_deps\certs\mkcert-windows-amd64.exe"; Parameters: "-install"; StatusMsg: "Installing SSL certificate authority..."; Flags: runhidden
+Filename: "{app}\_deps\certs\mkcert-windows-amd64.exe"; Parameters: "-cert-file ""{app}\_deps\public\cert.pem"" -key-file ""{app}\_deps\public\key.pem"" localhost 127.0.0.1 ::1"; StatusMsg: "Generating localhost certificates..."; Flags: runhidden
 ; Launch application after installation
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 

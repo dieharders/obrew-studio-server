@@ -20,11 +20,42 @@ from huggingface_hub import (
 )
 
 
+# Get the application's base directory (where the executable/script lives)
+def get_app_base_dir():
+    """Return the directory where the application lives, not the current working directory."""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        # But we want the directory where the executable is, not the temp folder
+        if getattr(sys, "frozen", False):
+            # Running as compiled executable
+            return os.path.dirname(sys.executable)
+        else:
+            # Running as script - use the script's directory
+            return os.path.dirname(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            )
+    except Exception:
+        return os.path.abspath(".")
+
+
 # Pass relative string to get absolute path
 def app_path(relative_path: str = None):
-    if relative_path:
-        return os.path.join(os.getcwd(), relative_path)
-    return os.getcwd()
+    # MacOS - use Application Support (app bundle is read-only)
+    if sys.platform == "darwin":
+        base = os.path.join(
+            os.path.expanduser("~"), "Library", "Application Support", "Obrew-Studio"
+        )
+        if not os.path.exists(base):
+            os.makedirs(base, exist_ok=True)
+        if relative_path:
+            return os.path.join(base, relative_path)
+        return base
+    # Windows
+    else:
+        base = os.getcwd()
+        if relative_path:
+            return os.path.join(base, relative_path)
+        return base
 
 
 # Pass a relative path to resource and return the correct absolute path. Works for dev and for PyInstaller
@@ -53,7 +84,9 @@ TOOL_PATH = app_path(TOOL_FOLDER)
 TOOL_DEFS_PATH = os.path.join(TOOL_PATH, "defs")
 TOOL_FUNCS_PATH = TOOL_PATH
 MODEL_METADATAS_FILEPATH = os.path.join(APP_SETTINGS_PATH, MODEL_METADATAS_FILENAME)
-EMBEDDING_METADATAS_FILEPATH = os.path.join(APP_SETTINGS_PATH, EMBEDDING_METADATAS_FILENAME)
+EMBEDDING_METADATAS_FILEPATH = os.path.join(
+    APP_SETTINGS_PATH, EMBEDDING_METADATAS_FILENAME
+)
 TEXT_MODELS_CACHE_DIR = "text_models"
 EMBEDDING_MODELS_CACHE_DIR = "embed_models"
 INSTALLED_TEXT_MODELS = "installed_text_models"  # key in json file
@@ -664,8 +697,9 @@ def get_file_extension_from_path(path: str):
 
 
 def get_ssl_env():
-    # Enable by default if no setting found
-    val = os.getenv("ENABLE_SSL", "True").lower() in ("true", "1", "t")
+    # Disable by default if no setting found (better for first-run experience)
+    # SSL should be explicitly enabled when certificates are properly set up
+    val = os.getenv("ENABLE_SSL", "False").lower() in ("true", "1", "t")
     return val
 
 

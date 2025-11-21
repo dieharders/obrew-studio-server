@@ -360,17 +360,20 @@ class Updater:
         return False
 
     def download(self):
-        print("[UPDATER] Evaluating hardware dependencies...", flush=True)
+        """
+        Note: llama.cpp binaries are now compiled and bundled during the build process.
+        This method is kept for backward compatibility but no longer downloads binaries.
+        """
+        print("[UPDATER] Skipping binary download - binaries are pre-bundled.", flush=True)
 
         self.status = "progress"
 
-        # Evaluate hardware
+        # Evaluate hardware (still useful for system info)
         gpus = get_gpu_details()
 
-        # Download llama.cpp binaries
+        # Check that bundled binaries exist
         deps_path = dep_path()
         target_path = os.path.join(deps_path, "servers", "llama.cpp")
-        llamacpp_tag = self.package_json.get("llamacpp_tag")
 
         # Build list of required files based on platform
         required_files = []
@@ -378,23 +381,25 @@ class Updater:
             # macOS - llama-cli and llama-embedding binaries
             required_files = [
                 os.path.join(target_path, "llama-cli"),
-                # os.path.join(target_path, "llama-embedding"), # bundled
+                os.path.join(target_path, "llama-embedding"),
             ]
         elif platform.system() == "Windows":
             # Windows - llama-cli.exe, llama-embedding.exe + CUDA DLLs
             required_files = [
                 os.path.join(target_path, "llama-cli.exe"),
-                # os.path.join(target_path, "llama-embedding.exe"), # bundled
+                os.path.join(target_path, "llama-embedding.exe"),
                 os.path.join(target_path, "cublas64_12.dll"),
                 os.path.join(target_path, "cublasLt64_12.dll"),
                 os.path.join(target_path, "cudart64_12.dll"),
             ]
 
-        print("[UPDATER] Checking for deps...", flush=True)
-        if not check_llama_cpp_exists(required_files):
-            print("[UPDATER] Downloading inference binaries ...", flush=True)
-            install_llama_cpp(gpu=gpus[0], tag=llamacpp_tag, target_path=target_path)
-            print("[UPDATER] Download complete.", flush=True)
+        print("[UPDATER] Checking for bundled binaries...", flush=True)
+        missing_files = [f for f in required_files if not os.path.exists(f)]
+        if missing_files:
+            print(f"[UPDATER] Warning: Missing bundled files: {missing_files}", flush=True)
+            print("[UPDATER] The application may not work correctly.", flush=True)
+        else:
+            print("[UPDATER] All bundled binaries found.", flush=True)
 
         # Finished
         self.status = "complete"

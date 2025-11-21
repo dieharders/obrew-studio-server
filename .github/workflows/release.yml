@@ -13,6 +13,14 @@ on:
       release_notes:
         description: 'Release notes'
         required: false
+      ref:
+        description: 'Git ref to checkout (branch, tag, or commit)'
+        required: false
+        type: string
+      llama_tag:
+        description: 'llama.cpp tag to use (leave empty to read from package.json)'
+        required: false
+        type: string
 
 # permissions:
 #     # Give the default GITHUB_TOKEN write permission to commit and push the
@@ -21,12 +29,21 @@ on:
 
 jobs:
   build:
-    name: Build for ${{ matrix.os }}
+    name: Build for ${{ matrix.platform }}
     # needs: create_release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [windows-latest, macos-latest] # builds for each platform, in seperate vm's, in this order
+        include:
+          - os: windows-latest
+            platform: windows-cuda
+            llama_variant: cuda
+          - os: windows-latest
+            platform: windows-cpu
+            llama_variant: cpu
+          - os: macos-latest
+            platform: macos-metal
+            llama_variant: metal
     continue-on-error: true
     steps:
       # 1. Pull down repo
@@ -35,12 +52,6 @@ jobs:
         with:
           fetch-depth: 0 # Fetch all history for proper Git submodule initialization
           ref: ${{ github.event.inputs.ref || github.ref }} # checks out code you specify in github UI
-
-      # Only needed if we are building llama.cpp from source
-      # - name: Install CUDA Toolkit (Windows)
-      #   uses: Jimver/cuda-toolkit@master
-      #   if: startsWith(runner.os, 'Windows')
-      #   id: cuda-toolkit
 
       # 2. Install Python
       - name: Install Python
@@ -85,6 +96,7 @@ jobs:
 
       # 5. Cache python virtual environment for later runs
       - name: Save cached venv
+        if: steps.restore-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.txt') }}
@@ -104,72 +116,147 @@ jobs:
       - name: Download mkcert binaries
         shell: bash
         run: |
-          bash scripts/download-mkcert.sh
+          bash certs/download-mkcert.sh
           echo "mkcert binaries downloaded:"
-          ls -lh bundled/mkcert-*
+          ls -lh certs/mkcert-*
 
-      # Download and install UPX (for pyinstaller)
-      # - name: Download and install UPX (Windows)
-      #   shell: bash
-      #   if: runner.os == 'Windows'
-      #   run: |
-      #     curl -L https://github.com/upx/upx/releases/download/v4.0.2/upx-4.0.2-win64.zip -o upx.zip
-      #     # Use unzip to extract the zip file
-      #     unzip upx.zip -d C:/upx
-      #     echo "C:/upx/upx-4.0.2-win64" >> $GITHUB_PATH
+      # Get llama.cpp tag for artifact download
+      - name: Read llama.cpp tag
+        id: llama_tag
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.llama_tag }}" ]; then
+            TAG="${{ github.event.inputs.llama_tag }}"
+          else
+            TAG=$(grep '"llamacpp_tag"' package.json | cut -d'"' -f4)
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Using llama.cpp tag: $TAG"
+
+      # Download llama.cpp artifacts from llama-binary workflow
+      - name: Download llama.cpp artifacts (${{ matrix.platform }})
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: llama-binary.yml
+          name: llama-${{ matrix.platform }}-${{ steps.llama_tag.outputs.tag }}
+          path: llama-artifact
+          search_artifacts: true
+          if_no_artifact_found: fail
+
+      # Extract and copy llama.cpp files to servers directory
+      - name: Extract llama.cpp artifacts (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p servers/llama.cpp
+          cd llama-artifact
+          unzip -o llama-${{ matrix.platform }}.zip -d ../servers/llama.cpp/
+          echo "Extracted llama.cpp files:"
+          ls -lh ../servers/llama.cpp/
+
+      - name: Extract llama.cpp artifacts (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -Path "servers/llama.cpp" -ItemType Directory -Force
+          Expand-Archive -Path "llama-artifact/llama-${{ matrix.platform }}.zip" -DestinationPath "servers/llama.cpp/" -Force
+          Write-Host "Extracted llama.cpp files:"
+          Get-ChildItem "servers/llama.cpp/" | Format-Table Name, Length
 
       # 6. Build the app .exe (pyinstaller)
       - name: Build app
         shell: bash
-        env:
-          PATH: .venv/Scripts
         run: |
-          # Must activate env before each step
-          # `env.pythonLocation` should be used if no venv
-          # For Windows
-          if [ $RUNNER_OS == 'Windows' ]; then
-            .venv/Scripts/activate
-          # For Linux/macOS
+          # PyInstaller will output to "build/Obrew-Studio" folder in root
+          # Platform-specific paths handling
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            SITE_PACKAGES=".venv/lib/site-packages"
+            HNSWLIB_BINARY="$SITE_PACKAGES/hnswlib.cp312-win_amd64.pyd"
+            PYINSTALLER=".venv/Scripts/pyinstaller"
+            PYINSTALLER_OPTS="--onedir"
           else
-            source .venv/bin/activate
+            SITE_PACKAGES=".venv/lib/python3.12/site-packages"
+            HNSWLIB_BINARY="$SITE_PACKAGES/hnswlib.cpython-312-darwin.so"
+            PYINSTALLER=".venv/bin/pyinstaller"
+            # On macOS, use --onefile to create the app bundle properly
+            PYINSTALLER_OPTS="--onefile"
           fi
-          # PyInstaller will output to "build/Obrew-Studio" folder in root | --upx-dir C:/upx/upx-4.0.2-win64 \
-          # Platform-specific hnswlib binary handling
-          if [ $RUNNER_OS == 'Windows' ]; then
-            HNSWLIB_BINARY=".venv/lib/site-packages/hnswlib.cp312-win_amd64.pyd"
-          else
-            HNSWLIB_BINARY=".venv/lib/python3.12/site-packages/hnswlib.cpython-312-darwin.so"
-          fi
-          pyinstaller --noconfirm --clean --onedir --windowed \
+          # Debug: Show the paths we're using
+          echo "Checking if paths exist:"
+          find "$SITE_PACKAGES" -maxdepth 1 | head -20
+          # Convert to absolute paths
+          ABS_SITE_PACKAGES="${{ github.workspace }}/$SITE_PACKAGES"
+          ABS_HNSWLIB_BINARY="${{ github.workspace }}/$HNSWLIB_BINARY"
+          echo "Absolute paths:"
+          echo "ABS_SITE_PACKAGES: $ABS_SITE_PACKAGES"
+          echo "ABS_HNSWLIB_BINARY: $ABS_HNSWLIB_BINARY"
+          $PYINSTALLER --noconfirm --clean $PYINSTALLER_OPTS --windowed \
             --log-level DEBUG \
             --contents-directory _deps \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
             --name "Obrew-Studio" \
             --hidden-import "tiktoken_ext.openai_public" \
             --hidden-import "tiktoken_ext" \
+            --hidden-import "scipy._cyutility" \
+            --hidden-import "scipy._lib.messagestream" \
+            --hidden-import "scipy.sparse._csparsetools" \
+            --hidden-import "scipy.sparse.csgraph._validation" \
+            --hidden-import "scipy.special._ufuncs_cxx" \
+            --hidden-import "scipy.linalg.cython_blas" \
+            --hidden-import "scipy.linalg.cython_lapack" \
+            --hidden-import "scipy.integrate" \
+            --hidden-import "scipy.integrate._ode" \
+            --hidden-import "scipy.integrate._quadpack" \
+            --hidden-import "scipy.special._ufuncs" \
+            --hidden-import "scipy.special._cdflib" \
+            --hidden-import "scipy._lib._ccallback_c" \
+            --hidden-import "scipy._lib.array_api_compat.numpy.fft" \
+            --hidden-import "sklearn.utils._cython_blas" \
+            --hidden-import "sklearn.utils._weight_vector" \
+            --hidden-import "sklearn.neighbors._partition_nodes" \
+            --hidden-import "sklearn.neighbors._typedefs" \
+            --hidden-import "sklearn.neighbors._quad_tree" \
+            --hidden-import "sklearn.tree._utils" \
+            --hidden-import "sklearn.utils._typedefs" \
+            --hidden-import "sklearn.utils._heap" \
+            --hidden-import "sklearn.utils._sorting" \
+            --hidden-import "sklearn.utils._vector_sentinel" \
             --add-data "${{ github.workspace }}/public:public/" \
             --add-data "${{ github.workspace }}/package.json:public/" \
             --add-data "${{ github.workspace }}/backends/ui/public:public/" \
-            --add-data "${{ github.workspace }}/bundled:bundled/" \
-            --add-data "${{ github.workspace }}/cmake:cmake/" \
-            --add-data .venv/lib/site-packages/posthog:posthog/ \
-            --add-data .venv/lib/site-packages/chromadb:chromadb/ \
-            --add-data .venv/lib/site-packages/importlib_resources:importlib_resources/ \
-            --add-data .venv/lib/site-packages/backoff:backoff/ \
-            --add-data .venv/lib/site-packages/pypika:pypika/ \
-            --add-data "$HNSWLIB_BINARY:." \
+            --hidden-import "tools.built_in_functions.calculator" \
+            --hidden-import "tools.built_in_functions.data_transform" \
+            --hidden-import "tools.built_in_functions.enhance_text" \
+            --hidden-import "tools.built_in_functions.retrieval" \
+            --add-data "${{ github.workspace }}/certs:certs/" \
+            --add-data "$ABS_SITE_PACKAGES/posthog:posthog/" \
+            --add-data "$ABS_SITE_PACKAGES/chromadb:chromadb/" \
+            --add-data "$ABS_SITE_PACKAGES/importlib_resources:importlib_resources/" \
+            --add-data "$ABS_SITE_PACKAGES/backoff:backoff/" \
+            --add-data "$ABS_SITE_PACKAGES/pypika:pypika/" \
+            --add-data "$ABS_HNSWLIB_BINARY:." \
             "${{ github.workspace }}/backends/main.py"
-          # Create a "servers" dir to be included in installer
-          mkdir -p "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers"
-          # Copy and rename .env.example to .env then place in _deps/
-          cp "${{ github.workspace }}/.env.example" "${{ github.workspace }}/dist/Obrew-Studio/_deps/.env"
-          # Debug
-          echo "Workspace directory:"
-          ls -al "${{ github.workspace }}"
-          echo "Build directory:"
-          ls -al build/Obrew-Studio
-          echo "Dist directory:"
-          ls -al dist/Obrew-Studio
+          # Platform-specific post-build steps
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            # Create a "servers" dir to be included in installer
+            mkdir -p "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers/llama.cpp"
+            # Copy llama.cpp binaries to dist
+            cp -r "${{ github.workspace }}/servers/llama.cpp/"* "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers/llama.cpp/"
+            echo "Copied llama.cpp files to dist:"
+            ls -lh "${{ github.workspace }}/dist/Obrew-Studio/_deps/servers/llama.cpp/"
+            # Copy and rename .env.example to .env then place in _deps/
+            cp "${{ github.workspace }}/.env.example" "${{ github.workspace }}/dist/Obrew-Studio/_deps/.env"
+          else
+            # Copy llama.cpp binaries for macOS
+            mkdir -p "${{ github.workspace }}/dist/servers/llama.cpp"
+            cp -r "${{ github.workspace }}/servers/llama.cpp/"* "${{ github.workspace }}/dist/servers/llama.cpp/"
+            echo "Copied llama.cpp files to dist:"
+            ls -lh "${{ github.workspace }}/dist/servers/llama.cpp/"
+            # Run macOS app bundle creation script
+            chmod +x "${{ github.workspace }}/scripts/build-macos-app-bundle.sh"
+            "${{ github.workspace }}/scripts/build-macos-app-bundle.sh" "${{ github.workspace }}"
+          fi
 
       # 7a. Package with Inno-Setup (Windows)
       - name: Create Installer (Inno-Setup)
@@ -191,111 +278,152 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           echo "Listing files in the GitHub workspace: ${{ github.workspace }}"
-          cmake -S "${{ github.workspace }}" -B build_temp -D CMAKE_INSTALL_PREFIX="${{ github.workspace }}/dist/Obrew-Studio"
+          echo "Checking dist directory for app bundle:"
+          ls -la "${{ github.workspace }}/dist/" || echo "No dist directory yet"
+          # Configure CMake - no need to override install prefix, let CMakeLists.txt handle it
+          cmake -S "${{ github.workspace }}" -B build_temp
 
       - name: Build Project (CMake)
         shell: bash
         if: runner.os != 'Windows'
         run: cmake --build build_temp
 
-      - name: Create Installer (CPack)
+      - name: Debug - Verify app bundle before packaging
         shell: bash
         if: runner.os != 'Windows'
         run: |
-          cmake --build build_temp --target package --config Release
-          ls -la "${{ github.workspace }}/output"
+          echo "=== DEBUGGING: Checking app bundle structure ==="
+          echo "Contents of dist directory:"
+          ls -la "${{ github.workspace }}/dist/"
+          echo ""
+          echo "Checking if app bundle exists:"
+          if [ -d "${{ github.workspace }}/dist/Obrew-Studio.app" ]; then
+            echo "✓ App bundle found at dist/Obrew-Studio.app"
+            echo ""
+            echo "App bundle top-level contents:"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/"
+            echo ""
+            echo "App bundle Contents directory:"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/" 2>/dev/null || echo "No Contents directory"
+            echo ""
+            echo "App bundle MacOS directory:"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/" 2>/dev/null || echo "No MacOS directory"
+            echo ""
+            echo "App bundle Resources directory:"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/" 2>/dev/null || echo "No Resources directory"
+            echo ""
+            echo "App bundle Info.plist:"
+            cat "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Info.plist" 2>/dev/null || echo "No Info.plist"
+            echo ""
+            echo "Total size of app bundle:"
+            du -sh "${{ github.workspace }}/dist/Obrew-Studio.app"
+          else
+            echo "✗ ERROR: App bundle NOT found at dist/Obrew-Studio.app"
+            echo "This will cause CPack to create an empty package!"
+          fi
+          echo ""
+          echo "CMAKE_SOURCE_DIR will be: ${{ github.workspace }}"
+          echo "CMake will look for: ${{ github.workspace }}/dist/Obrew-Studio.app"
 
-      # 9. Zip all package files/folders in /build and put in /artifacts/windows-latest/
+      - name: Create Installer (macOS - Custom Script)
+        shell: bash
+        if: runner.os == 'macOS'
+        run: |
+          echo "Creating macOS installer package using custom script..."
+          echo "Contents of dist directory before packaging:"
+          ls -la "${{ github.workspace }}/dist/"
+
+          # Make the script executable
+          chmod +x "${{ github.workspace }}/scripts/package-macos.sh"
+
+          # Run the custom packaging script
+          "${{ github.workspace }}/scripts/package-macos.sh"
+
+          echo ""
+          echo "Checking output directory:"
+          ls -lh "${{ github.workspace }}/output/"
+
+      # 9. Zip all package files/folders in /build and put in /artifacts/
       - name: Zip assets (Windows)
         shell: pwsh
         if: runner.os == 'Windows'
         # Ensure the output directory matches the OutputDir of CPack
         run: |
-          mkdir -p ./artifacts/windows-latest
-          Compress-Archive -Path "output/*.*" -DestinationPath ./artifacts/windows-latest/windows-latest-artifacts.zip
+          mkdir -p ./artifacts/${{ matrix.platform }}
+          Compress-Archive -Path "output/*.*" -DestinationPath ./artifacts/${{ matrix.platform }}/${{ matrix.platform }}-artifacts.zip
 
       - name: Zip assets (macOS)
         shell: bash
         if: runner.os == 'macOS'
         run: |
-          mkdir -p ./artifacts/macos-latest
-          # CMake/CPack creates the DMG in build_temp directory
+          mkdir -p ./artifacts/${{ matrix.platform }}
+          # CMake/CPack creates the PKG in build_temp directory
           if [ -d "build_temp" ]; then
-            cp build_temp/*.dmg ./artifacts/macos-latest/ 2>/dev/null || true
+            cp build_temp/*.pkg ./artifacts/${{ matrix.platform }}/ 2>/dev/null || true
           fi
           # Also check output directory
           if [ -d "output" ]; then
-            cp output/*.dmg ./artifacts/macos-latest/ 2>/dev/null || true
+            cp output/*.pkg ./artifacts/${{ matrix.platform }}/ 2>/dev/null || true
           fi
-          # Zip all DMG files
-          cd ./artifacts/macos-latest
-          zip -r macos-latest-artifacts.zip *.dmg
+          # Zip all PKG files
+          cd ./artifacts/${{ matrix.platform }}
+          zip -r ${{ matrix.platform }}-artifacts.zip *.pkg
 
       # 10. Upload Installer Artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-artifact
-          path: ./artifacts/${{ matrix.os }}/${{ matrix.os }}-artifacts.zip # upload from
+          name: ${{ matrix.platform }}-artifact
+          path: ./artifacts/${{ matrix.platform }}/${{ matrix.platform }}-artifacts.zip # upload from
 
   # Assumes you created a git tag already
   create_release:
-    name: Create GitHub Release
+    name: Create GitHub Release and Upload Assets
     needs: [build]
     runs-on: ubuntu-latest
     if: ${{ success() }}
-    outputs:
-      release_upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
-      - name: Create a release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.event.inputs.ref || github.ref_name }}
-          release_name: ${{ github.event.inputs.release_name }}
-          body: ${{ github.event.inputs.release_notes }}
-          draft: ${{ github.event.inputs.release_type == 'draft' }} # not visible to the public
-          prerelease: ${{ github.event.inputs.release_type == 'private' }} # visible only to collaborators
-
-  upload_assets:
-    name: Upload Assets to Release
-    needs: [build, create_release]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Windows artifact
+      - name: Download Windows CUDA artifact
         if: always()
         uses: actions/download-artifact@v4
         with:
-          name: windows-latest-artifact
-          path: ./artifacts/windows
+          name: windows-cuda-artifact
+          path: ./artifacts/windows-cuda
+
+      - name: Download Windows CPU artifact
+        if: always()
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-cpu-artifact
+          path: ./artifacts/windows-cpu
 
       - name: Download macOS artifact
         if: always()
         uses: actions/download-artifact@v4
         with:
-          name: macos-latest-artifact
+          name: macos-metal-artifact
           path: ./artifacts/macos
 
-      - name: Upload Windows asset archive
-        if: always()
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create_release.outputs.release_upload_url }}
-          asset_path: ./artifacts/windows/windows-latest-artifacts.zip # file location
-          asset_name: Obrew-Studio.WIN.Setup.zip # display name on release page (not file name)
-          asset_content_type: application/zip
+      - name: Rename artifacts
+        shell: bash
+        run: |
+          mv ./artifacts/windows-cuda/windows-cuda-artifacts.zip ./artifacts/Obrew-Studio.WIN.CUDA.Setup.zip || true
+          mv ./artifacts/windows-cpu/windows-cpu-artifacts.zip ./artifacts/Obrew-Studio.WIN.CPU.Setup.zip || true
+          mv ./artifacts/macos/macos-metal-artifacts.zip ./artifacts/Obrew-Studio.macOS.Setup.zip || true
 
-      - name: Upload macOS asset archive
-        if: always()
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create release and upload assets
+        uses: ncipollo/release-action@v1
         with:
-          upload_url: ${{ needs.create_release.outputs.release_upload_url }}
-          asset_path: ./artifacts/macos/macos-latest-artifacts.zip # file location
-          asset_name: Obrew-Studio.macOS.Setup.zip # display name on release page (not file name)
-          asset_content_type: application/zip
+          tag: ${{ github.event.inputs.ref || github.ref_name }}
+          name: ${{ github.event.inputs.release_name }}
+          body: ${{ github.event.inputs.release_notes }}
+          draft: ${{ github.event.inputs.release_type == 'draft' }}
+          prerelease: ${{ github.event.inputs.release_type == 'private' }}
+          artifacts: |
+            ./artifacts/Obrew-Studio.WIN.CUDA.Setup.zip
+            ./artifacts/Obrew-Studio.WIN.CPU.Setup.zip
+            ./artifacts/Obrew-Studio.macOS.Setup.zip
+          artifactContentType: application/zip
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
+          artifactErrorsFailBuild: false

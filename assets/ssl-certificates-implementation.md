@@ -25,20 +25,21 @@ Obrew Studio now supports trusted HTTPS connections using a hybrid certificate a
    - User clicks "Advanced" → "Proceed to localhost"
    - **Result**: App still works, minor UX friction ⚠️
 
-### macOS (DMG-Based)
+### macOS (.pkg Installer)
 
-1. **On First Launch**:
+1. **During Installation**:
 
-   - App detects no mkcert certificates exist
-   - Prompts for password via macOS native dialog
-   - Runs `cmake/install_certificates_macos.sh`
+   - User double-clicks the `.pkg` installer
+   - macOS requests administrator password (standard installer behavior)
+   - Post-install script (`certs/postinstall.sh`) runs with elevated privileges
    - Script executes `mkcert -install` and generates certificates
-   - Certificates saved to app bundle `Contents/Resources/backends/ui/public/`
-   - **Result**: Zero browser warnings on subsequent launches ✅
+   - Certificates saved to app bundle `Contents/MacOS/_deps/backends/ui/public/`
+   - **Result**: App works immediately on first launch with zero browser warnings ✅
 
-2. **If User Declines Password**:
-   - Falls back to bundled self-signed certificates
-   - Same UX as Windows fallback
+2. **If Installation Fails**:
+   - App falls back to bundled self-signed certificates
+   - Browser shows "Not Secure" warning on first visit
+   - Same fallback UX as Windows
 
 ## Implementation Details
 
