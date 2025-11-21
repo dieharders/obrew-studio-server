@@ -39,19 +39,23 @@ def get_app_base_dir():
 
 
 # Pass relative string to get absolute path
-# @TODO I broke these into platforms to be safe, but we should be able to use base = get_app_base_dir()
 def app_path(relative_path: str = None):
-    base = get_app_base_dir()
-    # MacOS
+    # MacOS - use Application Support (app bundle is read-only)
     if sys.platform == "darwin":
+        base = os.path.join(
+            os.path.expanduser("~"), "Library", "Application Support", "Obrew-Studio"
+        )
+        if not os.path.exists(base):
+            os.makedirs(base, exist_ok=True)
         if relative_path:
             return os.path.join(base, relative_path)
         return base
     # Windows
     else:
+        base = os.getcwd()
         if relative_path:
-            return os.path.join(os.getcwd(), relative_path)
-        return os.getcwd()
+            return os.path.join(base, relative_path)
+        return base
 
 
 # Pass a relative path to resource and return the correct absolute path. Works for dev and for PyInstaller
