@@ -3,6 +3,7 @@ import sys
 import socket
 import signal
 import platform
+import multiprocessing
 from typing import Tuple
 from dotenv import load_dotenv
 import ctypes
@@ -184,6 +185,10 @@ def main():
 
 # This script is the loader for the rest of the backend. It only handles UI and starting dependencies.
 if __name__ == "__main__":
+    # Required for PyInstaller on Windows/macOS to prevent spawning duplicate windows
+    # When subprocess operations happen (like downloads), Python may spawn a new process that re-executes the main script, creating a second window.
+    multiprocessing.freeze_support()
+
     print(f"{common.PRNT_APP} Starting app...", flush=True)
 
     # Path to the .env file in either the parent or /_deps directory
