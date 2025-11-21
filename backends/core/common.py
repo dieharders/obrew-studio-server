@@ -664,8 +664,9 @@ def get_file_extension_from_path(path: str):
 
 
 def get_ssl_env():
-    # Enable by default if no setting found
-    val = os.getenv("ENABLE_SSL", "True").lower() in ("true", "1", "t")
+    # Disable by default if no setting found (better for first-run experience)
+    # SSL should be explicitly enabled when certificates are properly set up
+    val = os.getenv("ENABLE_SSL", "False").lower() in ("true", "1", "t")
     return val
 
 
