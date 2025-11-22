@@ -1,107 +1,324 @@
 <link rel="stylesheet" href="main.css" />
 <script type="text/javascript" src="main.js"></script>
 
-<span class="header">
-  <!-- Version banner -->
-  <p id="version">Version {{?}}</p>
-  <!-- Message banner -->
-  <div class="messageBanner">
-    <p id="messageBannerContent"></p>
+<!-- Header with version -->
+<div class="header">
+  <div class="header-info">
+    <p id="version" class="code">Version {{?}}</p>
+    <a id="docs-link" class="code" href="{{local_url}}:{{port}}/docs" target="_blank">
+      {{local_url}}:{{port}}/docs
+    </a>
   </div>
-</span>
+</div>
 
+<!-- Message Toast -->
+<div class="messageToast" id="messageToast">
+  <p id="messageBannerContent"></p>
+  <button class="toast-dismiss-btn" onclick="dismissToast()" aria-label="Dismiss">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+      <path
+        d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+      />
+    </svg>
+  </button>
+</div>
+
+<!-- Main Content Container -->
 <div class="content">
-  <!-- Logo -->
-  <div class="bg-image-container">
-    <div class="bg-image"></div>
-  </div>
+  <!-- Settings Button (Top Right Corner) -->
+  <button class="settingsIconBtn" onclick="openSettingsModal()" title="Settings">
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+      <path
+        d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"
+      />
+    </svg>
+  </button>
 
-  <!-- Title -->
-  <h1>Welcome to Obrew Studio!</h1>
-  <p>Startup the server to begin.</p>
-  <!-- Update notification -->
-  <div id="updateMessageContainer">
-    <p id="updateVersion">New update available:</p>
-    <p>Download: <a id="updateLink" href="https://www.openbrew.ai" target="_blank">here</a></p>
-    <p id="updateAsset">Size:</p>
-  </div>
+  <!-- PRE-SERVER STATE -->
+  <div id="preServerView" class="view-state">
+    <!-- Logo -->
+    <div class="logo-container">
+      <div class="logo-image"></div>
+    </div>
 
-  <!-- Connection Options -->
-  <button class="btn grey" onclick="toggleConnections()">Connection Options</button>
-  <div id="connContainer" data-attr="closed">
-    <p>Start the server with the config below.</p>
-    <form action="" class="formOptions">
-      <!-- Custom Server -->
-      <div class="inputContainer">
-        <label for="host">Host:</label>
-        <input type="text" id="host" name="host" value="" placeholder="{{0.0.0.0}}" />
+    <!-- Welcome Section -->
+    <div class="welcome-section">
+      <h1>Welcome to Obrew!</h1>
+      <p class="subtitle">Start your local AI server to begin</p>
+    </div>
+
+    <!-- Update Toast Notification -->
+    <div id="updateToast" class="updateToast">
+      <div class="update-content">
+        <p id="updateVersion" class="update-title">New update available:</p>
+        <p class="update-link">
+          Download: <a id="updateLink" href="https://www.openbrew.ai" target="_blank">here</a>
+        </p>
+        <p id="updateAsset" class="update-size">Size:</p>
       </div>
-      <div class="inputContainer">
-        <label for="port">Port:</label>
-        <input type="number" id="port" name="port" value="" placeholder="{{8008}}" />
-      </div>
-      <div>
-        <!-- Supported Apps List -->
-        <div class="appsListContainer">
-          <h3>Available Apps</h3>
-          <div class="appCards" id="appCards">
-            <!-- App cards will be dynamically generated here by JavaScript -->
+      <button class="toast-dismiss-btn" onclick="dismissUpdateToast()" aria-label="Dismiss">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+          <path
+            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+          />
+        </svg>
+      </button>
+    </div>
 
-            <!-- Custom Server Card -->
-            <div class="appCard" onclick="selectAppCard(this)">
-              <div class="appCardHeader">
-                <h4>Custom App</h4>
+    <!-- Primary Action: Start Server -->
+    <div class="primary-action-section">
+      <button class="btn btn-primary btn-large" id="startServerBtn" onclick="startServerOnly()">
+        <svg class="btn-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+        Start Server
+      </button>
+      <!-- <p class="help-text">Launch the server to access all features</p> -->
+    </div>
+
+    <!-- Connection Options -->
+    <div class="advanced-section">
+      <div id="advancedOptionsContainer" class="advanced-options-container">
+        <form class="connection-form">
+          <div class="form-header">
+            <div class="form-header-icon">
+              <svg viewBox="0 0 24 24" width="40" height="40" fill="#7e22ce">
+                <path
+                  d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"
+                />
+              </svg>
+            </div>
+            <div class="form-header-title">
+              <h2>Connection Options</h2>
+              <p class="ghost">Choose how to start the server.</p>
+            </div>
+          </div>
+          <div class="form-content">
+            <div class="form-grid">
+              <div class="form-field">
+                <label for="host">Host:</label>
+                <input type="text" id="host" name="host" value="" placeholder="http://localhost" />
               </div>
-              <p class="appCardDescription">
-                Connect to a custom WebUI server by entering the URL below.
-              </p>
-              <input
-                type="text"
-                id="webui"
-                name="webui"
-                class="customServerInput"
-                value=""
-                placeholder="http://localhost:3000"
-                onclick="event.stopPropagation()"
-                oninput="updateCustomServerWebUI(event)"
+              <div class="form-field">
+                <label for="port">Port:</label>
+                <input type="number" id="port" name="port" value="" placeholder="8008" />
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- POST-SERVER STATE -->
+  <div id="postServerView" class="view-state" hidden>
+    <div class="server-actions">
+      <!-- Server Status Header -->
+      <div class="server-status-header">
+        <div class="status-badge status-online">
+          <span class="status-indicator"></span>
+          Server Online
+        </div>
+      </div>
+
+      <!-- Server Actions -->
+      <div class="server-actions">
+        <button class="btn btn-danger btn-large" id="shutdownBtn" onclick="handleShutdownServer()">
+          <svg class="btn-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+            <path d="M6 6h12v12H6z" />
+          </svg>
+          Shutdown Server
+        </button>
+      </div>
+    </div>
+
+    <!-- Server Metrics -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-icon">🖥️</div>
+        <div class="metric-content">
+          <p class="metric-label">Server Address</p>
+          <p class="metric-value" id="serverAddress">http://localhost:8008</p>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon">⚡</div>
+        <div class="metric-content">
+          <p class="metric-label">Status</p>
+          <p class="metric-value" id="serverStatus">Running</p>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon">📊</div>
+        <div class="metric-content">
+          <p class="metric-label">Uptime</p>
+          <p class="metric-value" id="serverUptime">0:00:00</p>
+        </div>
+      </div>
+
+      <div class="metric-card">
+        <div class="metric-icon">🔗</div>
+        <div class="metric-content">
+          <p class="metric-label">Connections</p>
+          <p class="metric-value" id="activeConnections">0</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Available Apps Section -->
+    <div class="available-apps-section">
+      <form class="connection-form">
+        <div class="form-header">
+          <div class="form-header-icon" style="background-color: #facc15">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="#a16207">
+              <path
+                d="M12 2L9 8.5L2 9l5 5-1 7 6-3 6 3-1-7 5-5-7-.5L12 2zm0 3.5l1.5 4 4.5.5-3.5 3.5.5 4.5-3-1.5-3 1.5.5-4.5L6 10l4.5-.5L12 5.5z"
               />
+            </svg>
+          </div>
+          <div class="form-header-title">
+            <h2>Launch Applications</h2>
+            <p class="section-subtitle">Start using productivity apps with your AI</p>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="app-cards-grid" id="appCardsGrid">
+            <!-- App cards will be cloned here -->
+            <!-- Custom Server Card -->
+            <div class="app-card" onclick="selectAppCard(this)">
+              <div class="app-card-content">
+                <h3>Custom App</h3>
+                <p class="app-description">Connect to a custom WebUI server</p>
+                <input
+                  type="text"
+                  id="customWebUI"
+                  class="custom-server-input"
+                  value=""
+                  placeholder="http://localhost:3000"
+                  onclick="event.stopPropagation()"
+                  oninput="updateCustomServerWebUI(event)"
+                />
+              </div>
               <button
                 type="button"
-                class="btn appCardBtn"
-                id="customServerStartBtn"
+                class="btn btn-secondary btn-app"
                 onclick="launchCustomServer(event)"
               >
-                Start
+                Launch
               </button>
             </div>
           </div>
         </div>
-      </div>
-    </form>
-  </div>
-
-  <!-- Advanced Connection Options -->
-  <button class="btn grey" onclick="toggleAdvanced()">Remote Connection</button>
-  <div id="advContainer" data-attr="closed">
-    <p>Scan the code with your mobile device to connect to Obrew running on this device.</p>
-    <div class="remote">
-      <h3>Remote Host</h3>
-      <!-- Only show if data exists -->
-      <p id="qr_link">{{remote_url}}:{{port}}</p>
-      <img id="qrcode" data-attr="none" src="" alt="qr code for {{remote_url}}:{{port}}" />
+      </form>
     </div>
-    <h3>API Docs</h3>
-    <a class="docs-link" href="{{local_url}}:{{port}}/docs" target="_blank">
-      {{local_url}}:{{port}}/docs
-    </a>
-  </div>
 
-  <!-- Button Menu -->
-  <div class="menuContainer">
-    <ul class="menu">
-      <a id="settingsBtn" class="btn grey" href="/settings.html" draggable="false" data-link
-        >Settings</a
-      >
-    </ul>
+    <!-- Remote Connection -->
+    <div class="remote-section">
+      <div class="qr-container">
+        <img id="qrcode" class="qr-image" data-state="none" src="" alt="QR code" />
+        <p class="section-subtitle">Scan to connect from mobile device</p>
+        <p
+          id="qrLink"
+          class="qr-url qr-url-clickable"
+          onclick="openQRLinkInBrowser()"
+          title="Click to open in browser"
+        >
+          {{remote_url}}:{{port}}
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal" class="modal" onclick="closeSettingsModalOnBackdrop(event)">
+  <div class="modal-content" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-title">
+        <h2>Settings</h2>
+        <p class="modal-description">
+          Configure your environment variables, server settings and API keys. Settings are
+          automatically saved when you close this modal.
+        </p>
+      </div>
+      <button class="modal-close-btn" onclick="closeSettingsModal()">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path
+            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+          />
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <form id="settingsForm" class="settings-form">
+        <!-- API Keys Section -->
+        <div class="settings-section">
+          <h3>API Keys</h3>
+          <div class="form-field">
+            <label for="llamaCloud">Llama-Cloud:</label>
+            <input
+              type="password"
+              id="llamaCloud"
+              name="LLAMA_CLOUD_API_KEY"
+              value=""
+              placeholder="xxx-xxxxxxx"
+            />
+          </div>
+        </div>
+
+        <!-- Server Options Section -->
+        <div class="settings-section">
+          <h3>Server Options</h3>
+          <div class="form-field checkbox-field">
+            <div class="checkbox-container">
+              <label for="ssl">Enable SSL</label>
+              <input type="checkbox" id="ssl" name="ENABLE_SSL" value="" />
+            </div>
+            <p class="field-help">
+              Enable to allow external devices to connect to your local host. Requires certificates.
+              Refer to README.md for instructions.
+            </p>
+          </div>
+        </div>
+
+        <!-- Whitelists Section -->
+        <div class="settings-section">
+          <h3>Whitelists</h3>
+
+          <div class="form-field" style="margin-top: 1rem">
+            <label for="cors">App:</label>
+            <input
+              type="text"
+              id="cors"
+              name="CUSTOM_ORIGINS"
+              value=""
+              placeholder="https://your-web-app.com,https://another-web-app.com"
+            />
+            <p class="field-help">
+              Whitelist your webapp or external service with Obrew. Add additional URLs as
+              comma-separated strings.
+            </p>
+          </div>
+
+          <div class="form-field" style="margin-top: 1rem">
+            <label for="admin">Admin IP:</label>
+            <input
+              type="text"
+              id="admin"
+              name="WHITELIST_ADMIN_IP"
+              value=""
+              placeholder="XX.XXX.XXX.XX,XX.XXX.XXX.XX"
+            />
+            <p class="field-help">
+              Whitelist comma-separated admin IPs. Useful to remote into the WebUI dashboard when
+              server is remotely hosted.
+            </p>
+          </div>
+        </div>
+      </form>
+    </div>
   </div>
 </div>

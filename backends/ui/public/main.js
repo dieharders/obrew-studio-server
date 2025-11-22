@@ -1,155 +1,399 @@
-// Backend funcs
+// ==================== STATE MANAGEMENT ====================
+let serverStartTime = null
+let uptimeInterval = null
+let serverOnlyMode = false // Flag to prevent auto-navigation when starting server only
+
+// ==================== MODAL FUNCTIONS ====================
+function openSettingsModal() {
+  const modal = document.getElementById('settingsModal')
+  modal.classList.add('active')
+  // Load current settings
+  loadSettings()
+}
+
+function closeSettingsModal() {
+  const modal = document.getElementById('settingsModal')
+  modal.classList.remove('active')
+  // Auto-save settings when modal closes
+  saveSettings()
+}
+
+function closeSettingsModalOnBackdrop(event) {
+  if (event.target === event.currentTarget) {
+    closeSettingsModal()
+  }
+}
+
+async function loadSettings() {
+  try {
+    const data = await window.pywebview.api.update_settings_page()
+
+    // Load settings into form fields
+    const llamaCloudEl = document.getElementById('llamaCloud')
+    if (data.llamaIndexAPIKey) llamaCloudEl.value = data.llamaIndexAPIKey
+
+    const sslEl = document.getElementById('ssl')
+    if (data.ssl) sslEl.checked = true
+    else sslEl.checked = false
+
+    const corsEl = document.getElementById('cors')
+    if (data.cors) corsEl.value = data.cors
+
+    const adminEl = document.getElementById('admin')
+    if (data.adminWhitelist) adminEl.value = data.adminWhitelist
+  } catch (error) {
+    console.error('Failed to load settings:', error)
+  }
+}
+
+async function saveSettings() {
+  try {
+    const form = document.getElementById('settingsForm')
+    const formData = new FormData(form)
+
+    // Handle checkboxes
+    const checkboxes = form.querySelectorAll('input[type="checkbox"]')
+    const checkData = {}
+    checkboxes.forEach(checkbox => {
+      checkData[checkbox.name] = checkbox.checked ? 'true' : 'false'
+    })
+
+    // Convert to object and merge
+    const formDataObject = Object.fromEntries(formData.entries())
+    await window.pywebview.api.save_settings({ ...formDataObject, ...checkData })
+  } catch (error) {
+    console.error('Failed to save settings:', error)
+  }
+}
+
+// ==================== SERVER FUNCTIONS ====================
 function disableAllAppCards() {
-  const allCards = document.querySelectorAll('.appCard')
+  const allCards = document.querySelectorAll('.app-card')
   allCards.forEach(card => {
     card.style.pointerEvents = 'none'
     card.style.opacity = '0.6'
-    // Disable all buttons within the card
     const buttons = card.querySelectorAll('button')
     buttons.forEach(btn => (btn.disabled = true))
-    // Disable input within the card
     const inputs = card.querySelectorAll('input')
     inputs.forEach(input => (input.disabled = true))
   })
 }
 
-function enableAllAppCards() {
-  const allCards = document.querySelectorAll('.appCard')
-  allCards.forEach(card => {
-    card.style.pointerEvents = 'auto'
-    card.style.opacity = '1'
-    // Enable all buttons within the card
-    const buttons = card.querySelectorAll('button')
-    buttons.forEach(btn => (btn.disabled = false))
-    // Enable input within the card
-    const inputs = card.querySelectorAll('input')
-    inputs.forEach(input => (input.disabled = false))
-  })
-}
-
 async function launchWebUIFailed(err) {
-  console.error('Failed to start API server')
-  // Reset state if server start fails
-  const btnEl = document.getElementById('startBtn')
-  const settingsEl = document.getElementById('settingsBtn')
+  console.error('Failed to start API server:', err)
+
+  // Reset state
+  const btnEl = document.getElementById('startServerBtn')
   if (btnEl) btnEl.disabled = false
-  if (settingsEl) settingsEl.removeAttribute('disabled')
-  // Re-enable all app cards
-  enableAllAppCards()
+
   // Display error message
   const toastEl = document.getElementById('messageBannerContent')
   if (toastEl) {
     toastEl.innerHTML = err
-    // Set timeout to hide message
     setTimeout(() => {
       toastEl.innerHTML = ''
     }, 10000)
   }
-  return '' // always return something
+
+  return ''
 }
-// Nav to Obrew Studio WebUI
+
 async function launchWebUI() {
-  // The params help front-end know what server to connect to
+  // Check if we're in server-only mode (don't navigate)
+  if (serverOnlyMode) {
+    serverOnlyMode = false // Reset flag
+    await showPostServerView()
+    return ''
+  }
+
   const target = window.frontend.state.webui
   const hostEl = document.getElementById('host')
   const hostname = hostEl.value || ''
   const portEl = document.getElementById('port')
   const port = portEl.value || ''
+
   // Determine protocol based on SSL setting
   const sslEnabled = await window.pywebview.api.get_ssl_setting()
   const protocol = sslEnabled ? 'https' : 'http'
   const serverUrl = `${protocol}://localhost:${port}`
-  // Go to app - pass both old format and new serverUrl for backwards compatibility
+
+  // Navigate to app
   window.location = `${target}/?protocol=${protocol}&hostname=${hostname}&port=${port}&serverUrl=${encodeURIComponent(
     serverUrl,
   )}`
-  return '' // always return something
+
+  return ''
 }
+
 async function startServer() {
-  const btnEl = document.getElementById('startBtn')
-  const settingsEl = document.getElementById('settingsBtn')
+  const btnEl = document.getElementById('startServerBtn')
   let timerRef
+
   try {
-    // Check for empty startup values
+    // Validate inputs
     const hostEl = document.getElementById('host')
     const hostname = hostEl.value || ''
     const portEl = document.getElementById('port')
     const port = portEl.value || ''
-    if (
-      !window.frontend.state.webui ||
-      window.frontend.state.webui.length <= 0 ||
-      !hostname ||
-      !port
-    ) {
+
+    if (!window.frontend.state.webui || !hostname || !port) {
       const err = 'No target, hostname or port provided to launch App.'
       launchWebUIFailed(err)
       throw new Error(err)
     }
-    // Disable all app cards
-    disableAllAppCards()
-    const form = document.querySelector('form')
-    // Disable buttons
+
+    // Disable controls
     if (btnEl) btnEl.disabled = true
-    if (settingsEl) settingsEl.setAttribute('disabled', 'disabled')
+
     timerRef = setTimeout(() => {
       if (btnEl) btnEl.disabled = false
-      if (settingsEl) settingsEl.removeAttribute('disabled')
-      enableAllAppCards()
-    }, 30000) // un-disable after 30sec
+    }, 30000)
+
     // Get form data
+    const form = document.querySelector('.connection-form')
     const formData = new FormData(form)
     const config = Object.fromEntries(formData.entries())
     config.port = parseInt(config.port)
-    // Always use the webui value from state, not from the input field
     config.webui = window.frontend.state.webui
+
+    // Start server
     await window.pywebview.api.start_server(config)
+
+    // Switch to post-server view
+    await showPostServerView()
+
+    // Clear timeout
+    clearTimeout(timerRef)
+
     return
   } catch (err) {
     if (btnEl) btnEl.disabled = false
-    if (settingsEl) settingsEl.removeAttribute('disabled')
-    enableAllAppCards()
-    clearTimeout(timerRef)
+    if (timerRef) clearTimeout(timerRef)
     console.error(`Failed to start API server: ${err}`)
   }
 }
+
+// Start server only (without launching an app)
+async function startServerOnly() {
+  const btnEl = document.getElementById('startServerBtn')
+  let timerRef
+
+  try {
+    // Get connection details
+    const hostEl = document.getElementById('host')
+    const hostname = hostEl.value || ''
+    const portEl = document.getElementById('port')
+    const port = portEl.value || ''
+
+    if (!hostname || !port) {
+      const err = 'No hostname or port provided.'
+      launchWebUIFailed(err)
+      throw new Error(err)
+    }
+
+    // Disable button
+    if (btnEl) btnEl.disabled = true
+
+    timerRef = setTimeout(() => {
+      if (btnEl) btnEl.disabled = false
+    }, 30000)
+
+    // Get form data
+    const form = document.querySelector('.connection-form')
+    const formData = new FormData(form)
+    const config = Object.fromEntries(formData.entries())
+    config.port = parseInt(config.port)
+    config.webui = '' // No webui target for server-only start
+
+    // Start server
+    await window.pywebview.api.start_headless_server(config)
+
+    // Switch to post-server view
+    await showPostServerView()
+
+    // Clear timeout
+    clearTimeout(timerRef)
+
+    return
+  } catch (err) {
+    if (btnEl) btnEl.disabled = false
+    if (timerRef) clearTimeout(timerRef)
+    console.error(`Failed to start API server: ${err}`)
+    launchWebUIFailed(err.toString())
+  }
+}
+
+async function handleShutdownServer() {
+  try {
+    await shutdownServer()
+    // Switch back to pre-server view
+    showPreServerView()
+  } catch (err) {
+    console.error('Failed to shutdown server:', err)
+  }
+}
+
 async function shutdownServer() {
   await window.pywebview.api.shutdown_server()
   return
 }
 
-// Front-End funcs
+// ==================== VIEW SWITCHING ====================
+async function showPostServerView() {
+  // Hide pre-server view
+  const preServerView = document.getElementById('preServerView')
+  preServerView.hidden = true
+
+  // Show post-server view
+  const postServerView = document.getElementById('postServerView')
+  postServerView.hidden = false
+
+  // Update server metrics
+  updateServerMetrics()
+
+  // Start uptime counter
+  serverStartTime = Date.now()
+  if (uptimeInterval) clearInterval(uptimeInterval)
+  uptimeInterval = setInterval(updateUptime, 1000)
+
+  // Create app cards from hosted_apps data
+  const data = await getPageData()
+  if (data.hosted_apps && data.hosted_apps.length > 0) {
+    createAppCards(data.hosted_apps)
+  }
+}
+
+function showPreServerView() {
+  // Show pre-server view
+  const preServerView = document.getElementById('preServerView')
+  preServerView.hidden = false
+
+  // Hide post-server view
+  const postServerView = document.getElementById('postServerView')
+  postServerView.hidden = true
+
+  // Stop uptime counter
+  if (uptimeInterval) {
+    clearInterval(uptimeInterval)
+    uptimeInterval = null
+  }
+  serverStartTime = null
+
+  // Re-enable controls
+  const btnEl = document.getElementById('startServerBtn')
+  if (btnEl) btnEl.disabled = false
+}
+
+function launchAppFromRunning(cardElement, event) {
+  event.stopPropagation()
+
+  const webuiUrl = cardElement.getAttribute('data-webui')
+  if (webuiUrl) {
+    window.frontend.state.webui = webuiUrl
+    launchWebUI()
+  }
+}
+
+// ==================== METRICS UPDATES ====================
+function updateServerMetrics() {
+  const hostEl = document.getElementById('host')
+  const portEl = document.getElementById('port')
+
+  const hostname = hostEl?.value || 'localhost'
+  const port = portEl?.value || '8008'
+
+  // Update server address
+  const serverAddressEl = document.getElementById('serverAddress')
+  if (serverAddressEl) {
+    serverAddressEl.textContent = `http://${hostname}:${port}`
+  }
+
+  // Update status
+  const serverStatusEl = document.getElementById('serverStatus')
+  if (serverStatusEl) {
+    serverStatusEl.textContent = 'Running'
+  }
+
+  // Reset active connections
+  const activeConnectionsEl = document.getElementById('activeConnections')
+  if (activeConnectionsEl) {
+    activeConnectionsEl.textContent = '0'
+  }
+}
+
+function updateUptime() {
+  if (!serverStartTime) return
+
+  const uptimeEl = document.getElementById('serverUptime')
+  if (!uptimeEl) return
+
+  const now = Date.now()
+  const diff = now - serverStartTime
+
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+
+  uptimeEl.textContent = `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(
+    2,
+    '0',
+  )}`
+}
+
+// ==================== PAGE SETUP ====================
 async function getPageData() {
-  const port = document.getElementById('port').value
-  const selected_webui_url = document.getElementById('webui').value
+  const portEl = document.getElementById('port')
+  const port = portEl?.value || ''
+  const customWebUIEl = document.getElementById('customWebUI')
+  const selected_webui_url = customWebUIEl?.value || ''
+
   const data = await window.pywebview.api.update_main_page(port, selected_webui_url)
   return data
 }
+
 function updateQRCode(data) {
-  const hostEl = document.getElementById('qr_link')
-  hostEl.innerHTML = `${data.remote_url}:${data.port}`
-  const docsLinkEl = document.querySelector('.docs-link')
-  const docsLink = `${data.local_url}:${data.port}/docs`
-  docsLinkEl.innerHTML = docsLink
-  docsLinkEl.setAttribute('href', docsLink)
+  const hostEl = document.getElementById('qrLink')
+  if (hostEl) {
+    hostEl.innerHTML = `${data.remote_url}:${data.port}`
+  }
+
+  const docsLinkEl = document.getElementById('docs-link')
+  if (docsLinkEl) {
+    const docsLink = `${data.local_url}:${data.port}/docs`
+    docsLinkEl.innerHTML = docsLink
+    docsLinkEl.setAttribute('href', docsLink)
+  }
+
   // Show QR-Code
   const qrcodeEl = document.getElementById('qrcode')
   const qrcodeImage = data.qr_data
-  if (qrcodeImage) {
-    qrcodeEl.setAttribute('data-attr', 'qrcode')
+  if (qrcodeEl && qrcodeImage) {
+    qrcodeEl.setAttribute('data-state', 'qrcode')
     qrcodeEl.setAttribute('alt', `qr code for ${data.remote_url}:${data.port}`)
     qrcodeEl.src = `data:image/png;base64,${qrcodeImage}`
   }
 }
+
 function createAppCards(hostedApps) {
   if (!hostedApps || hostedApps.length === 0) return
 
-  const appCardsContainer = document.getElementById('appCards')
-  const customServerCard = appCardsContainer.querySelector('.appCard')
+  const appCardsContainer = document.getElementById('appCardsGrid')
+  if (!appCardsContainer) return
+
+  const customServerCard = appCardsContainer.querySelector('.app-card')
+
+  // Remove all existing app cards except the custom server card
+  const allCards = appCardsContainer.querySelectorAll('.app-card')
+  allCards.forEach(card => {
+    if (card !== customServerCard) {
+      card.remove()
+    }
+  })
 
   // Create app cards for each hosted app
   hostedApps.forEach(app => {
     const card = document.createElement('div')
-    card.className = 'appCard'
+    card.className = 'app-card'
     card.setAttribute('data-webui', app.url)
     card.setAttribute('data-name', app.title)
     card.onclick = function () {
@@ -157,175 +401,228 @@ function createAppCards(hostedApps) {
     }
 
     card.innerHTML = `
-      <div class="appCardHeader">
-        <h4>${app.title}</h4>
+      <div class="app-card-content">
+        <h3>${app.title}</h3>
+        <p class="app-description">${app.description}</p>
       </div>
-      <p class="appCardDescription">
-        ${app.description}
-      </p>
-      <button type="button" class="btn appCardBtn" onclick="launchApp(this, event)">
-        Launch ${app.title}
-      </button>
+      <div class="app-buttons">
+        <button type="button" class="btn btn-secondary btn-app" onclick="openInBrowser(this, event)">
+          Launch in Browser
+        </button>
+        <button type="button" class="btn btn-secondary btn-app" onclick="launchApp(this, event)">
+          Open
+        </button>
+      </div>
     `
 
     // Insert before the custom server card
     appCardsContainer.insertBefore(card, customServerCard)
   })
 }
+
 async function mountPage() {
   try {
-    // Get data from input
+    // Get data from backend
     const data = await getPageData()
     if (!data) return
+
     // Update state on first mount
-    if (Object.keys(window.frontend.state).length === 0) window.frontend.state = data
-    // Create app cards from hosted_apps data
-    if (data.hosted_apps && data.hosted_apps.length > 0) {
-      createAppCards(data.hosted_apps)
+    if (Object.keys(window.frontend.state).length === 0) {
+      window.frontend.state = data
     }
-    // Generate qr code
+
+    // Generate QR code
     updateQRCode(data)
+
     // Parse page with data
     const hostEl = document.getElementById('host')
-    hostEl.value = window.frontend.state.host || data.host
+    if (hostEl) {
+      hostEl.value = window.frontend.state.host || data.host
+    }
+
     const portEl = document.getElementById('port')
-    portEl.value = window.frontend.state.port || data.port
-    // Don't set the webui input value - let it stay empty or use user input
-    const currentWebui =
-      window.frontend.state.webui ||
-      (data.hosted_apps && data.hosted_apps.length > 0 ? data.hosted_apps[0].url : '')
-    // Pre-select the app card that matches the current webui URL
-    const allCards = document.querySelectorAll('.appCard')
-    allCards.forEach(card => {
-      if (card.getAttribute('data-webui') === currentWebui) {
-        card.classList.add('selected')
-      } else {
-        card.classList.remove('selected')
-      }
-    })
+    if (portEl) {
+      portEl.value = window.frontend.state.port || data.port
+    }
+
+    // Update version
     const versionEl = document.getElementById('version')
     const ver = window.frontend.state.current_version || ''
-    if (ver) versionEl.innerText = `Version ${ver}`
-    else versionEl.hidden = true
-    // Attempt to parse update data (always do last)
-    const updateMessageEl = document.getElementById('updateMessageContainer')
+    if (versionEl) {
+      if (ver) versionEl.innerText = `Version ${ver}`
+      else versionEl.hidden = true
+    }
+
+    // Handle update notification toast
     const updateData = window.frontend.state.update_available || data.update_available
-    updateMessageEl.hidden = !updateData
-    if (!updateData) return
-    const updateLinkEl = document.getElementById('updateLink')
-    updateLinkEl.innerText = updateData.downloadName
-    updateLinkEl.href = updateData.downloadUrl
-    const updateVersionEl = document.getElementById('updateVersion')
-    updateVersionEl.innerText = `New update (${updateData.tag_name}) available:`
-    const updateAssetEl = document.getElementById('updateAsset')
-    updateAssetEl.innerText = `Size: ${updateData.downloadSize} bytes`
+
+    if (updateData) {
+      const updateLinkEl = document.getElementById('updateLink')
+      if (updateLinkEl) {
+        updateLinkEl.innerText = updateData.downloadName
+        updateLinkEl.href = updateData.downloadUrl
+      }
+
+      const updateVersionEl = document.getElementById('updateVersion')
+      if (updateVersionEl) {
+        updateVersionEl.innerText = `New update (${updateData.tag_name}) available:`
+      }
+
+      const updateAssetEl = document.getElementById('updateAsset')
+      if (updateAssetEl) {
+        // Convert bytes to megabytes (MB)
+        const sizeInMB = (updateData.downloadSize / (1024 * 1024)).toFixed(2)
+        updateAssetEl.innerText = `Size: ${sizeInMB} MB`
+      }
+
+      // Show the update toast
+      showUpdateToast()
+    }
+
     return
   } catch (error) {
-    console.error('Failed to mount page', error)
+    console.error('Failed to mount page:', error)
     return
   }
 }
+
 function updatePageData(ev) {
-  // Update page state
   window.frontend.state[ev.target.name] = ev.target.value
-  hideAdvanced()
 }
-async function toggleConnections() {
-  const containerEl = document.getElementById('connContainer')
-  const isOpen = containerEl.getAttribute('data-attr') === 'open'
 
-  if (isOpen) containerEl.setAttribute('data-attr', 'closed')
-  else containerEl.setAttribute('data-attr', 'open')
-  return
-}
-function hideAdvanced() {
-  const containerEl = document.getElementById('advContainer')
-  containerEl.setAttribute('data-attr', 'closed')
-}
-async function toggleAdvanced() {
-  const containerEl = document.getElementById('advContainer')
-  const isOpen = containerEl.getAttribute('data-attr') === 'open'
-
-  if (isOpen) containerEl.setAttribute('data-attr', 'closed')
-  else {
-    containerEl.setAttribute('data-attr', 'open')
-    // Update data
-    const data = await getPageData()
-    updateQRCode(data)
-  }
-  return
-}
+// ==================== APP CARD SELECTION ====================
 function updateCardState(el) {
-  // Update selected state for all cards
-  const allCards = document.querySelectorAll('.appCard')
+  const allCards = document.querySelectorAll('.app-card')
   allCards.forEach(card => card.classList.remove('selected'))
   el.classList.add('selected')
 }
-function updateWebUI(el) {
-  const webuiUrl = el.getAttribute('data-webui')
 
-  // Update the webui input field
-  const webuiEl = document.getElementById('webui')
-  webuiEl.value = webuiUrl
-
-  // Update page state
-  window.frontend.state.webui = webuiUrl
-}
-// Only updates the webui input without starting the server
 function selectAppCard(cardElement) {
-  // Update cards
   updateCardState(cardElement)
 
-  // Hide advanced options
-  hideAdvanced()
-
-  return
+  // Get the webui URL from the card's data-webui attribute
+  const webuiUrl = cardElement.getAttribute('data-webui')
+  if (webuiUrl) {
+    window.frontend.state.webui = webuiUrl
+  }
 }
-// Select the app and start Server
+
 function launchApp(btnElement, event) {
-  // Prevent card click event from firing
   event.stopPropagation()
 
-  // Get the app card element (parent of parent of button)
-  const appCard = btnElement.closest('.appCard')
-
-  // Update
+  const appCard = btnElement.closest('.app-card')
   selectAppCard(appCard)
 
-  // Get the webui URL from the card's data-webui attribute
   const webuiUrl = appCard.getAttribute('data-webui')
-
-  // Update the webui state with the card's URL
-  window.frontend.state.webui = webuiUrl
-
-  // Update cards
-  updateCardState(appCard)
-
-  // Hide advanced options
-  hideAdvanced()
-
-  // Start the server
-  startServer()
-
-  return
+  if (webuiUrl) {
+    window.frontend.state.webui = webuiUrl
+    // Navigate directly without starting server (server should already be running)
+    launchWebUI()
+  }
 }
-// Update webui value when custom server input changes
+
 function updateCustomServerWebUI(event) {
-  // Update page state
   window.frontend.state.webui = event.target.value
 }
-// Launch custom server
+
 function launchCustomServer(event) {
-  // Prevent any parent click events
   event.stopPropagation()
 
-  // Start the server
-  startServer()
+  // Get the custom WebUI URL from the input
+  const customWebUIEl = document.getElementById('customWebUI')
+  const webuiUrl = customWebUIEl?.value
 
-  return
+  if (webuiUrl) {
+    window.frontend.state.webui = webuiUrl
+    // Navigate directly without starting server (server should already be running)
+    launchWebUI()
+  }
 }
 
-// Listeners
-document.querySelector('.formOptions').addEventListener('change', updatePageData)
-// Mount page
+function openInBrowser(element, event) {
+  event.stopPropagation()
+
+  // Get URL from the element's data attribute or from parent card
+  let url = element.getAttribute('data-url')
+
+  if (!url) {
+    const appCard = element.closest('.app-card')
+    url = appCard?.getAttribute('data-webui')
+  }
+
+  if (url) {
+    window.pywebview.api.open_url_in_browser(url)
+  }
+}
+
+function openQRLinkInBrowser() {
+  const qrLinkEl = document.getElementById('qrLink')
+  const url = qrLinkEl?.textContent
+
+  if (url) {
+    // Add protocol if not present
+    const fullUrl = url.startsWith('http') ? url : `http://${url}`
+    window.pywebview.api.open_url_in_browser(fullUrl)
+  }
+}
+
+// ==================== EVENT LISTENERS ====================
+const connectionForm = document.querySelector('.connection-form')
+if (connectionForm) {
+  connectionForm.addEventListener('change', updatePageData)
+}
+
+// ==================== TOAST NOTIFICATION ====================
+function dismissToast() {
+  const toast = document.getElementById('messageToast')
+  if (toast) {
+    toast.classList.remove('show')
+    // Clear the message after animation completes
+    setTimeout(() => {
+      const content = document.getElementById('messageBannerContent')
+      if (content) content.textContent = ''
+    }, 300)
+  }
+}
+
+function showToast(message) {
+  const toast = document.getElementById('messageToast')
+  const content = document.getElementById('messageBannerContent')
+
+  if (toast && content && message) {
+    content.textContent = message
+    // Small delay to ensure animation triggers
+    setTimeout(() => {
+      toast.classList.add('show')
+    }, 10)
+  }
+}
+
+function dismissUpdateToast() {
+  const toast = document.getElementById('updateToast')
+  if (toast) {
+    toast.classList.remove('show')
+  }
+}
+
+function showUpdateToast() {
+  const toast = document.getElementById('updateToast')
+  if (toast) {
+    // Small delay to ensure animation triggers
+    setTimeout(() => {
+      toast.classList.add('show')
+    }, 10)
+  }
+}
+
+// ==================== INITIALIZE ====================
+// Mount page on load
 mountPage()
+
+// Show toast if there's a message (for testing - remove in production)
+setTimeout(() => {
+  const content = document.getElementById('messageBannerContent')
+  if (content && content.textContent.trim()) {
+    showToast(content.textContent)
+  }
+}, 100)
