@@ -157,13 +157,14 @@
   padding: 1rem;
   border: 2px solid #e9ecef;
   border-radius: 0.5rem;
-  background-color: #ffffff;
+  background-color: #f2f5f8;
   transition: all 0.25s ease;
   cursor: pointer;
 }
 .appCard:hover {
   border-color: #ffb327;
-  box-shadow: 0 2px 8px rgba(255, 179, 39, 0.2);
+  background-color: #fff9f0;
+  box-shadow: 0 2px 8px rgba(255, 179, 39, 0.3);
   transform: translateY(-2px);
 }
 .appCard.selected {
