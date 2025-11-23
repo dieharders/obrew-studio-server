@@ -33,6 +33,7 @@
 
 .view-state {
   animation: fadeIn 0.3s ease-in;
+  will-change: opacity;
 }
 
 /* ==================== HEADER ==================== */
@@ -84,6 +85,7 @@
   box-shadow: 0 4px 16px rgba(250, 82, 82, 0.4);
   opacity: 0;
   transition: all 0.3s ease-out;
+  will-change: transform, opacity;
 }
 
 .messageToast.show {
@@ -178,6 +180,7 @@
   background-repeat: no-repeat;
   background-size: contain;
   animation: float 3s ease-in-out infinite;
+  will-change: transform;
 }
 
 @keyframes float {
@@ -236,6 +239,7 @@
   opacity: 0;
   transform: translateX(-100%);
   transition: all 0.3s ease-out;
+  will-change: transform, opacity;
 }
 
 .updateToast.show {
@@ -665,6 +669,7 @@
   border-radius: 50%;
   background: white;
   animation: pulse 2s ease-in-out infinite;
+  will-change: opacity;
 }
 
 @keyframes pulse {
@@ -762,6 +767,7 @@
   overflow-y: auto;
   padding: 2rem;
   overscroll-behavior: contain; /* Prevent scroll chaining to parent */
+  will-change: opacity;
 }
 
 .modal.active {
@@ -783,6 +789,7 @@ body:has(.modal.active) {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   animation: slideUp 0.3s ease;
   margin: auto;
+  will-change: transform, opacity;
 }
 
 @keyframes slideUp {

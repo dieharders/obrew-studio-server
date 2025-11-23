@@ -79,7 +79,7 @@ function disableAllAppCards() {
   })
 }
 
-async function launchWebUIFailed(err) {
+async function handleWebUILaunchError(err) {
   console.error('Failed to start API server:', err)
 
   // Reset state
@@ -98,7 +98,7 @@ async function launchWebUIFailed(err) {
   return ''
 }
 
-async function launchWebUI() {
+async function navigateToWebUI() {
   // Check if we're in server-only mode (don't navigate)
   if (serverOnlyMode) {
     serverOnlyMode = false // Reset flag
@@ -125,56 +125,8 @@ async function launchWebUI() {
   return ''
 }
 
-async function startServer() {
-  const btnEl = document.getElementById('startServerBtn')
-  let timerRef
-
-  try {
-    // Validate inputs
-    const hostEl = document.getElementById('host')
-    const hostname = hostEl.value || ''
-    const portEl = document.getElementById('port')
-    const port = portEl.value || ''
-
-    if (!window.frontend.state.webui || !hostname || !port) {
-      const err = 'No target, hostname or port provided to launch App.'
-      launchWebUIFailed(err)
-      throw new Error(err)
-    }
-
-    // Disable controls
-    if (btnEl) btnEl.disabled = true
-
-    timerRef = setTimeout(() => {
-      if (btnEl) btnEl.disabled = false
-    }, 30000)
-
-    // Get form data
-    const form = document.querySelector('.connection-form')
-    const formData = new FormData(form)
-    const config = Object.fromEntries(formData.entries())
-    config.port = parseInt(config.port)
-    config.webui = window.frontend.state.webui
-
-    // Start server
-    await window.pywebview.api.start_server(config)
-
-    // Switch to post-server view
-    await showPostServerView()
-
-    // Clear timeout
-    clearTimeout(timerRef)
-
-    return
-  } catch (err) {
-    if (btnEl) btnEl.disabled = false
-    if (timerRef) clearTimeout(timerRef)
-    console.error(`Failed to start API server: ${err}`)
-  }
-}
-
-// Start server only (without launching an app)
-async function startServerOnly() {
+// Common function to start server with given configuration
+async function startServerWithConfig(webuiTarget = '', apiMethod = 'start_headless_server') {
   const btnEl = document.getElementById('startServerBtn')
   let timerRef
 
@@ -185,15 +137,23 @@ async function startServerOnly() {
     const portEl = document.getElementById('port')
     const port = portEl.value || ''
 
+    // Validate inputs based on mode
+    if (webuiTarget && !window.frontend.state.webui) {
+      const err = 'No target provided to launch App.'
+      handleWebUILaunchError(err)
+      throw new Error(err)
+    }
+
     if (!hostname || !port) {
       const err = 'No hostname or port provided.'
-      launchWebUIFailed(err)
+      handleWebUILaunchError(err)
       throw new Error(err)
     }
 
     // Disable button
     if (btnEl) btnEl.disabled = true
 
+    // Safety timeout to re-enable button after 30 seconds
     timerRef = setTimeout(() => {
       if (btnEl) btnEl.disabled = false
     }, 30000)
@@ -203,24 +163,34 @@ async function startServerOnly() {
     const formData = new FormData(form)
     const config = Object.fromEntries(formData.entries())
     config.port = parseInt(config.port)
-    config.webui = '' // No webui target for server-only start
+    config.webui = webuiTarget
 
-    // Start server
-    await window.pywebview.api.start_headless_server(config)
+    // Start server with appropriate API method
+    await window.pywebview.api[apiMethod](config)
 
     // Switch to post-server view
     await showPostServerView()
 
-    // Clear timeout
-    clearTimeout(timerRef)
+    // Clear timeout on success
+    if (timerRef) clearTimeout(timerRef)
 
     return
   } catch (err) {
-    if (btnEl) btnEl.disabled = false
+    // Clear timeout on error to prevent race condition
     if (timerRef) clearTimeout(timerRef)
+    if (btnEl) btnEl.disabled = false
     console.error(`Failed to start API server: ${err}`)
-    launchWebUIFailed(err.toString())
+    handleWebUILaunchError(err.toString())
   }
+}
+
+async function startServer() {
+  return startServerWithConfig(window.frontend.state.webui, 'start_server')
+}
+
+// Start server only (without launching an app)
+async function startServerOnly() {
+  return startServerWithConfig('', 'start_headless_server')
 }
 
 async function handleShutdownServer() {
@@ -284,13 +254,13 @@ function showPreServerView() {
   if (btnEl) btnEl.disabled = false
 }
 
-function launchAppFromRunning(cardElement, event) {
+function openRunningApp(cardElement, event) {
   event.stopPropagation()
 
   const webuiUrl = cardElement.getAttribute('data-webui')
   if (webuiUrl) {
     window.frontend.state.webui = webuiUrl
-    launchWebUI()
+    navigateToWebUI()
   }
 }
 
@@ -409,7 +379,7 @@ function createAppCards(hostedApps) {
         <button type="button" class="btn btn-secondary btn-app" onclick="openInBrowser(this, event)">
           Launch in Browser
         </button>
-        <button type="button" class="btn btn-secondary btn-app" onclick="launchApp(this, event)">
+        <button type="button" class="btn btn-secondary btn-app" onclick="launchSelectedApp(this, event)">
           Open
         </button>
       </div>
@@ -507,7 +477,7 @@ function selectAppCard(cardElement) {
   }
 }
 
-function launchApp(btnElement, event) {
+function launchSelectedApp(btnElement, event) {
   event.stopPropagation()
 
   const appCard = btnElement.closest('.app-card')
@@ -517,7 +487,7 @@ function launchApp(btnElement, event) {
   if (webuiUrl) {
     window.frontend.state.webui = webuiUrl
     // Navigate directly without starting server (server should already be running)
-    launchWebUI()
+    navigateToWebUI()
   }
 }
 
@@ -535,7 +505,7 @@ function launchCustomServer(event) {
   if (webuiUrl) {
     window.frontend.state.webui = webuiUrl
     // Navigate directly without starting server (server should already be running)
-    launchWebUI()
+    navigateToWebUI()
   }
 }
 
