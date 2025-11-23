@@ -334,13 +334,45 @@ function updateQRCode(data) {
     docsLinkEl.setAttribute('href', docsLink)
   }
 
-  // Show QR-Code
+  // Show QR-Code (modal version)
   const qrcodeEl = document.getElementById('qrcode')
   const qrcodeImage = data.qr_data
   if (qrcodeEl && qrcodeImage) {
     qrcodeEl.setAttribute('data-state', 'qrcode')
     qrcodeEl.setAttribute('alt', `qr code for ${data.remote_url}:${data.port}`)
     qrcodeEl.src = `data:image/png;base64,${qrcodeImage}`
+  }
+
+  // Show QR-Code Preview
+  const qrPreviewEl = document.getElementById('qrPreview')
+  if (qrPreviewEl && qrcodeImage) {
+    qrPreviewEl.setAttribute('data-state', 'qrcode')
+    qrPreviewEl.setAttribute('alt', 'QR Code Preview')
+    qrPreviewEl.src = `data:image/png;base64,${qrcodeImage}`
+  }
+}
+
+function openQRModal() {
+  const modal = document.getElementById('qrModal')
+  if (modal) {
+    modal.classList.add('active')
+    // Add keyboard listener for Escape key
+    document.addEventListener('keydown', handleQRModalEscape)
+  }
+}
+
+function closeQRModal() {
+  const modal = document.getElementById('qrModal')
+  if (modal) {
+    modal.classList.remove('active')
+    // Remove keyboard listener
+    document.removeEventListener('keydown', handleQRModalEscape)
+  }
+}
+
+function handleQRModalEscape(event) {
+  if (event.key === 'Escape') {
+    closeQRModal()
   }
 }
 

@@ -8,14 +8,14 @@
   "private": false,
   "hosted_apps_urls": [
     {
-      "title": "Obrew Studio",
-      "url": "https://studio.openbrew.ai",
-      "description": "The main Obrew Studio interface for AI chat, agents, and workflows."
-    },
-    {
       "title": "FileBuff",
       "url": "https://filebuff.openbrew.ai",
       "description": "File management and knowledge base interface for your documents."
+    },
+    {
+      "title": "Obrew Studio",
+      "url": "https://studio.openbrew.ai",
+      "description": "The main Obrew Studio interface for AI chat, agents, and workflows."
     }
   ],
   "llamacpp_tag": "b4905",

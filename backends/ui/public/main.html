@@ -112,60 +112,105 @@
 
   <!-- POST-SERVER STATE -->
   <div id="postServerView" class="view-state" hidden>
-    <div class="server-actions">
-      <!-- Server Status Header -->
-      <div class="server-status-header">
-        <div class="status-badge status-online">
-          <span class="status-indicator"></span>
-          Server Online
-        </div>
-      </div>
-
-      <!-- Server Actions -->
-      <div class="server-actions">
-        <button class="btn btn-danger btn-large" id="shutdownBtn" onclick="handleShutdownServer()">
-          <svg class="btn-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-            <path d="M6 6h12v12H6z" />
+    <!-- Server Dashboard Card -->
+    <form class="connection-form" style="margin-top: 3rem">
+      <div class="form-header">
+        <div class="form-header-icon" style="background-color: #4ade80">
+          <svg viewBox="0 0 24 24" width="40" height="40" fill="#15803d">
+            <path
+              d="M20 2H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-5 5h-2V5h2v2zm4 0h-2V5h2v2zm1 5H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2zm-5 5h-2v-2h2v2zm4 0h-2v-2h2v2z"
+            />
           </svg>
-          Shutdown Server
-        </button>
+        </div>
+        <div class="form-header-title">
+          <h2>Server Online</h2>
+          <p class="section-subtitle">Monitor information going through the AI system.</p>
+        </div>
       </div>
-    </div>
+      <!-- Header with Status and QR Code -->
+      <div class="dashboard-header">
+        <div class="status-section">
+          <!-- Server Actions -->
+          <!-- <div class="status-badge status-online">
+            <span class="status-indicator"></span>
+            Server Online
+          </div> -->
+          <div class="dashboard-actions">
+            <button class="btn btn-danger" id="shutdownBtn" onclick="handleShutdownServer()">
+              <svg class="btn-icon" viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
+                <path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z" />
+              </svg>
+              Shutdown Server
+            </button>
+          </div>
+        </div>
 
-    <!-- Server Metrics -->
-    <div class="metrics-grid">
-      <div class="metric-card">
-        <div class="metric-icon">🖥️</div>
-        <div class="metric-content">
-          <p class="metric-label">Server Address</p>
-          <p class="metric-value" id="serverAddress">http://localhost:8008</p>
+        <!-- QR Code Preview (clickable) -->
+        <div class="qr-preview" onclick="openQRModal()" title="Click to view full size">
+          <img
+            id="qrPreview"
+            class="qr-preview-image"
+            data-state="none"
+            src=""
+            alt="QR Code Preview"
+          />
+          <p class="qr-preview-label">Scan to Connect</p>
         </div>
       </div>
 
-      <div class="metric-card">
-        <div class="metric-icon">⚡</div>
-        <div class="metric-content">
-          <p class="metric-label">Status</p>
-          <p class="metric-value" id="serverStatus">Running</p>
+      <!-- Metrics Grid -->
+      <div class="dashboard-metrics">
+        <div class="dashboard-metric">
+          <div class="metric-icon-new">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="#64748b">
+              <path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z" />
+            </svg>
+          </div>
+          <div class="metric-info">
+            <p class="metric-label-new">Server Address</p>
+            <p class="metric-value-new" id="serverAddress">http://localhost:8008</p>
+          </div>
         </div>
-      </div>
 
-      <div class="metric-card">
-        <div class="metric-icon">📊</div>
-        <div class="metric-content">
-          <p class="metric-label">Uptime</p>
-          <p class="metric-value" id="serverUptime">0:00:00</p>
+        <div class="dashboard-metric">
+          <div class="metric-icon-new">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="#22c55e">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+            </svg>
+          </div>
+          <div class="metric-info">
+            <p class="metric-label-new">Status</p>
+            <p class="metric-value-new" id="serverStatus">Running</p>
+          </div>
         </div>
-      </div>
 
-      <div class="metric-card">
-        <div class="metric-icon">🔗</div>
-        <div class="metric-content">
-          <p class="metric-label">Connections</p>
-          <p class="metric-value" id="activeConnections">0</p>
+        <div class="dashboard-metric">
+          <div class="metric-icon-new">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="#3b82f6">
+              <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
+            </svg>
+          </div>
+          <div class="metric-info">
+            <p class="metric-label-new">Uptime</p>
+            <p class="metric-value-new" id="serverUptime">0:00:00</p>
+          </div>
+        </div>
+
+        <div class="dashboard-metric">
+          <div class="metric-icon-new">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="#8b5cf6">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+            </svg>
+          </div>
+          <div class="metric-info">
+            <p class="metric-label-new">Connections</p>
+            <p class="metric-value-new" id="activeConnections">0</p>
+          </div>
         </div>
       </div>
-    </div>
+    </form>
+
+    <div class="server-dashboard"></div>
 
     <!-- Available Apps Section -->
     <div class="available-apps-section">
@@ -213,12 +258,28 @@
         </div>
       </form>
     </div>
+  </div>
+</div>
 
-    <!-- Remote Connection -->
-    <div class="remote-section">
-      <div class="qr-container">
-        <img id="qrcode" class="qr-image" data-state="none" src="" alt="QR code" />
-        <p class="section-subtitle">Scan to connect from mobile device</p>
+<!-- QR Code Modal -->
+<div id="qrModal" class="modal" onclick="closeQRModal()">
+  <div class="modal-content qr-modal-content" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-header-title">
+        <h2>Connect Remotely</h2>
+        <p class="modal-description">Scan this QR code to connect from your mobile device</p>
+      </div>
+      <button class="modal-close-btn" onclick="closeQRModal()">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path
+            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+          />
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body qr-modal-body">
+      <div class="qr-modal-container">
+        <img id="qrcode" class="qr-modal-image" data-state="none" src="" alt="QR Code" />
         <p
           id="qrLink"
           class="qr-url qr-url-clickable"
