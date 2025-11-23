@@ -1,5 +1,6 @@
 import os
 import pyqrcode
+import webbrowser
 from core import common
 from typing import Type
 from api_server import ApiServer
@@ -198,5 +199,17 @@ class ApiUI:
         except Exception as e:
             print(
                 f"{common.PRNT_APP} Error, server forced to shutdown: {e}",
+                flush=True,
+            )
+
+    # Open URL in system's default browser
+    def open_url_in_browser(self, url: str):
+        try:
+            webbrowser.open(url)
+            print(f"{common.PRNT_APP} Opening URL in browser: {url}", flush=True)
+            return
+        except Exception as e:
+            print(
+                f"{common.PRNT_APP} Failed to open URL in browser: {e}",
                 flush=True,
             )

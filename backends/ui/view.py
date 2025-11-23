@@ -175,8 +175,13 @@ class Webview:
                 print(f"{common.PRNT_APP} Failed to start API server. {e}", flush=True)
                 launch_webui_failed(str(e))
 
+        # Start only the API server
+        def start_headless_server(config: dict):
+            self.js_api.start_headless_server(config)
+
         # Expose an inline func before runtime
         self.webview_window.expose(launch_webui)
         self.webview_window.expose(start_server)
+        self.webview_window.expose(start_headless_server)
         self.webview_window.expose(launch_webui_failed)
         self.webview_window.expose(toggle_fullscreen)
