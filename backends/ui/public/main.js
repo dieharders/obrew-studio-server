@@ -228,9 +228,13 @@ async function showPostServerView() {
 
   // Create app cards from hosted_apps data
   const data = await getPageData()
+
   if (data.hosted_apps && data.hosted_apps.length > 0) {
     createAppCards(data.hosted_apps)
   }
+
+  // Generate QR code
+  updateQRCode(data)
 }
 
 function showPreServerView() {
@@ -432,9 +436,6 @@ async function mountPage() {
     if (Object.keys(window.frontend.state).length === 0) {
       window.frontend.state = data
     }
-
-    // Generate QR code
-    updateQRCode(data)
 
     // Parse page with data
     const hostEl = document.getElementById('host')
