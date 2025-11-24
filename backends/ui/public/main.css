@@ -440,6 +440,7 @@
 .app-buttons {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 
@@ -732,6 +733,7 @@
   border-radius: 0.75rem;
   transition: all 0.2s ease;
   border: 2px solid transparent;
+  flex-grow: 1;
 }
 
 .dashboard-metric:hover {

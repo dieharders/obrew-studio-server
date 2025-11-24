@@ -282,11 +282,11 @@
     </div>
 
     <!-- QR Code Modal -->
-    <div id="qrModal" class="modal" onclick="closeQRModal()">
+    <div id="qrModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle" onclick="closeQRModal()">
       <div class="modal-content qr-modal-content" onclick="event.stopPropagation()">
         <div class="modal-header">
           <div class="modal-header-title">
-            <h2>Connect Remotely</h2>
+            <h2 id="qrModalTitle">Connect Remotely</h2>
             <p class="modal-description">Scan this QR code to connect from your mobile device</p>
           </div>
           <button class="modal-close-btn" onclick="closeQRModal()">
@@ -314,11 +314,11 @@
     </div>
 
     <!-- Settings Modal -->
-    <div id="settingsModal" class="modal" onclick="closeSettingsModalOnBackdrop(event)">
+    <div id="settingsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle" onclick="closeSettingsModalOnBackdrop(event)">
       <div class="modal-content" onclick="event.stopPropagation()">
         <div class="modal-header">
           <div class="modal-header-title">
-            <h2>Settings</h2>
+            <h2 id="settingsModalTitle">Settings</h2>
             <p class="modal-description">
               Configure your environment variables, server settings and API keys. Settings are
               automatically saved when you close this modal.

@@ -3,22 +3,50 @@ let serverStartTime = null
 let uptimeInterval = null
 
 // ==================== MODAL FUNCTIONS ====================
+// Store the element that triggered the modal for focus restoration
+let previousActiveElement = null
+
 function openSettingsModal() {
+  // Store current active element to restore focus later
+  previousActiveElement = document.activeElement
+
   const modal = document.getElementById('settingsModal')
   modal.classList.add('active')
+  document.body.style.overflow = 'hidden' // Prevent body scroll
+
   // Load current settings
   loadSettings()
+
+  // Add keyboard listener for Escape key
+  document.addEventListener('keydown', handleSettingsModalEscape)
 }
 
 function closeSettingsModal() {
   const modal = document.getElementById('settingsModal')
   modal.classList.remove('active')
+  document.body.style.overflow = '' // Restore body scroll
+
   // Auto-save settings when modal closes
   saveSettings()
+
+  // Remove keyboard listener
+  document.removeEventListener('keydown', handleSettingsModalEscape)
+
+  // Restore focus to previous element
+  if (previousActiveElement) {
+    previousActiveElement.focus()
+    previousActiveElement = null
+  }
 }
 
 function closeSettingsModalOnBackdrop(event) {
   if (event.target === event.currentTarget) {
+    closeSettingsModal()
+  }
+}
+
+function handleSettingsModalEscape(event) {
+  if (event.key === 'Escape') {
     closeSettingsModal()
   }
 }
@@ -98,23 +126,33 @@ async function handleWebUILaunchError(err) {
 }
 
 async function navigateToWebUI() {
-  const target = window.frontend.state.webui
-  const hostEl = document.getElementById('host')
-  const hostname = hostEl.value || ''
-  const portEl = document.getElementById('port')
-  const port = portEl.value || ''
+  try {
+    const target = window.frontend.state.webui
+    const hostEl = document.getElementById('host')
+    const hostname = hostEl.value || ''
+    const portEl = document.getElementById('port')
+    const port = portEl.value || ''
 
-  // Determine protocol based on SSL setting
-  const sslEnabled = await window.pywebview.api.get_ssl_setting()
-  const protocol = sslEnabled ? 'https' : 'http'
-  const serverUrl = `${protocol}://localhost:${port}`
+    if (!target) {
+      throw new Error('No WebUI target specified')
+    }
 
-  // Navigate to app
-  window.location = `${target}/?protocol=${protocol}&hostname=${hostname}&port=${port}&serverUrl=${encodeURIComponent(
-    serverUrl,
-  )}`
+    // Determine protocol based on SSL setting
+    const sslEnabled = await window.pywebview.api.get_ssl_setting()
+    const protocol = sslEnabled ? 'https' : 'http'
+    const serverUrl = `${protocol}://localhost:${port}`
 
-  return ''
+    // Navigate to app
+    window.location = `${target}/?protocol=${protocol}&hostname=${hostname}&port=${port}&serverUrl=${encodeURIComponent(
+      serverUrl,
+    )}`
+
+    return ''
+  } catch (error) {
+    console.error('Failed to navigate to WebUI:', error)
+    showToast(`Failed to launch app: ${error.message}`)
+    throw error
+  }
 }
 
 // Common function to start server with given configuration
@@ -178,7 +216,13 @@ async function startServerWithConfig(webuiTarget = '', apiMethod = 'start_headle
 
 // Start server only (without launching an app)
 async function startServerOnly() {
-  return startServerWithConfig('', 'start_headless_server')
+  try {
+    return await startServerWithConfig('', 'start_headless_server')
+  } catch (error) {
+    console.error('Failed to start server:', error)
+    showToast(`Failed to start server: ${error.message}`)
+    throw error
+  }
 }
 
 async function handleShutdownServer() {
@@ -193,8 +237,32 @@ async function handleShutdownServer() {
 }
 
 async function shutdownServer() {
-  await window.pywebview.api.shutdown_server()
-  return
+  try {
+    await window.pywebview.api.shutdown_server()
+    return
+  } catch (error) {
+    console.error('Failed to shutdown server:', error)
+    showToast(`Failed to shutdown server: ${error.message}`)
+    throw error
+  }
+}
+
+// ==================== UPTIME MANAGEMENT ====================
+function startUptimeCounter() {
+  // Clear any existing interval to prevent memory leaks
+  stopUptimeCounter()
+
+  // Start new counter
+  serverStartTime = Date.now()
+  uptimeInterval = setInterval(updateUptime, 1000)
+}
+
+function stopUptimeCounter() {
+  if (uptimeInterval) {
+    clearInterval(uptimeInterval)
+    uptimeInterval = null
+  }
+  serverStartTime = null
 }
 
 // ==================== VIEW SWITCHING ====================
@@ -210,10 +278,8 @@ async function showPostServerView() {
   // Update server metrics
   updateServerMetrics()
 
-  // Start uptime counter
-  serverStartTime = Date.now()
-  if (uptimeInterval) clearInterval(uptimeInterval)
-  uptimeInterval = setInterval(updateUptime, 1000)
+  // Start uptime counter (handles cleanup of any existing interval)
+  startUptimeCounter()
 
   // Create app cards from hosted_apps data
   const data = await getPageData()
@@ -242,12 +308,8 @@ function showPreServerView() {
   const postServerView = document.getElementById('postServerView')
   postServerView.hidden = true
 
-  // Stop uptime counter
-  if (uptimeInterval) {
-    clearInterval(uptimeInterval)
-    uptimeInterval = null
-  }
-  serverStartTime = null
+  // Stop uptime counter (handles cleanup)
+  stopUptimeCounter()
 
   // Re-enable controls
   const btnEl = document.getElementById('startServerBtn')
@@ -344,9 +406,16 @@ function updateQRCode(data) {
 }
 
 function openQRModal() {
+  // Store current active element to restore focus later
+  if (!previousActiveElement) {
+    previousActiveElement = document.activeElement
+  }
+
   const modal = document.getElementById('qrModal')
   if (modal) {
     modal.classList.add('active')
+    document.body.style.overflow = 'hidden' // Prevent body scroll
+
     // Add keyboard listener for Escape key
     document.addEventListener('keydown', handleQRModalEscape)
   }
@@ -356,8 +425,16 @@ function closeQRModal() {
   const modal = document.getElementById('qrModal')
   if (modal) {
     modal.classList.remove('active')
+    document.body.style.overflow = '' // Restore body scroll
+
     // Remove keyboard listener
     document.removeEventListener('keydown', handleQRModalEscape)
+
+    // Restore focus to previous element
+    if (previousActiveElement) {
+      previousActiveElement.focus()
+      previousActiveElement = null
+    }
   }
 }
 
@@ -536,15 +613,19 @@ function launchCustomServer(event) {
 async function openInBrowser(element, event) {
   event.stopPropagation()
 
-  // Get URL from the element's data attribute or from parent card
-  let url = element.getAttribute('data-url')
+  try {
+    // Get URL from the element's data attribute or from parent card
+    let url = element.getAttribute('data-url')
 
-  if (!url) {
-    const appCard = element.closest('.app-card')
-    url = appCard.getAttribute('data-webui')
-  }
+    if (!url) {
+      const appCard = element.closest('.app-card')
+      url = appCard.getAttribute('data-webui')
+    }
 
-  if (url) {
+    if (!url) {
+      throw new Error('No URL specified for app')
+    }
+
     // Get connection details
     const hostEl = document.getElementById('host')
     const hostname = hostEl.value || 'localhost'
@@ -561,18 +642,28 @@ async function openInBrowser(element, event) {
       serverUrl,
     )}`
 
-    window.pywebview.api.open_url_in_browser(urlWithParams)
+    await window.pywebview.api.open_url_in_browser(urlWithParams)
+  } catch (error) {
+    console.error('Failed to open URL in browser:', error)
+    showToast(`Failed to open app in browser: ${error.message}`)
   }
 }
 
-function openQRLinkInBrowser() {
-  const qrLinkEl = document.getElementById('qrLink')
-  const url = qrLinkEl.textContent
+async function openQRLinkInBrowser() {
+  try {
+    const qrLinkEl = document.getElementById('qrLink')
+    const url = qrLinkEl.textContent
 
-  if (url) {
+    if (!url) {
+      throw new Error('No QR link URL available')
+    }
+
     // Add protocol if not present
     const fullUrl = url.startsWith('http') ? url : `http://${url}`
-    window.pywebview.api.open_url_in_browser(fullUrl)
+    await window.pywebview.api.open_url_in_browser(fullUrl)
+  } catch (error) {
+    console.error('Failed to open QR link in browser:', error)
+    showToast(`Failed to open link: ${error.message}`)
   }
 }
 
