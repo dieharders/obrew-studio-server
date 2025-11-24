@@ -6,7 +6,7 @@ from typing import List, Any
 from core import common
 from core.classes import FastAPIApp
 from llama_index.core.embeddings import BaseEmbedding
-from llama_index.core.bridge.pydantic import PrivateAttr
+from pydantic.v1 import PrivateAttr
 
 LOG_PREFIX = "[GGUF-EMBEDDER]"
 
@@ -15,9 +15,9 @@ class GGUFEmbedder(BaseEmbedding):
     """Handle GGUF embedding models using llama-cli binary."""
 
     # Use PrivateAttr for attributes not part of the pydantic model
-    _app: Any = PrivateAttr()
-    _model_path: str = PrivateAttr()
-    _binary_path: str = PrivateAttr()
+    _app: Any = PrivateAttr(default=None)
+    _model_path: str = PrivateAttr(default=None)
+    _binary_path: str = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -143,12 +143,17 @@ class GGUFEmbedder(BaseEmbedding):
             )
 
             # Run the command
+            # Hide console window on all platforms (especially important in production)
+            # CREATE_NO_WINDOW is Windows-specific, gracefully falls back to 0 on other platforms
+            creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
                 check=True,
                 timeout=60,  # 60 second timeout
+                stdin=subprocess.DEVNULL,  # Prevent any input prompts (no window)
+                creationflags=creation_flags,
             )
 
             print(

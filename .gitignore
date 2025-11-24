@@ -71,7 +71,7 @@ next-env.d.ts
 *.exe
 
 # mkcert binaries (downloaded during build, not committed)
-/bundled/mkcert-*
+/certs/mkcert-*
 
 # runtime installation
 /servers

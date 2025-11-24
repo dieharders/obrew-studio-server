@@ -69,17 +69,16 @@ To use Ai locally with your private data for free:
 ## Minimum Hardware Requirements
 
 - 8GB Disk space
-- 8GB Memory
+- 4GB Memory
 
 ## App Features Roadmap
 
 ✅ Run locally<br>
-✅ Desktop installers<br>
+✅ Windows OS installer<br>
+✅ MacOS installer<br>
 ✅ Save chat history<br>
 ✅ CPU & GPU support<br>
-✅ Windows OS installer<br>
-❌ MacOS/Linux installer<br>
-❌ Docker config for cloud deployment<br>
+❌ Linux installer<br>
 ❌ Production ready: This project is under active development<br>
 
 ## Ai Features Roadmap

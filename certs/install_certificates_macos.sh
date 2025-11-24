@@ -1,6 +1,7 @@
 #!/bin/bash
 # Post-install script for macOS to install trusted SSL certificates
-# This script runs on first app launch with elevated privileges
+# This script runs with elevated privileges.
+# This script is NOT currently used, you may delete. Here for development use.
 
 set -e
 
@@ -13,8 +14,8 @@ else
     APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 fi
 
-MKCERT_BIN="$APP_DIR/bundled/mkcert-darwin-$(uname -m)"
-CERT_DIR="$APP_DIR/backends/ui/public"
+MKCERT_BIN="$APP_DIR/certs/mkcert-darwin-$(uname -m)"
+CERT_DIR="$APP_DIR/public"
 CERT_FILE="$CERT_DIR/cert.pem"
 KEY_FILE="$CERT_DIR/key.pem"
 
@@ -42,9 +43,9 @@ echo "[Obrew Studio] Installing SSL certificates..."
 if [ ! -f "$MKCERT_BIN" ]; then
     # Try alternative architecture
     if [ "$(uname -m)" = "arm64" ]; then
-        MKCERT_BIN="$APP_DIR/bundled/mkcert-darwin-amd64"
+        MKCERT_BIN="$APP_DIR/certs/mkcert-darwin-amd64"
     else
-        MKCERT_BIN="$APP_DIR/bundled/mkcert-darwin-arm64"
+        MKCERT_BIN="$APP_DIR/certs/mkcert-darwin-arm64"
     fi
 
     if [ ! -f "$MKCERT_BIN" ]; then

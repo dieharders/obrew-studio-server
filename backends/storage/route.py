@@ -37,7 +37,7 @@ def save_tool_definition(
     try:
         # Check dupes
         res = get_all_tool_definitions()
-        tools = res.get("data")
+        tools = res.get("data") or []
         is_dupe = next(
             (item for item in tools if item["name"] == name),
             None,
