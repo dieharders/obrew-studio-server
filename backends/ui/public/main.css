@@ -344,6 +344,7 @@
   height: 100%;
   padding: 1.5rem;
   font-size: x-large;
+  box-shadow: none;
 }
 
 .btn-danger:hover {
