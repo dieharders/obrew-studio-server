@@ -220,6 +220,13 @@ async function showPostServerView() {
   if (data.hosted_apps && data.hosted_apps.length > 0) {
     createAppCards(data.hosted_apps)
   }
+
+  // Set value for server status
+  const sslEnabled = await window.pywebview.api.get_ssl_setting()
+  const sslEl = document.getElementById('serverStatus')
+  if (sslEl) {
+    sslEl.textContent = `${sslEnabled ? 'Running (SSL)' : 'Running'}`
+  }
 }
 
 function showPreServerView() {
