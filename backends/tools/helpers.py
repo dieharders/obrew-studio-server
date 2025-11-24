@@ -338,13 +338,11 @@ def get_built_in_functions() -> dict:
     from tools import built_in_functions
 
     functions = {}
-
     # Iterate through all modules in the built_in_functions package
     for _, module_name, ispkg in pkgutil.iter_modules(built_in_functions.__path__):
         # Skip __init__ and any packages (only import .py files)
         if ispkg or module_name.startswith("_"):
             continue
-
         try:
             # Import the module
             module = importlib.import_module(f"tools.built_in_functions.{module_name}")
