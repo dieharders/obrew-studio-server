@@ -1,62 +1,25 @@
-<link rel="stylesheet" href="main.css" />
-<script type="text/javascript" src="main.js"></script>
-
-<!-- Header with version -->
-<div class="header">
-  <div class="header-info">
-    <p id="version" class="code">Version {{?}}</p>
-    <a id="docs-link" class="code" href="{{local_url}}:{{port}}/docs" target="_blank">
-      {{local_url}}:{{port}}/docs
-    </a>
-  </div>
-</div>
-
-<!-- Message Toast -->
-<div class="messageToast" id="messageToast">
-  <p id="messageBannerContent"></p>
-  <button class="toast-dismiss-btn" onclick="dismissToast()" aria-label="Dismiss">
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-      <path
-        d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-      />
-    </svg>
-  </button>
-</div>
-
-<!-- Main Content Container -->
-<div class="content">
-  <!-- Settings Button (Top Right Corner) -->
-  <button class="settingsIconBtn" onclick="openSettingsModal()" title="Settings">
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-      <path
-        d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"
-      />
-    </svg>
-  </button>
-
-  <!-- PRE-SERVER STATE -->
-  <div id="preServerView" class="view-state">
-    <!-- Logo -->
-    <div class="logo-container">
-      <div class="logo-image"></div>
-    </div>
-
-    <!-- Welcome Section -->
-    <!-- <div class="welcome-section">
-      <h1>Welcome to Obrew!</h1>
-      <p class="subtitle">Start your local AI server to begin</p>
-    </div> -->
-
-    <!-- Update Toast Notification -->
-    <div id="updateToast" class="updateToast">
-      <div class="update-content">
-        <p id="updateVersion" class="update-title">New update available:</p>
-        <p class="update-link">
-          Download: <a id="updateLink" href="https://www.openbrew.ai" target="_blank">here</a>
-        </p>
-        <p id="updateAsset" class="update-size">Size:</p>
-      </div>
-      <button class="toast-dismiss-btn" onclick="dismissUpdateToast()" aria-label="Dismiss">
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="stylesheet" href="global.css" />
+    <link rel="stylesheet" href="main.css" />
+    <script type="text/javascript" src="global.js" blocking="render"></script>
+    <script type="text/javascript" src="main.js"></script>
+    <title>Obrew</title>
+    <!-- Include the Google Font -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"
+    />
+  </head>
+  <body>
+    <!-- Message Toast -->
+    <div class="messageToast" id="messageToast">
+      <p id="messageBannerContent"></p>
+      <button class="toast-dismiss-btn" onclick="dismissToast()" aria-label="Dismiss">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
           <path
             d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
@@ -65,331 +28,389 @@
       </button>
     </div>
 
-    <!-- Primary Action: Start Server -->
-    <div class="primary-action-section">
-      <button class="btn btn-primary btn-xlarge" id="startServerBtn" onclick="startServerOnly()">
-        <svg class="btn-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-          <path d="M8 5v14l11-7z" />
-        </svg>
-        Start Obrew
-      </button>
-      <p class="help-text">Start your local AI server to begin</p>
-    </div>
+    <!-- Main Content Container -->
+    <div class="content">
+      <!-- PRE-SERVER STATE -->
+      <div id="preServerView" class="view-state">
+        <!-- Settings Button (Top Right Corner) -->
+        <button class="settingsIconBtn" onclick="openSettingsModal()" title="Settings">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+            <path
+              d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"
+            />
+          </svg>
+        </button>
 
-    <!-- Connection Options -->
-    <div class="advanced-section">
-      <div id="advancedOptionsContainer" class="advanced-options-container">
-        <form class="connection-form">
+        <!-- Logo -->
+        <div class="logo-container">
+          <div class="logo-image"></div>
+        </div>
+
+        <!-- Update Toast Notification -->
+        <div id="updateToast" class="updateToast">
+          <div class="update-content">
+            <p id="updateVersion" class="update-title">New update available:</p>
+            <p class="update-link">
+              Download: <a id="updateLink" href="https://www.openbrew.ai" target="_blank">here</a>
+            </p>
+            <p id="updateAsset" class="update-size">Size:</p>
+          </div>
+          <button class="toast-dismiss-btn" onclick="dismissUpdateToast()" aria-label="Dismiss">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Primary Action: Start Server -->
+        <div class="primary-action-section">
+          <p class="welcome-title">Start your local AI to begin</p>
+          <button
+            class="btn btn-primary btn-xlarge"
+            id="startServerBtn"
+            onclick="startServerOnly()"
+          >
+            <svg class="btn-icon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            Start Obrew
+          </button>
+        </div>
+
+        <!-- Connection Options -->
+        <div class="advanced-section">
+          <div id="advancedOptionsContainer" class="advanced-options-container">
+            <form class="connection-form">
+              <div class="form-header">
+                <div class="form-header-icon">
+                  <svg viewBox="0 0 24 24" width="40" height="40" fill="#7e22ce">
+                    <path
+                      d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"
+                    />
+                  </svg>
+                </div>
+                <div class="form-header-title">
+                  <h2>Connection Options</h2>
+                  <p class="ghost">Choose how to start the server.</p>
+                </div>
+              </div>
+              <div class="form-content">
+                <div class="form-grid">
+                  <div class="form-field">
+                    <label for="host">Host:</label>
+                    <input
+                      type="text"
+                      id="host"
+                      name="host"
+                      value=""
+                      placeholder="http://localhost"
+                    />
+                  </div>
+                  <div class="form-field">
+                    <label for="port">Port:</label>
+                    <input type="number" id="port" name="port" value="" placeholder="8008" />
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- POST-SERVER STATE -->
+      <div id="postServerView" class="view-state" hidden>
+        <!-- Server Dashboard Card -->
+        <div class="connection-form" style="margin-top: 3rem">
           <div class="form-header">
-            <div class="form-header-icon">
-              <svg viewBox="0 0 24 24" width="40" height="40" fill="#7e22ce">
+            <div class="form-header-icon" style="background-color: #4ade80">
+              <svg viewBox="0 0 24 24" width="40" height="40" fill="#15803d">
                 <path
-                  d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"
+                  d="M20 2H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-5 5h-2V5h2v2zm4 0h-2V5h2v2zm1 5H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2zm-5 5h-2v-2h2v2zm4 0h-2v-2h2v2z"
                 />
               </svg>
             </div>
             <div class="form-header-title">
-              <h2>Connection Options</h2>
-              <p class="ghost">Choose how to start the server.</p>
+              <h2>Server Online</h2>
+              <p class="section-subtitle">Monitor information going through the AI system.</p>
             </div>
           </div>
-          <div class="form-content">
+          <!-- Header with Status and QR Code -->
+          <div class="dashboard-header">
+            <div class="status-section">
+              <!-- Server Actions -->
+              <div class="dashboard-actions">
+                <button
+                  class="btn btn-danger"
+                  type="button"
+                  id="shutdownBtn"
+                  onclick="handleShutdownServer()"
+                >
+                  <svg
+                    class="btn-icon"
+                    viewBox="0 0 24 24"
+                    width="32"
+                    height="32"
+                    fill="currentColor"
+                  >
+                    <path
+                      d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"
+                    />
+                  </svg>
+                  Shutdown Server
+                </button>
+              </div>
+            </div>
+
+            <!-- QR Code Preview (clickable) -->
+            <div class="qr-preview" onclick="openQRModal()" title="Click to view full size">
+              <img
+                id="qrPreview"
+                class="qr-preview-image"
+                data-state="none"
+                src=""
+                alt="QR Code Preview"
+              />
+              <p class="qr-preview-label">Scan to Connect</p>
+            </div>
+          </div>
+
+          <!-- Metrics Grid -->
+          <div class="dashboard-metrics">
+            <div class="dashboard-metric">
+              <div class="metric-icon-new">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="#64748b">
+                  <path
+                    d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"
+                  />
+                </svg>
+              </div>
+              <div class="metric-info">
+                <p class="metric-label-new">Server Info</p>
+                <p id="version" class="metric-value-new">Version {{?}}</p>
+                <a id="docs-link" class="code" href="{{local_url}}:{{port}}/docs" target="_blank">
+                  {{local_url}}:{{port}}/docs
+                </a>
+              </div>
+            </div>
+
+            <div class="dashboard-metric">
+              <div class="metric-icon-new">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="#22c55e">
+                  <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                  />
+                </svg>
+              </div>
+              <div class="metric-info">
+                <p class="metric-label-new">Status</p>
+                <p class="metric-value-new" id="serverStatus">Running</p>
+              </div>
+            </div>
+
+            <div class="dashboard-metric">
+              <div class="metric-icon-new">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="#3b82f6">
+                  <path
+                    d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"
+                  />
+                </svg>
+              </div>
+              <div class="metric-info">
+                <p class="metric-label-new">Uptime</p>
+                <p class="metric-value-new" id="serverUptime">0:00:00</p>
+              </div>
+            </div>
+
+            <div class="dashboard-metric">
+              <div class="metric-icon-new">
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="#8b5cf6">
+                  <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"
+                  />
+                </svg>
+              </div>
+              <div class="metric-info">
+                <p class="metric-label-new">Connections</p>
+                <p class="metric-value-new" id="activeConnections">0</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="server-dashboard"></div>
+
+        <!-- Available Apps Section -->
+        <div class="available-apps-section">
+          <form class="connection-form">
+            <div class="form-header">
+              <div class="form-header-icon" style="background-color: #facc15">
+                <svg viewBox="0 0 24 24" width="40" height="40" fill="#a16207">
+                  <path
+                    d="M12 2L9 8.5L2 9l5 5-1 7 6-3 6 3-1-7 5-5-7-.5L12 2zm0 3.5l1.5 4 4.5.5-3.5 3.5.5 4.5-3-1.5-3 1.5.5-4.5L6 10l4.5-.5L12 5.5z"
+                  />
+                </svg>
+              </div>
+              <div class="form-header-title">
+                <h2>Launch Applications</h2>
+                <p class="section-subtitle">Start using productivity apps with your AI</p>
+              </div>
+            </div>
             <div class="form-grid">
-              <div class="form-field">
-                <label for="host">Host:</label>
-                <input type="text" id="host" name="host" value="" placeholder="http://localhost" />
-              </div>
-              <div class="form-field">
-                <label for="port">Port:</label>
-                <input type="number" id="port" name="port" value="" placeholder="8008" />
+              <div class="app-cards-grid" id="appCardsGrid">
+                <!-- App cards will be cloned here -->
+                <!-- Custom Server Card -->
+                <div class="app-card" onclick="selectAppCard(this)">
+                  <div class="app-card-content">
+                    <h3>Custom App</h3>
+                    <p class="app-description">Connect to a custom WebUI server</p>
+                    <input
+                      type="text"
+                      id="customWebUI"
+                      class="custom-server-input"
+                      value=""
+                      placeholder="http://localhost:3000"
+                      onclick="event.stopPropagation()"
+                      oninput="updateCustomServerWebUI(event)"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-app"
+                    onclick="launchCustomServer(event)"
+                  >
+                    Launch
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- POST-SERVER STATE -->
-  <div id="postServerView" class="view-state" hidden>
-    <!-- Server Dashboard Card -->
-    <form class="connection-form" style="margin-top: 3rem">
-      <div class="form-header">
-        <div class="form-header-icon" style="background-color: #4ade80">
-          <svg viewBox="0 0 24 24" width="40" height="40" fill="#15803d">
-            <path
-              d="M20 2H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-5 5h-2V5h2v2zm4 0h-2V5h2v2zm1 5H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2zm-5 5h-2v-2h2v2zm4 0h-2v-2h2v2z"
-            />
-          </svg>
+    <!-- QR Code Modal -->
+    <div id="qrModal" class="modal" onclick="closeQRModal()">
+      <div class="modal-content qr-modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div class="modal-header-title">
+            <h2>Connect Remotely</h2>
+            <p class="modal-description">Scan this QR code to connect from your mobile device</p>
+          </div>
+          <button class="modal-close-btn" onclick="closeQRModal()">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              />
+            </svg>
+          </button>
         </div>
-        <div class="form-header-title">
-          <h2>Server Online</h2>
-          <p class="section-subtitle">Monitor information going through the AI system.</p>
+        <div class="modal-body qr-modal-body">
+          <div class="qr-modal-container">
+            <img id="qrcode" class="qr-modal-image" data-state="none" src="" alt="QR Code" />
+            <p
+              id="qrLink"
+              class="qr-url qr-url-clickable"
+              onclick="openQRLinkInBrowser()"
+              title="Click to open in browser"
+            >
+              {{remote_url}}:{{port}}
+            </p>
+          </div>
         </div>
       </div>
-      <!-- Header with Status and QR Code -->
-      <div class="dashboard-header">
-        <div class="status-section">
-          <!-- Server Actions -->
-          <!-- <div class="status-badge status-online">
-            <span class="status-indicator"></span>
-            Server Online
-          </div> -->
-          <div class="dashboard-actions">
-            <button class="btn btn-danger" id="shutdownBtn" onclick="handleShutdownServer()">
-              <svg class="btn-icon" viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
-                <path
-                  d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal" onclick="closeSettingsModalOnBackdrop(event)">
+      <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+          <div class="modal-header-title">
+            <h2>Settings</h2>
+            <p class="modal-description">
+              Configure your environment variables, server settings and API keys. Settings are
+              automatically saved when you close this modal.
+            </p>
+          </div>
+          <button class="modal-close-btn" onclick="closeSettingsModal()">
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+              <path
+                d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <form id="settingsForm" class="settings-form">
+            <!-- API Keys Section -->
+            <div class="settings-section">
+              <h3>API Keys</h3>
+              <div class="form-field">
+                <label for="llamaCloud">Llama-Cloud:</label>
+                <input
+                  type="password"
+                  id="llamaCloud"
+                  name="LLAMA_CLOUD_API_KEY"
+                  value=""
+                  placeholder="xxx-xxxxxxx"
                 />
-              </svg>
-              Shutdown Server
-            </button>
-          </div>
-        </div>
+              </div>
+            </div>
 
-        <!-- QR Code Preview (clickable) -->
-        <div class="qr-preview" onclick="openQRModal()" title="Click to view full size">
-          <img
-            id="qrPreview"
-            class="qr-preview-image"
-            data-state="none"
-            src=""
-            alt="QR Code Preview"
-          />
-          <p class="qr-preview-label">Scan to Connect</p>
-        </div>
-      </div>
+            <!-- Server Options Section -->
+            <div class="settings-section">
+              <h3>Server Options</h3>
+              <div class="form-field checkbox-field">
+                <div class="checkbox-container">
+                  <label for="ssl">Enable SSL</label>
+                  <input type="checkbox" id="ssl" name="ENABLE_SSL" value="" />
+                </div>
+                <p class="field-help">
+                  Enable to allow external devices to connect to your local host. Requires
+                  certificates. Refer to README.md for instructions.
+                </p>
+              </div>
+            </div>
 
-      <!-- Metrics Grid -->
-      <div class="dashboard-metrics">
-        <div class="dashboard-metric">
-          <div class="metric-icon-new">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="#64748b">
-              <path
-                d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"
-              />
-            </svg>
-          </div>
-          <div class="metric-info">
-            <p class="metric-label-new">Server Address</p>
-            <p class="metric-value-new" id="serverAddress">http://localhost:8008</p>
-          </div>
-        </div>
+            <!-- Whitelists Section -->
+            <div class="settings-section">
+              <h3>Whitelists</h3>
 
-        <div class="dashboard-metric">
-          <div class="metric-icon-new">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="#22c55e">
-              <path
-                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-              />
-            </svg>
-          </div>
-          <div class="metric-info">
-            <p class="metric-label-new">Status</p>
-            <p class="metric-value-new" id="serverStatus">Running</p>
-          </div>
-        </div>
-
-        <div class="dashboard-metric">
-          <div class="metric-icon-new">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="#3b82f6">
-              <path
-                d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"
-              />
-            </svg>
-          </div>
-          <div class="metric-info">
-            <p class="metric-label-new">Uptime</p>
-            <p class="metric-value-new" id="serverUptime">0:00:00</p>
-          </div>
-        </div>
-
-        <div class="dashboard-metric">
-          <div class="metric-icon-new">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="#8b5cf6">
-              <path
-                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"
-              />
-            </svg>
-          </div>
-          <div class="metric-info">
-            <p class="metric-label-new">Connections</p>
-            <p class="metric-value-new" id="activeConnections">0</p>
-          </div>
-        </div>
-      </div>
-    </form>
-
-    <div class="server-dashboard"></div>
-
-    <!-- Available Apps Section -->
-    <div class="available-apps-section">
-      <form class="connection-form">
-        <div class="form-header">
-          <div class="form-header-icon" style="background-color: #facc15">
-            <svg viewBox="0 0 24 24" width="40" height="40" fill="#a16207">
-              <path
-                d="M12 2L9 8.5L2 9l5 5-1 7 6-3 6 3-1-7 5-5-7-.5L12 2zm0 3.5l1.5 4 4.5.5-3.5 3.5.5 4.5-3-1.5-3 1.5.5-4.5L6 10l4.5-.5L12 5.5z"
-              />
-            </svg>
-          </div>
-          <div class="form-header-title">
-            <h2>Launch Applications</h2>
-            <p class="section-subtitle">Start using productivity apps with your AI</p>
-          </div>
-        </div>
-        <div class="form-grid">
-          <div class="app-cards-grid" id="appCardsGrid">
-            <!-- App cards will be cloned here -->
-            <!-- Custom Server Card -->
-            <div class="app-card" onclick="selectAppCard(this)">
-              <div class="app-card-content">
-                <h3>Custom App</h3>
-                <p class="app-description">Connect to a custom WebUI server</p>
+              <div class="form-field" style="margin-top: 1rem">
+                <label for="cors">App:</label>
                 <input
                   type="text"
-                  id="customWebUI"
-                  class="custom-server-input"
+                  id="cors"
+                  name="CUSTOM_ORIGINS"
                   value=""
-                  placeholder="http://localhost:3000"
-                  onclick="event.stopPropagation()"
-                  oninput="updateCustomServerWebUI(event)"
+                  placeholder="https://your-web-app.com,https://another-web-app.com"
                 />
+                <p class="field-help">
+                  Whitelist your webapp or external service with Obrew. Add additional URLs as
+                  comma-separated strings.
+                </p>
               </div>
-              <button
-                type="button"
-                class="btn btn-secondary btn-app"
-                onclick="launchCustomServer(event)"
-              >
-                Launch
-              </button>
+
+              <div class="form-field" style="margin-top: 1rem">
+                <label for="admin">Admin IP:</label>
+                <input
+                  type="text"
+                  id="admin"
+                  name="WHITELIST_ADMIN_IP"
+                  value=""
+                  placeholder="XX.XXX.XXX.XX,XX.XXX.XXX.XX"
+                />
+                <p class="field-help">
+                  Whitelist comma-separated admin IPs. Useful to remote into the WebUI dashboard
+                  when server is remotely hosted.
+                </p>
+              </div>
             </div>
-          </div>
+          </form>
         </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<!-- QR Code Modal -->
-<div id="qrModal" class="modal" onclick="closeQRModal()">
-  <div class="modal-content qr-modal-content" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-header-title">
-        <h2>Connect Remotely</h2>
-        <p class="modal-description">Scan this QR code to connect from your mobile device</p>
-      </div>
-      <button class="modal-close-btn" onclick="closeQRModal()">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-          <path
-            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-          />
-        </svg>
-      </button>
-    </div>
-    <div class="modal-body qr-modal-body">
-      <div class="qr-modal-container">
-        <img id="qrcode" class="qr-modal-image" data-state="none" src="" alt="QR Code" />
-        <p
-          id="qrLink"
-          class="qr-url qr-url-clickable"
-          onclick="openQRLinkInBrowser()"
-          title="Click to open in browser"
-        >
-          {{remote_url}}:{{port}}
-        </p>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- Settings Modal -->
-<div id="settingsModal" class="modal" onclick="closeSettingsModalOnBackdrop(event)">
-  <div class="modal-content" onclick="event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-header-title">
-        <h2>Settings</h2>
-        <p class="modal-description">
-          Configure your environment variables, server settings and API keys. Settings are
-          automatically saved when you close this modal.
-        </p>
-      </div>
-      <button class="modal-close-btn" onclick="closeSettingsModal()">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-          <path
-            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
-          />
-        </svg>
-      </button>
-    </div>
-
-    <div class="modal-body">
-      <form id="settingsForm" class="settings-form">
-        <!-- API Keys Section -->
-        <div class="settings-section">
-          <h3>API Keys</h3>
-          <div class="form-field">
-            <label for="llamaCloud">Llama-Cloud:</label>
-            <input
-              type="password"
-              id="llamaCloud"
-              name="LLAMA_CLOUD_API_KEY"
-              value=""
-              placeholder="xxx-xxxxxxx"
-            />
-          </div>
-        </div>
-
-        <!-- Server Options Section -->
-        <div class="settings-section">
-          <h3>Server Options</h3>
-          <div class="form-field checkbox-field">
-            <div class="checkbox-container">
-              <label for="ssl">Enable SSL</label>
-              <input type="checkbox" id="ssl" name="ENABLE_SSL" value="" />
-            </div>
-            <p class="field-help">
-              Enable to allow external devices to connect to your local host. Requires certificates.
-              Refer to README.md for instructions.
-            </p>
-          </div>
-        </div>
-
-        <!-- Whitelists Section -->
-        <div class="settings-section">
-          <h3>Whitelists</h3>
-
-          <div class="form-field" style="margin-top: 1rem">
-            <label for="cors">App:</label>
-            <input
-              type="text"
-              id="cors"
-              name="CUSTOM_ORIGINS"
-              value=""
-              placeholder="https://your-web-app.com,https://another-web-app.com"
-            />
-            <p class="field-help">
-              Whitelist your webapp or external service with Obrew. Add additional URLs as
-              comma-separated strings.
-            </p>
-          </div>
-
-          <div class="form-field" style="margin-top: 1rem">
-            <label for="admin">Admin IP:</label>
-            <input
-              type="text"
-              id="admin"
-              name="WHITELIST_ADMIN_IP"
-              value=""
-              placeholder="XX.XXX.XXX.XX,XX.XXX.XXX.XX"
-            />
-            <p class="field-help">
-              Whitelist comma-separated admin IPs. Useful to remote into the WebUI dashboard when
-              server is remotely hosted.
-            </p>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
+  </body>
+</html>

@@ -1,4 +1,5 @@
 /* eslint-disable no-undef */
+
 // Front-End funcs
 async function downloadData() {
   try {
@@ -39,10 +40,6 @@ async function mountPage() {
       window.frontend.state = {}
     }
 
-    // Set current version state
-    const currVer = await window.pywebview.api.get_current_version()
-    window.frontend.state.current_version = currVer || ''
-
     // Check for latest version on server side
     const verRes = await fetchLatestVersion()
     if (verRes) {
@@ -51,17 +48,23 @@ async function mountPage() {
       window.frontend.state.update_available = isAvailable ? verRes : null
     }
     // Go to main.html page
-    transitionPage('main.html') // this exists in global.js
+    location.href = '/main.html'
     return
   } catch (error) {
     const msg = `Error while mounting page: ${error}`
     // alert(msg)
     console.error(msg)
     // Go to main.html page
-    transitionPage('main.html') // this exists in global.js
+    location.href = '/main.html'
     return
   }
 }
 
-// Mount page
-mountPage()
+// Mount initial page
+document.addEventListener('DOMContentLoaded', event => {
+  // Listen for pywebview api to be ready
+  window.addEventListener('pywebviewready', async () => {
+    // Mount page
+    mountPage()
+  })
+})
