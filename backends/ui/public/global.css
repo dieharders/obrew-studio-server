@@ -15,12 +15,15 @@ body {
   height: 100vh;
   margin: 0;
   padding: 0;
+  background-color: #f9fafb;
 }
 .content {
   position: relative;
   display: flex;
   flex-direction: column;
   text-align: center;
+  align-items: center;
+  justify-content: center;
   margin: 0;
   padding: 0;
   padding-top: 2rem;
@@ -28,7 +31,6 @@ body {
   padding-left: 0.25rem;
   padding-right: 0.25rem;
   max-width: 30rem;
-  background-color: white;
   overflow: visible;
   width: 100%;
   box-sizing: border-box;
@@ -38,6 +40,10 @@ body {
   -webkit-user-select: text;
   -ms-user-select: text;
   user-select: text;
+}
+
+.spinner {
+  margin-top: 2rem;
 }
 .menu {
   display: flex;
@@ -72,7 +78,6 @@ body {
   gap: 0.5rem;
 }
 label {
-  flex-basis: 100px;
   text-align: left;
   user-select: none;
 }
@@ -161,22 +166,22 @@ input[type='checkbox'] {
 @keyframes fadeIn {
   from {
     opacity: 1;
-    transform: translateX(-100%);
+    /* transform: translateX(-100%); */
   }
   to {
     opacity: 0;
-    transform: translateX(0%);
+    /* transform: translateX(0%); */
   }
 }
 
 @keyframes fadeOut {
   from {
     opacity: 0;
-    transform: translateX(0%);
+    /* transform: translateX(0%); */
   }
   to {
     opacity: 1;
-    transform: translateX(-100%);
+    /* transform: translateX(-100%); */
   }
 }
 
