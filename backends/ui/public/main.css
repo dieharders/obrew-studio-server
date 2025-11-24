@@ -21,7 +21,7 @@
   max-width: 900px;
   margin: 0 auto;
   min-height: 100vh;
-  justify-content: space-between;
+  justify-content: space-around;
   z-index: 1;
 }
 
@@ -55,10 +55,13 @@
 
 #version {
   font-size: 0.75rem;
-  color: #868e96;
-  font-weight: 500;
+  font-weight: 600;
   margin: 0;
   align-self: flex-start;
+  color: #212529;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .messageToast {
@@ -133,7 +136,7 @@
 
 /* ==================== SETTINGS BUTTON ==================== */
 .settingsIconBtn {
-  position: absolute;
+  position: fixed;
   top: 1rem;
   right: 1rem;
   z-index: 101;
@@ -573,9 +576,14 @@
 
 .code {
   font-family: 'Courier New', monospace;
-  font-size: 0.75rem;
+  font-size: 0.6rem;
   color: #495057;
   margin: 0;
+  font-weight: 600;
+  color: #212529;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .qr-url {
@@ -739,6 +747,7 @@
 .metric-info {
   flex: 1;
   min-width: 0;
+  overflow: hidden;
 }
 
 .metric-label-new {
