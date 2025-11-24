@@ -3,6 +3,16 @@
 }
 
 /* ==================== LAYOUT ==================== */
+.server-container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  padding-bottom: 2rem;
+  align-items: flex-start;
+  justify-content: center;
+}
+
 .loading-content {
   position: relative;
   padding: 2rem 1rem 2rem 1rem;
@@ -18,7 +28,7 @@
 .content {
   position: relative;
   padding: 2rem 1rem 2rem 1rem;
-  max-width: 900px;
+  min-width: 100%;
   margin: 0 auto;
   min-height: 100vh;
   justify-content: space-around;
@@ -302,8 +312,8 @@
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #ffb53db5 0%, #fea63bc0 100%);
-  box-shadow: 0 4px 12px rgba(255, 179, 39, 0.4);
+  background: linear-gradient(135deg, #ffb53dcb 0%, #fea63bcd 100%);
+  box-shadow: 0 4px 12px rgba(255, 179, 39, 0.6);
   border: 1px solid #ffb327;
   transform: translateY(-2px);
 }
@@ -332,11 +342,14 @@
 .btn-danger {
   background: #f8f9fa;
   color: grey;
-  width: 100%;
   height: 100%;
   padding: 1.5rem;
   font-size: x-large;
   box-shadow: none;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn-danger:hover {
@@ -490,9 +503,9 @@
 
 .connection-form {
   background-color: white;
-  /* padding: 1.5rem; */
   border-radius: 0.75rem;
   border: 1px solid #e5e7eb;
+  flex-grow: 1;
 }
 
 .form-grid {
@@ -749,7 +762,7 @@
 }
 
 .metric-info {
-  flex: 1;
+  flex-grow: 1;
   min-width: 0;
   overflow: hidden;
 }
@@ -779,7 +792,6 @@
   justify-content: center;
   align-items: stretch;
   width: min-content;
-  flex: 1;
 }
 
 /* QR Modal Specific Styles */
@@ -817,7 +829,8 @@
 
 /* ==================== AVAILABLE APPS (POST-SERVER) ==================== */
 .available-apps-section {
-  margin: 3rem 0;
+  margin: 0;
+  flex-grow: 1;
 }
 
 .available-apps-section h2 {

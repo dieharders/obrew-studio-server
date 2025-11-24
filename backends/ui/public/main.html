@@ -121,168 +121,175 @@
 
       <!-- POST-SERVER STATE -->
       <div id="postServerView" class="view-state" hidden>
-        <!-- Server Dashboard Card -->
-        <div class="connection-form" style="margin-top: 3rem">
-          <div class="form-header">
-            <div class="form-header-icon" style="background-color: #4ade80">
-              <svg viewBox="0 0 24 24" width="40" height="40" fill="#15803d">
-                <path
-                  d="M20 2H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-5 5h-2V5h2v2zm4 0h-2V5h2v2zm1 5H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2zm-5 5h-2v-2h2v2zm4 0h-2v-2h2v2z"
-                />
-              </svg>
-            </div>
-            <div class="form-header-title">
-              <h2>Server Online</h2>
-              <p class="section-subtitle">Monitor information going through the AI system.</p>
-            </div>
-          </div>
-          <!-- Header with Status and QR Code -->
-          <div class="dashboard-header">
-            <!-- Metrics -->
-            <div class="dashboard-metric">
-              <!-- Shutdown Server Button -->
-              <div class="dashboard-actions">
-                <button
-                  class="btn btn-danger"
-                  title="Shutdown Server"
-                  type="button"
-                  id="shutdownBtn"
-                  onclick="handleShutdownServer()"
-                >
-                  <svg
-                    class="btn-icon"
-                    viewBox="0 0 24 24"
-                    width="46"
-                    height="46"
-                    fill="currentColor"
-                  >
-                    <path
-                      d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <div class="metric-info">
-                <p class="metric-label-new">Server Info</p>
-                <p id="version" class="metric-value-new">Version {{?}}</p>
-                <a id="docs-link" class="code" href="{{local_url}}:{{port}}/docs" target="_blank">
-                  {{local_url}}:{{port}}/docs
-                </a>
-              </div>
-            </div>
-
-            <!-- QR Code Preview (clickable) -->
-            <div class="qr-preview" onclick="openQRModal()" title="Click to view full size">
-              <img
-                id="qrPreview"
-                class="qr-preview-image"
-                data-state="none"
-                src=""
-                alt="QR Code Preview"
-              />
-              <p class="qr-preview-label">Scan to Connect</p>
-            </div>
-          </div>
-
-          <!-- Metrics Grid -->
-          <div class="dashboard-metrics">
-            <div class="dashboard-metric">
-              <div class="metric-icon-new">
-                <svg viewBox="0 0 24 24" width="28" height="28" fill="#22c55e">
-                  <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                  />
-                </svg>
-              </div>
-              <div class="metric-info">
-                <p class="metric-label-new">Status</p>
-                <p class="metric-value-new" id="serverStatus">Running</p>
-              </div>
-            </div>
-
-            <div class="dashboard-metric">
-              <div class="metric-icon-new">
-                <svg viewBox="0 0 24 24" width="28" height="28" fill="#3b82f6">
-                  <path
-                    d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"
-                  />
-                </svg>
-              </div>
-              <div class="metric-info">
-                <p class="metric-label-new">Uptime</p>
-                <p class="metric-value-new" id="serverUptime">0:00:00</p>
-              </div>
-            </div>
-
-            <div class="dashboard-metric">
-              <div class="metric-icon-new">
-                <svg viewBox="0 0 24 24" width="28" height="28" fill="#8b5cf6">
-                  <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"
-                  />
-                </svg>
-              </div>
-              <div class="metric-info">
-                <p class="metric-label-new">Clients</p>
-                <p class="metric-value-new" id="activeConnections">0</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="server-dashboard"></div>
-
-        <!-- Available Apps Section -->
-        <div class="available-apps-section">
-          <form class="connection-form">
+        <div class="server-container">
+          <!-- Server Dashboard Card -->
+          <div class="connection-form">
             <div class="form-header">
-              <div class="form-header-icon" style="background-color: #facc15">
-                <svg viewBox="0 0 24 24" width="40" height="40" fill="#a16207">
+              <div class="form-header-icon" style="background-color: #4ade80">
+                <svg viewBox="0 0 24 24" width="40" height="40" fill="#15803d">
                   <path
-                    d="M12 2L9 8.5L2 9l5 5-1 7 6-3 6 3-1-7 5-5-7-.5L12 2zm0 3.5l1.5 4 4.5.5-3.5 3.5.5 4.5-3-1.5-3 1.5.5-4.5L6 10l4.5-.5L12 5.5z"
+                    d="M20 2H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-5 5h-2V5h2v2zm4 0h-2V5h2v2zm1 5H4c-1.1 0-2 .9-2 2v4c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2v-4c0-1.1-.9-2-2-2zm-5 5h-2v-2h2v2zm4 0h-2v-2h2v2z"
                   />
                 </svg>
               </div>
               <div class="form-header-title">
-                <h2>Launch Applications</h2>
-                <p class="section-subtitle">Start using productivity apps with your AI</p>
+                <h2>Server Online</h2>
+                <p class="section-subtitle">Monitor information going through the AI system.</p>
               </div>
             </div>
-            <div class="form-grid">
-              <div class="app-cards-grid" id="appCardsGrid">
-                <!-- App cards will be cloned here -->
-                <!-- Custom Server Card -->
-                <div class="app-card" onclick="selectAppCard(this)">
-                  <div class="app-card-content">
-                    <h3>Custom App</h3>
-                    <p class="app-description">Connect to a custom WebUI server</p>
-                    <input
-                      type="text"
-                      id="customWebUI"
-                      class="custom-server-input"
-                      value=""
-                      placeholder="http://localhost:3000"
-                      onclick="event.stopPropagation()"
-                      oninput="updateCustomServerWebUI(event)"
-                    />
-                  </div>
+            <!-- Header with Status and QR Code -->
+            <div class="dashboard-header">
+              <!-- Metrics -->
+              <div class="dashboard-metric">
+                <!-- Shutdown Server Button -->
+                <div class="dashboard-actions">
                   <button
+                    class="btn btn-danger"
+                    title="Shutdown Server"
                     type="button"
-                    class="btn btn-secondary btn-app"
-                    onclick="launchCustomServer(event)"
+                    id="shutdownBtn"
+                    onclick="handleShutdownServer()"
                   >
-                    Launch
+                    <svg
+                      class="btn-icon"
+                      viewBox="0 0 24 24"
+                      width="46"
+                      height="46"
+                      fill="currentColor"
+                    >
+                      <path
+                        d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"
+                      />
+                    </svg>
                   </button>
+                </div>
+                <div class="metric-info">
+                  <p class="metric-label-new">Server Info</p>
+                  <p id="version" class="metric-value-new">Version {{?}}</p>
+                  <a id="docs-link" class="code" href="{{local_url}}:{{port}}/docs" target="_blank">
+                    {{local_url}}:{{port}}/docs
+                  </a>
+                </div>
+              </div>
+
+              <!-- QR Code Preview (clickable) -->
+              <div class="qr-preview" onclick="openQRModal()" title="Click to view full size">
+                <img
+                  id="qrPreview"
+                  class="qr-preview-image"
+                  data-state="none"
+                  src=""
+                  alt="QR Code Preview"
+                />
+                <p class="qr-preview-label">Scan to Connect</p>
+              </div>
+            </div>
+
+            <!-- Metrics Grid -->
+            <div class="dashboard-metrics">
+              <div class="dashboard-metric">
+                <div class="metric-icon-new">
+                  <svg viewBox="0 0 24 24" width="28" height="28" fill="#22c55e">
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                    />
+                  </svg>
+                </div>
+                <div class="metric-info">
+                  <p class="metric-label-new">Status</p>
+                  <p class="metric-value-new" id="serverStatus">Running</p>
+                </div>
+              </div>
+
+              <div class="dashboard-metric">
+                <div class="metric-icon-new">
+                  <svg viewBox="0 0 24 24" width="28" height="28" fill="#3b82f6">
+                    <path
+                      d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"
+                    />
+                  </svg>
+                </div>
+                <div class="metric-info">
+                  <p class="metric-label-new">Uptime</p>
+                  <p class="metric-value-new" id="serverUptime">0:00:00</p>
+                </div>
+              </div>
+
+              <div class="dashboard-metric">
+                <div class="metric-icon-new">
+                  <svg viewBox="0 0 24 24" width="28" height="28" fill="#8b5cf6">
+                    <path
+                      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"
+                    />
+                  </svg>
+                </div>
+                <div class="metric-info">
+                  <p class="metric-label-new">Clients</p>
+                  <p class="metric-value-new" id="activeConnections">0</p>
                 </div>
               </div>
             </div>
-          </form>
+          </div>
+
+          <!-- Available Apps Section -->
+          <div class="available-apps-section">
+            <form class="connection-form">
+              <div class="form-header">
+                <div class="form-header-icon" style="background-color: #facc15">
+                  <svg viewBox="0 0 24 24" width="40" height="40" fill="#a16207">
+                    <path
+                      d="M12 2L9 8.5L2 9l5 5-1 7 6-3 6 3-1-7 5-5-7-.5L12 2zm0 3.5l1.5 4 4.5.5-3.5 3.5.5 4.5-3-1.5-3 1.5.5-4.5L6 10l4.5-.5L12 5.5z"
+                    />
+                  </svg>
+                </div>
+                <div class="form-header-title">
+                  <h2>Launch Applications</h2>
+                  <p class="section-subtitle">Start using productivity apps with your AI</p>
+                </div>
+              </div>
+              <div class="form-grid">
+                <div class="app-cards-grid" id="appCardsGrid">
+                  <!-- App cards will be cloned here -->
+                  <!-- Custom Server Card -->
+                  <div class="app-card" onclick="selectAppCard(this)">
+                    <div class="app-card-content">
+                      <h3>Custom App</h3>
+                      <p class="app-description">Connect to a custom WebUI server</p>
+                      <input
+                        type="text"
+                        id="customWebUI"
+                        class="custom-server-input"
+                        value=""
+                        placeholder="http://localhost:3000"
+                        onclick="event.stopPropagation()"
+                        oninput="updateCustomServerWebUI(event)"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-app"
+                      onclick="launchCustomServer(event)"
+                    >
+                      Launch
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- QR Code Modal -->
-    <div id="qrModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle" onclick="closeQRModal()">
+    <div
+      id="qrModal"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="qrModalTitle"
+      onclick="closeQRModal()"
+    >
       <div class="modal-content qr-modal-content" onclick="event.stopPropagation()">
         <div class="modal-header">
           <div class="modal-header-title">
@@ -314,7 +321,14 @@
     </div>
 
     <!-- Settings Modal -->
-    <div id="settingsModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle" onclick="closeSettingsModalOnBackdrop(event)">
+    <div
+      id="settingsModal"
+      class="modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="settingsModalTitle"
+      onclick="closeSettingsModalOnBackdrop(event)"
+    >
       <div class="modal-content" onclick="event.stopPropagation()">
         <div class="modal-header">
           <div class="modal-header-title">
