@@ -524,7 +524,7 @@ function launchCustomServer(event) {
   }
 }
 
-function openInBrowser(element, event) {
+async function openInBrowser(element, event) {
   event.stopPropagation()
 
   // Get URL from the element's data attribute or from parent card
@@ -536,7 +536,23 @@ function openInBrowser(element, event) {
   }
 
   if (url) {
-    window.pywebview.api.open_url_in_browser(url)
+    // Get connection details
+    const hostEl = document.getElementById('host')
+    const hostname = hostEl.value || 'localhost'
+    const portEl = document.getElementById('port')
+    const port = portEl.value || '8008'
+
+    // Determine protocol based on SSL setting
+    const sslEnabled = await window.pywebview.api.get_ssl_setting()
+    const protocol = sslEnabled ? 'https' : 'http'
+    const serverUrl = `${protocol}://localhost:${port}`
+
+    // Append URL parameters
+    const urlWithParams = `${url}?protocol=${protocol}&hostname=${hostname}&port=${port}&serverUrl=${encodeURIComponent(
+      serverUrl,
+    )}`
+
+    window.pywebview.api.open_url_in_browser(urlWithParams)
   }
 }
 
