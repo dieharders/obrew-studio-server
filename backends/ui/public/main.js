@@ -94,17 +94,6 @@ async function saveSettings() {
 }
 
 // ==================== SERVER FUNCTIONS ====================
-function disableAllAppCards() {
-  const allCards = document.querySelectorAll('.app-card')
-  allCards.forEach(card => {
-    card.style.pointerEvents = 'none'
-    card.style.opacity = '0.6'
-    const buttons = card.querySelectorAll('button')
-    buttons.forEach(btn => (btn.disabled = true))
-    const inputs = card.querySelectorAll('input')
-    inputs.forEach(input => (input.disabled = true))
-  })
-}
 
 async function handleWebUILaunchError(err) {
   console.error('Failed to start API server:', err)
@@ -450,7 +439,7 @@ function createAppCards(hostedApps) {
   const appCardsContainer = document.getElementById('appCardsGrid')
   if (!appCardsContainer) return
 
-  const customServerCard = appCardsContainer.querySelector('.app-card')
+  const customServerCard = appCardsContainer.querySelector('.app-card[data-card-type="custom"]')
 
   // Remove all existing app cards except the custom server card
   const allCards = appCardsContainer.querySelectorAll('.app-card')
