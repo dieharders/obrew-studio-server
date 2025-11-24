@@ -1,7 +1,6 @@
 // ==================== STATE MANAGEMENT ====================
 let serverStartTime = null
 let uptimeInterval = null
-let serverOnlyMode = false // Flag to prevent auto-navigation when starting server only
 
 // ==================== MODAL FUNCTIONS ====================
 function openSettingsModal() {
@@ -99,13 +98,6 @@ async function handleWebUILaunchError(err) {
 }
 
 async function navigateToWebUI() {
-  // Check if we're in server-only mode (don't navigate)
-  if (serverOnlyMode) {
-    serverOnlyMode = false // Reset flag
-    await showPostServerView()
-    return ''
-  }
-
   const target = window.frontend.state.webui
   const hostEl = document.getElementById('host')
   const hostname = hostEl.value || ''
@@ -184,10 +176,6 @@ async function startServerWithConfig(webuiTarget = '', apiMethod = 'start_headle
   }
 }
 
-async function startServer() {
-  return startServerWithConfig(window.frontend.state.webui, 'start_server')
-}
-
 // Start server only (without launching an app)
 async function startServerOnly() {
   return startServerWithConfig('', 'start_headless_server')
@@ -198,6 +186,7 @@ async function handleShutdownServer() {
     await shutdownServer()
     // Switch back to pre-server view
     showPreServerView()
+    return
   } catch (err) {
     console.error('Failed to shutdown server:', err)
   }
@@ -254,23 +243,13 @@ function showPreServerView() {
   if (btnEl) btnEl.disabled = false
 }
 
-function openRunningApp(cardElement, event) {
-  event.stopPropagation()
-
-  const webuiUrl = cardElement.getAttribute('data-webui')
-  if (webuiUrl) {
-    window.frontend.state.webui = webuiUrl
-    navigateToWebUI()
-  }
-}
-
 // ==================== METRICS UPDATES ====================
 function updateServerMetrics() {
   const hostEl = document.getElementById('host')
   const portEl = document.getElementById('port')
 
-  const hostname = hostEl?.value || 'localhost'
-  const port = portEl?.value || '8008'
+  const hostname = hostEl.value ? hostEl.value : 'localhost'
+  const port = portEl.value ? portEl.value : '8008'
 
   // Update server address
   const serverAddressEl = document.getElementById('serverAddress')
@@ -313,9 +292,9 @@ function updateUptime() {
 // ==================== PAGE SETUP ====================
 async function getPageData() {
   const portEl = document.getElementById('port')
-  const port = portEl?.value || ''
+  const port = portEl.value ? portEl.value : ''
   const customWebUIEl = document.getElementById('customWebUI')
-  const selected_webui_url = customWebUIEl?.value || ''
+  const selected_webui_url = customWebUIEl.value ? customWebUIEl.value : ''
 
   const data = await window.pywebview.api.update_main_page(port, selected_webui_url)
   return data
@@ -433,6 +412,10 @@ async function mountPage() {
       window.frontend.state = data
     }
 
+    // Set current version state
+    const currVer = await window.pywebview.api.get_current_version()
+    window.frontend.state.current_version = currVer || ''
+
     // Generate QR code
     updateQRCode(data)
 
@@ -532,7 +515,7 @@ function launchCustomServer(event) {
 
   // Get the custom WebUI URL from the input
   const customWebUIEl = document.getElementById('customWebUI')
-  const webuiUrl = customWebUIEl?.value
+  const webuiUrl = customWebUIEl.value
 
   if (webuiUrl) {
     window.frontend.state.webui = webuiUrl
@@ -549,7 +532,7 @@ function openInBrowser(element, event) {
 
   if (!url) {
     const appCard = element.closest('.app-card')
-    url = appCard?.getAttribute('data-webui')
+    url = appCard.getAttribute('data-webui')
   }
 
   if (url) {
@@ -559,7 +542,7 @@ function openInBrowser(element, event) {
 
 function openQRLinkInBrowser() {
   const qrLinkEl = document.getElementById('qrLink')
-  const url = qrLinkEl?.textContent
+  const url = qrLinkEl.textContent
 
   if (url) {
     // Add protocol if not present
@@ -618,13 +601,11 @@ function showUpdateToast() {
 }
 
 // ==================== INITIALIZE ====================
-// Mount page on load
-mountPage()
 
-// Show toast if there's a message (for testing - remove in production)
-setTimeout(() => {
-  const content = document.getElementById('messageBannerContent')
-  if (content && content.textContent.trim()) {
-    showToast(content.textContent)
-  }
-}, 100)
+document.addEventListener('DOMContentLoaded', event => {
+  // Listen for pywebview api to be ready
+  window.addEventListener('pywebviewready', async () => {
+    // Mount page
+    mountPage()
+  })
+})

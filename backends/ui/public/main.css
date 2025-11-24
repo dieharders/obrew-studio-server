@@ -8,7 +8,6 @@
   padding: 2rem 1rem 2rem 1rem;
   max-width: 900px;
   margin: 0 auto;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -22,7 +21,8 @@
   max-width: 900px;
   margin: 0 auto;
   min-height: 100vh;
-  justify-content: stretch;
+  justify-content: space-between;
+  z-index: 1;
 }
 
 .view-state {
@@ -48,6 +48,7 @@
 .header-info {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   flex-shrink: 1;
   width: 100%;
 }
@@ -132,7 +133,7 @@
 
 /* ==================== SETTINGS BUTTON ==================== */
 .settingsIconBtn {
-  position: fixed;
+  position: absolute;
   top: 1rem;
   right: 1rem;
   z-index: 101;
