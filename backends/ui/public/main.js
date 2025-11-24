@@ -277,7 +277,8 @@ function updateServerMetrics() {
   // Reset active connections
   const activeConnectionsEl = document.getElementById('activeConnections')
   if (activeConnectionsEl) {
-    activeConnectionsEl.textContent = '0'
+    // @TODO Implement fetching this value from backend
+    activeConnectionsEl.textContent = '1'
   }
 }
 

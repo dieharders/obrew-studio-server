@@ -53,17 +53,6 @@
   width: 100%;
 }
 
-#version {
-  font-size: 0.75rem;
-  font-weight: 600;
-  margin: 0;
-  align-self: flex-start;
-  color: #212529;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .messageToast {
   position: fixed;
   top: 1rem;
@@ -631,7 +620,8 @@
   justify-content: space-between;
   align-items: stretch;
   padding: 1.5rem;
-  gap: 2rem;
+  padding-bottom: 0;
+  gap: 1.5rem;
   flex-wrap: wrap;
 }
 
@@ -728,7 +718,7 @@
 /* Dashboard Metrics */
 .dashboard-metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
   gap: 1rem;
   padding: 1.5rem;
 }
@@ -741,11 +731,13 @@
   background: #f8f9fa;
   border-radius: 0.75rem;
   transition: all 0.2s ease;
+  border: 2px solid transparent;
 }
 
 .dashboard-metric:hover {
-  background: #f0f0f0;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  background-color: white;
+  box-shadow: 0 4px 14px rgba(75, 28, 228, 0.15);
+  border-color: #4b1ce4;
 }
 
 .metric-icon-new {
@@ -784,12 +776,8 @@
   display: flex;
   justify-content: center;
   align-items: stretch;
-  width: 100%;
+  width: min-content;
   flex: 1;
-}
-
-.dashboard-actions .btn {
-  min-width: 200px;
 }
 
 /* QR Modal Specific Styles */

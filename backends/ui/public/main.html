@@ -138,11 +138,13 @@
           </div>
           <!-- Header with Status and QR Code -->
           <div class="dashboard-header">
-            <div class="status-section">
-              <!-- Server Actions -->
+            <!-- Metrics -->
+            <div class="dashboard-metric">
+              <!-- Shutdown Server Button -->
               <div class="dashboard-actions">
                 <button
                   class="btn btn-danger"
+                  title="Shutdown Server"
                   type="button"
                   id="shutdownBtn"
                   onclick="handleShutdownServer()"
@@ -150,16 +152,22 @@
                   <svg
                     class="btn-icon"
                     viewBox="0 0 24 24"
-                    width="32"
-                    height="32"
+                    width="46"
+                    height="46"
                     fill="currentColor"
                   >
                     <path
                       d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"
                     />
                   </svg>
-                  Shutdown Server
                 </button>
+              </div>
+              <div class="metric-info">
+                <p class="metric-label-new">Server Info</p>
+                <p id="version" class="metric-value-new">Version {{?}}</p>
+                <a id="docs-link" class="code" href="{{local_url}}:{{port}}/docs" target="_blank">
+                  {{local_url}}:{{port}}/docs
+                </a>
               </div>
             </div>
 
@@ -178,23 +186,6 @@
 
           <!-- Metrics Grid -->
           <div class="dashboard-metrics">
-            <div class="dashboard-metric">
-              <div class="metric-icon-new">
-                <svg viewBox="0 0 24 24" width="28" height="28" fill="#64748b">
-                  <path
-                    d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"
-                  />
-                </svg>
-              </div>
-              <div class="metric-info">
-                <p class="metric-label-new">Server Info</p>
-                <p id="version" class="metric-value-new">Version {{?}}</p>
-                <a id="docs-link" class="code" href="{{local_url}}:{{port}}/docs" target="_blank">
-                  {{local_url}}:{{port}}/docs
-                </a>
-              </div>
-            </div>
-
             <div class="dashboard-metric">
               <div class="metric-icon-new">
                 <svg viewBox="0 0 24 24" width="28" height="28" fill="#22c55e">
@@ -232,7 +223,7 @@
                 </svg>
               </div>
               <div class="metric-info">
-                <p class="metric-label-new">Connections</p>
+                <p class="metric-label-new">Clients</p>
                 <p class="metric-value-new" id="activeConnections">0</p>
               </div>
             </div>
