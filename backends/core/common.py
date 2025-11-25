@@ -64,24 +64,29 @@ def app_path(relative_path: str = None):
 def dep_path(relative_path=None):
     base_path = None
 
-    # Try sys._MEIPASS first (PyInstaller sets this)
-    if hasattr(sys, "_MEIPASS"):
-        base_path = sys._MEIPASS
-
-    # If running as frozen app, check for _deps next to executable
-    # This handles macOS app bundles where _MEIPASS might point to Frameworks
+    # If running as frozen app (PyInstaller)
     if getattr(sys, "frozen", False):
         exe_dir = os.path.dirname(sys.executable)
-        deps_candidate = os.path.join(exe_dir, "_deps")
 
-        # If _deps exists next to executable, prefer that
-        if os.path.exists(deps_candidate):
-            base_path = deps_candidate
-        # If no _deps found and base_path is set but doesn't have our files,
-        # try the exe directory itself
-        elif base_path and not os.path.exists(os.path.join(base_path, "servers")):
-            if os.path.exists(os.path.join(exe_dir, "servers")):
+        # On macOS app bundles, PyInstaller puts data files in Contents/Resources/
+        # exe_dir is typically .../Obrew-Studio.app/Contents/MacOS
+        if sys.platform == "darwin" and ".app/Contents/" in exe_dir:
+            contents_dir = os.path.dirname(exe_dir)
+            resources_dir = os.path.join(contents_dir, "Resources")
+            if os.path.exists(resources_dir):
+                base_path = resources_dir
+        # On Windows, PyInstaller puts files in _deps next to the executable
+        else:
+            deps_candidate = os.path.join(exe_dir, "_deps")
+            if os.path.exists(deps_candidate):
+                base_path = deps_candidate
+            else:
+                # Fallback to exe_dir itself
                 base_path = exe_dir
+
+    # Try sys._MEIPASS as fallback (PyInstaller sets this)
+    if not base_path and hasattr(sys, "_MEIPASS"):
+        base_path = sys._MEIPASS
 
     # Fallback to current directory for development
     if not base_path:
