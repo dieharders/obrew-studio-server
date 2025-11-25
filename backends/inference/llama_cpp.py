@@ -102,6 +102,7 @@ class LLAMA_CPP:
         # Platform-aware binary name
         binary_name = "llama-cli.exe" if platform.system() == "Windows" else "llama-cli"
         self.BINARY_PATH: str = os.path.join(BINARY_FOLDER_PATH, binary_name)
+        print(f"@@ BINARY_PATH--{self.BINARY_PATH}")
 
     # Getter
     @property
