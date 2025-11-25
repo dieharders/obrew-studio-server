@@ -62,34 +62,25 @@ def app_path(relative_path: str = None):
 # If you use pyinstaller, it bundles deps into a folder alongside the binary (--onedir mode).
 # This path is set to sys._MEIPASS and any python modules or added files are put in here.
 def dep_path(relative_path=None):
-    base_path = None
-
-    # If running as frozen app (PyInstaller)
-    if getattr(sys, "frozen", False):
-        exe_dir = os.path.dirname(sys.executable)
-
-        # On macOS app bundles, PyInstaller puts data files in Contents/Resources/
-        # exe_dir is typically .../Obrew-Studio.app/Contents/MacOS
-        if sys.platform == "darwin" and ".app/Contents/" in exe_dir:
-            contents_dir = os.path.dirname(exe_dir)
-            resources_dir = os.path.join(contents_dir, "Resources")
-            if os.path.exists(resources_dir):
-                base_path = resources_dir
-        # On Windows, PyInstaller puts files in _deps next to the executable
-        else:
-            deps_candidate = os.path.join(exe_dir, "_deps")
-            if os.path.exists(deps_candidate):
-                base_path = deps_candidate
-            else:
-                # Fallback to exe_dir itself
-                base_path = exe_dir
-
-    # Try sys._MEIPASS as fallback (PyInstaller sets this)
-    if not base_path and hasattr(sys, "_MEIPASS"):
+    try:
+        # Try sys._MEIPASS as PyInstaller sets this
         base_path = sys._MEIPASS
+        print(f"@@ _MEIPASS--{base_path}", flush=True)
+        # If running as frozen app (PyInstaller)
+        if base_path:
+            # On macOS app bundles, PyInstaller puts data files in Contents/Resources/
+            # exe_dir is typically .../Obrew-Studio.app/Contents/MacOS
+            exe_dir = os.path.dirname(sys.executable)
+            if sys.platform == "darwin":
+                contents_dir = os.path.dirname(exe_dir)
+                # resources_dir = os.path.join(contents_dir, "Resources")
+                resources_dir = os.path.join(contents_dir, "_deps")
+                print(f"@@ resources_dir--{resources_dir}", flush=True)
+                if os.path.exists(resources_dir):
+                    base_path = resources_dir
 
     # Fallback to current directory for development
-    if not base_path:
+    except Exception:
         base_path = os.path.abspath(".")
 
     if relative_path:
