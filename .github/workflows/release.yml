@@ -179,8 +179,8 @@ jobs:
             SITE_PACKAGES=".venv/lib/python3.12/site-packages"
             HNSWLIB_BINARY="$SITE_PACKAGES/hnswlib.cpython-312-darwin.so"
             PYINSTALLER=".venv/bin/pyinstaller"
-            # On macOS, use --onefile to create the app bundle properly
-            PYINSTALLER_OPTS="--onefile"
+            # On macOS, use --onedir to create the app bundle (same as Windows for consistency)
+            PYINSTALLER_OPTS="--onedir"
           fi
           # Debug: Show the paths we're using
           echo "Checking if paths exist:"
@@ -248,14 +248,17 @@ jobs:
             # Copy and rename .env.example to .env then place in _deps/
             cp "${{ github.workspace }}/.env.example" "${{ github.workspace }}/dist/Obrew-Studio/_deps/.env"
           else
-            # Copy llama.cpp binaries for macOS
-            mkdir -p "${{ github.workspace }}/dist/servers/llama.cpp"
-            cp -r "${{ github.workspace }}/servers/llama.cpp/"* "${{ github.workspace }}/dist/servers/llama.cpp/"
-            echo "Copied llama.cpp files to dist:"
-            ls -lh "${{ github.workspace }}/dist/servers/llama.cpp/"
-            # Run macOS app bundle creation script
+            # Run macOS app bundle creation script first to ensure bundle structure exists
             chmod +x "${{ github.workspace }}/scripts/build-macos-app-bundle.sh"
             "${{ github.workspace }}/scripts/build-macos-app-bundle.sh" "${{ github.workspace }}"
+            # Copy llama.cpp binaries into the app bundle's _deps directory
+            # With --onedir, sys._MEIPASS points to Contents/MacOS/_deps/
+            mkdir -p "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp"
+            cp -r "${{ github.workspace }}/servers/llama.cpp/"* "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/"
+            echo "Copied llama.cpp files to app bundle:"
+            ls -lh "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/"
+            # Copy .env.example to .env in _deps/ (same as Windows)
+            cp "${{ github.workspace }}/.env.example" "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/.env"
           fi
 
       # 7a. Package with Inno-Setup (Windows)
@@ -308,6 +311,12 @@ jobs:
             echo ""
             echo "App bundle MacOS directory:"
             ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/" 2>/dev/null || echo "No MacOS directory"
+            echo ""
+            echo "App bundle _deps directory:"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/" 2>/dev/null || echo "No _deps directory"
+            echo ""
+            echo "App bundle llama.cpp binaries:"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/" 2>/dev/null || echo "No llama.cpp binaries found!"
             echo ""
             echo "App bundle Resources directory:"
             ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/" 2>/dev/null || echo "No Resources directory"
