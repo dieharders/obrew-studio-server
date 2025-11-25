@@ -135,7 +135,7 @@ jobs:
 
       # Download llama.cpp artifacts from llama-binary workflow
       - name: Download llama.cpp artifacts (${{ matrix.platform }})
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v11
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: llama-binary.yml
