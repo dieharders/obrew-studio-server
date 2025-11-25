@@ -74,9 +74,10 @@ def dep_path(relative_path=None):
             if sys.platform == "darwin":
                 contents_dir = os.path.dirname(exe_dir)
                 # resources_dir = os.path.join(contents_dir, "Resources")
-                resources_dir = os.path.join(contents_dir, "_deps")
+                resources_dir = os.path.join(contents_dir, "MacOS", "_deps")
                 print(f"@@ resources_dir--{resources_dir}", flush=True)
                 if os.path.exists(resources_dir):
+                    print(f"@@ resources exist--{resources_dir}", flush=True)
                     base_path = resources_dir
 
     # Fallback to current directory for development
