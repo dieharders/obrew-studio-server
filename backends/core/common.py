@@ -59,13 +59,32 @@ def app_path(relative_path: str = None):
 
 
 # Pass a relative path to resource and return the correct absolute path. Works for dev and for PyInstaller
-# If you use pyinstaller, it bundles deps into a folder alongside the binary (not --onefile mode).
-# This path is set to sys._MEIPASS and any python modules or added files are put in here (runtime writes, db still go where they should).
+# If you use pyinstaller, it bundles deps into a folder alongside the binary (--onedir mode).
+# This path is set to sys._MEIPASS and any python modules or added files are put in here.
 def dep_path(relative_path=None):
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
+    base_path = None
+
+    # Try sys._MEIPASS first (PyInstaller sets this)
+    if hasattr(sys, "_MEIPASS"):
         base_path = sys._MEIPASS
-    except Exception:
+
+    # If running as frozen app, check for _deps next to executable
+    # This handles macOS app bundles where _MEIPASS might point to Frameworks
+    if getattr(sys, "frozen", False):
+        exe_dir = os.path.dirname(sys.executable)
+        deps_candidate = os.path.join(exe_dir, "_deps")
+
+        # If _deps exists next to executable, prefer that
+        if os.path.exists(deps_candidate):
+            base_path = deps_candidate
+        # If no _deps found and base_path is set but doesn't have our files,
+        # try the exe directory itself
+        elif base_path and not os.path.exists(os.path.join(base_path, "servers")):
+            if os.path.exists(os.path.join(exe_dir, "servers")):
+                base_path = exe_dir
+
+    # Fallback to current directory for development
+    if not base_path:
         base_path = os.path.abspath(".")
 
     if relative_path:

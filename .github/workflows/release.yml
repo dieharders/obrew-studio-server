@@ -252,17 +252,18 @@ jobs:
             chmod +x "${{ github.workspace }}/scripts/build-macos-app-bundle.sh"
             "${{ github.workspace }}/scripts/build-macos-app-bundle.sh" "${{ github.workspace }}"
             # Copy llama.cpp binaries into the app bundle's _deps directory
-            # With --onedir --windowed on macOS, PyInstaller puts _deps in Contents/Resources/
-            mkdir -p "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/_deps/servers/llama.cpp"
-            cp -r "${{ github.workspace }}/servers/llama.cpp/"* "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/_deps/servers/llama.cpp/"
+            # PyInstaller creates dist/Obrew-Studio/ with _deps/ inside
+            # build-macos-app-bundle.sh moves everything to Contents/MacOS/
+            mkdir -p "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp"
+            cp -r "${{ github.workspace }}/servers/llama.cpp/"* "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/"
             # Ensure binaries have execute permissions
-            chmod +x "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/_deps/servers/llama.cpp/llama-cli" 2>/dev/null || true
-            chmod +x "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/_deps/servers/llama.cpp/llama-server" 2>/dev/null || true
-            chmod +x "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/_deps/servers/llama.cpp/llama-"* 2>/dev/null || true
+            chmod +x "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/llama-cli" 2>/dev/null || true
+            chmod +x "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/llama-server" 2>/dev/null || true
+            chmod +x "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/llama-"* 2>/dev/null || true
             echo "Copied llama.cpp files to app bundle:"
-            ls -lh "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/_deps/servers/llama.cpp/"
-            # Copy .env.example to .env in _deps/ (same as Windows)
-            cp "${{ github.workspace }}/.env.example" "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/_deps/.env"
+            ls -lh "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/"
+            # Copy .env.example to .env in _deps/
+            cp "${{ github.workspace }}/.env.example" "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/.env"
           fi
 
       # 7a. Package with Inno-Setup (Windows)
@@ -316,11 +317,11 @@ jobs:
             echo "App bundle MacOS directory:"
             ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/" 2>/dev/null || echo "No MacOS directory"
             echo ""
-            echo "App bundle _deps directory (in Resources):"
-            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/_deps/" 2>/dev/null || echo "No _deps directory"
+            echo "App bundle _deps directory (in MacOS):"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/" 2>/dev/null || echo "No _deps directory"
             echo ""
             echo "App bundle llama.cpp binaries:"
-            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/_deps/servers/llama.cpp/" 2>/dev/null || echo "No llama.cpp binaries found!"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/" 2>/dev/null || echo "No llama.cpp binaries found!"
             echo ""
             echo "App bundle Resources directory:"
             ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/" 2>/dev/null || echo "No Resources directory"
