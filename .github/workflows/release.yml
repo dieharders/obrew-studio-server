@@ -255,6 +255,10 @@ jobs:
             # With --onedir, sys._MEIPASS points to Contents/MacOS/_deps/
             mkdir -p "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp"
             cp -r "${{ github.workspace }}/servers/llama.cpp/"* "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/"
+            # Ensure binaries have execute permissions
+            chmod +x "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/llama-cli" 2>/dev/null || true
+            chmod +x "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/llama-server" 2>/dev/null || true
+            chmod +x "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/llama-"* 2>/dev/null || true
             echo "Copied llama.cpp files to app bundle:"
             ls -lh "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/_deps/servers/llama.cpp/"
             # Copy .env.example to .env in _deps/ (same as Windows)

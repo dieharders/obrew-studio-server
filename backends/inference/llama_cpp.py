@@ -102,6 +102,13 @@ class LLAMA_CPP:
         # Platform-aware binary name
         binary_name = "llama-cli.exe" if platform.system() == "Windows" else "llama-cli"
         self.BINARY_PATH: str = os.path.join(BINARY_FOLDER_PATH, binary_name)
+        # Debug: Log the paths being used
+        print(f"{common.PRNT_LLAMA} deps_path: {deps_path}")
+        print(f"{common.PRNT_LLAMA} BINARY_FOLDER_PATH: {BINARY_FOLDER_PATH}")
+        print(f"{common.PRNT_LLAMA} BINARY_PATH: {self.BINARY_PATH}")
+        print(f"{common.PRNT_LLAMA} Binary exists: {os.path.exists(self.BINARY_PATH)}")
+        if os.path.exists(BINARY_FOLDER_PATH):
+            print(f"{common.PRNT_LLAMA} Contents of llama.cpp folder: {os.listdir(BINARY_FOLDER_PATH)}")
 
     # Getter
     @property
