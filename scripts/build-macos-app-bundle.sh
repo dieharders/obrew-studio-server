@@ -18,7 +18,7 @@ ls -la "$WORKSPACE_DIR/build/" 2>/dev/null || echo "No build directory"
 # If PyInstaller directory (--onedir)
 echo "Found Obrew-Studio directory, converting to app bundle structure..."
 mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS"
-mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Resources"
+# mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Resources"
 # Move all contents including _deps folder
 mv "$WORKSPACE_DIR/dist/Obrew-Studio/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
 rmdir "$WORKSPACE_DIR/dist/Obrew-Studio"

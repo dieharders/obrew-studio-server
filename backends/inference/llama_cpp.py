@@ -335,6 +335,7 @@ class LLAMA_CPP:
                 "--prompt",
                 formatted_prompt,
             ]
+            print(f"bin paths::{self.model_path}--{self.BINARY_PATH}")
             # Add conditional args
             if constrain_json_output:
                 # Constrain output using json schema
