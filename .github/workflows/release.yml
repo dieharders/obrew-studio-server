@@ -135,7 +135,7 @@ jobs:
 
       # Download llama.cpp artifacts from llama-binary workflow
       - name: Download llama.cpp artifacts (${{ matrix.platform }})
-        uses: dawidd6/action-download-artifact@v6
+        uses: dawidd6/action-download-artifact@v11
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: llama-binary.yml
@@ -281,8 +281,11 @@ jobs:
             echo "App bundle MacOS directory:"
             ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/MacOS/" 2>/dev/null || echo "No MacOS directory"
             echo ""
-            echo "App bundle Resources directory:"
-            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Resources/" 2>/dev/null || echo "No Resources directory"
+            echo "App bundle llama.cpp binaries:"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/" 2>/dev/null || echo "No llama.cpp binaries found!"
+            echo ""
+            echo "App bundle Frameworks directory:"
+            ls -la "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Frameworks/" 2>/dev/null || echo "No Resources directory"
             echo ""
             echo "App bundle Info.plist:"
             cat "${{ github.workspace }}/dist/Obrew-Studio.app/Contents/Info.plist" 2>/dev/null || echo "No Info.plist"
@@ -297,7 +300,7 @@ jobs:
           echo "CMAKE_SOURCE_DIR will be: ${{ github.workspace }}"
           echo "CMake will look for: ${{ github.workspace }}/dist/Obrew-Studio.app"
 
-      - name: Create Installer (macOS - Custom Script)
+      - name: Create Installer (macOS)
         shell: bash
         if: runner.os == 'macOS'
         run: |
