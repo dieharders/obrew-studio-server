@@ -29,6 +29,7 @@ chromadb==0.5.0
 numpy<2
 # Required by chromadb's dependencies (pandas, etc.)
 python-dateutil>=2.8.0
+distro>=1.8.0
 # Optional file format support (lazy imports)
 python-docx==1.1.0  # .docx files
 python-pptx==0.6.23  # .pptx files

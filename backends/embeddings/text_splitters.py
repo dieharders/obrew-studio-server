@@ -10,14 +10,14 @@ try:
 except ImportError:
     PYSBD_AVAILABLE = False
 
-OUTPUT_PDF_IMAGES_PATH = "memories/parsed/pdfImages/"
-
 # Alternative:
 # wtpsplit (State-of-the-art, heavier)
 # Install: pip install wtpsplit
 # Uses ML models but they're bundled with the package
 # 85 languages, best accuracy
 # Heavier dependency (requires torch)
+
+OUTPUT_PDF_IMAGES_PATH = "memories/parsed/pdfImages/"
 
 # Helpers
 
