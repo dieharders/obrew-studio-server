@@ -10,28 +10,17 @@ echo "Working directory: $WORKSPACE_DIR"
 # The app bundle should be in dist/Obrew-Studio.app
 echo "macOS build completed"
 
-# Ensure the app bundle exists
-if [ ! -d "$WORKSPACE_DIR/dist/Obrew-Studio.app" ]; then
-  echo "ERROR: App bundle not found at dist/Obrew-Studio.app"
-  echo "Checking what PyInstaller created:"
-  ls -la "$WORKSPACE_DIR/dist/"
-  echo "Checking build directory:"
-  ls -la "$WORKSPACE_DIR/build/" 2>/dev/null || echo "No build directory"
+# Check what PyInstaller created
+echo "Checking what PyInstaller created:"
+ls -la "$WORKSPACE_DIR/dist/"
 
-  # If PyInstaller created a onedir build, we need to manually create an app bundle structure
-  if [ -d "$WORKSPACE_DIR/dist/Obrew-Studio" ]; then
-    echo "Found onedir build, creating app bundle structure..."
-    mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS"
-    mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp"
-    # Copy llama.cpp binaries for macOS
-    cp -r "$WORKSPACE_DIR/servers/llama.cpp/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
-    echo "Copied llama.cpp files to dist:"
-    ls -lh "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
-    # Copy app and dependencies over to app bundle
-    mv "$WORKSPACE_DIR/dist/Obrew-Studio/Obrew-Studio" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
-    mv "$WORKSPACE_DIR/dist/Obrew-Studio/_deps/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/"
-    # Create minimal Info.plist
-    cat > "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Info.plist" << 'EOF'
+# Create app bundle structure if it doesn't exist
+if [ ! -d "$WORKSPACE_DIR/dist/Obrew-Studio.app" ]; then
+  echo "Creating app bundle structure manually..."
+  mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS"
+  mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp"
+  # Create minimal Info.plist
+  cat > "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Info.plist" << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -49,7 +38,25 @@ if [ ! -d "$WORKSPACE_DIR/dist/Obrew-Studio.app" ]; then
 </dict>
 </plist>
 EOF
-  fi
+fi
+
+# Copy llama.cpp binaries for macOS
+echo "Copying llama.cpp binaries to app bundle..."
+mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp"
+cp -r "$WORKSPACE_DIR/servers/llama.cpp/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
+echo "Copied llama.cpp files:"
+ls -lh "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
+
+# Copy executable if not already in the app bundle
+if [ -f "$WORKSPACE_DIR/dist/Obrew-Studio/Obrew-Studio" ]; then
+  echo "Moving executable to app bundle..."
+  mv "$WORKSPACE_DIR/dist/Obrew-Studio/Obrew-Studio" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
+fi
+
+# Copy dependencies if they exist
+if [ -d "$WORKSPACE_DIR/dist/Obrew-Studio/_deps" ]; then
+  echo "Moving dependencies to app bundle..."
+  mv "$WORKSPACE_DIR/dist/Obrew-Studio/_deps/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/"
 fi
 
 echo "macOS app bundle prepared"
@@ -70,14 +77,6 @@ echo ""
 echo "=== macOS App Bundle Verification ==="
 if [ -d "$WORKSPACE_DIR/dist/Obrew-Studio.app" ]; then
   echo "✓ App bundle exists at dist/Obrew-Studio.app"
-
-  # Copy llama.cpp binaries into the app bundle's Frameworks
-  echo "Copying llama.cpp binaries to app bundle..."
-  mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp"
-  cp -r "$WORKSPACE_DIR/servers/llama.cpp/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
-  echo "Copied llama.cpp files:"
-  ls -lh "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
-
   echo "App bundle structure:"
   find "$WORKSPACE_DIR/dist/Obrew-Studio.app" -maxdepth 3 -type f -o -type d | head -30
   echo ""
