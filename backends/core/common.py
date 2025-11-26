@@ -40,8 +40,10 @@ def get_app_base_dir():
 
 # Pass relative string to get absolute path
 def app_path(relative_path: str = None):
-    # MacOS - use Application Support (app bundle is read-only)
-    if sys.platform == "darwin":
+    is_frozen = getattr(sys, "frozen", False)
+
+    # MacOS production build - use Application Support (app bundle is read-only)
+    if sys.platform == "darwin" and is_frozen:
         base = os.path.join(
             os.path.expanduser("~"), "Library", "Application Support", "Obrew-Studio"
         )
@@ -50,7 +52,7 @@ def app_path(relative_path: str = None):
         if relative_path:
             return os.path.join(base, relative_path)
         return base
-    # Windows
+    # Development or Windows/Linux
     else:
         base = os.getcwd()
         if relative_path:
