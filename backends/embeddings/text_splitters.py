@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional
+from typing import List
 from core.document import Document, TextNode
 
 # Optional pysbd for better sentence boundary detection
