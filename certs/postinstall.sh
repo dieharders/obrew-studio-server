@@ -6,12 +6,17 @@
 set -e
 
 echo "[Obrew Studio Installer] Starting certificate installation..."
+echo "[Obrew Studio Installer] Script arguments: \$1=$1, \$2=$2, \$3=$3"
 
-# $2 is the installation target directory (usually /Applications)
-INSTALL_DIR="$2"
-APP_BUNDLE="$INSTALL_DIR/Obrew-Studio.app"
+# $2 is the target volume (usually "/" for root), not /Applications
+# The app is installed to /Applications on the target volume
+TARGET_VOLUME="${2:-/}"
+APP_BUNDLE="${TARGET_VOLUME%/}/Applications/Obrew-Studio.app"
 # PyInstaller places dependencies in Contents/Frameworks on macOS
 FRAMEWORKS_DIR="$APP_BUNDLE/Contents/Frameworks"
+
+echo "[Obrew Studio Installer] Target volume: $TARGET_VOLUME"
+echo "[Obrew Studio Installer] App bundle path: $APP_BUNDLE"
 
 # Get the actual logged-in user (not root, since installer runs with elevated privileges)
 CONSOLE_USER=$(stat -f '%Su' /dev/console)
