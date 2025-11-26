@@ -23,8 +23,13 @@ if [ ! -d "$WORKSPACE_DIR/dist/Obrew-Studio.app" ]; then
     echo "Found executable, creating app bundle structure..."
     mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS"
     mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Resources"
-    mv "$WORKSPACE_DIR/dist/Obrew-Studio" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
-
+    # Copy llama.cpp binaries for macOS
+    cp -r "$WORKSPACE_DIR/servers/llama.cpp/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Resources/servers/llama.cpp/"
+    echo "Copied llama.cpp files to dist:"
+    ls -lh "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Resources/servers/llama.cpp/"
+    # Copy app and dependencies over to app bundle
+    mv "$WORKSPACE_DIR/dist/Obrew-Studio/Obrew-Studio" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
+    mv "$WORKSPACE_DIR/dist/Obrew-Studio/_deps/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Resources/"
     # Create minimal Info.plist
     cat > "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Info.plist" << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>

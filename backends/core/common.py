@@ -65,6 +65,7 @@ def dep_path(relative_path=None):
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
+        print(f"@@ _MEIPASS--{base_path}", flush=True)
     except Exception:
         base_path = os.path.abspath(".")
 

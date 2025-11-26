@@ -248,11 +248,6 @@ jobs:
             # Copy and rename .env.example to .env then place in _deps/
             cp "${{ github.workspace }}/.env.example" "${{ github.workspace }}/dist/Obrew-Studio/_deps/.env"
           else
-            # Copy llama.cpp binaries for macOS
-            mkdir -p "${{ github.workspace }}/dist/servers/llama.cpp"
-            cp -r "${{ github.workspace }}/servers/llama.cpp/"* "${{ github.workspace }}/dist/servers/llama.cpp/"
-            echo "Copied llama.cpp files to dist:"
-            ls -lh "${{ github.workspace }}/dist/servers/llama.cpp/"
             # Run macOS app bundle creation script
             chmod +x "${{ github.workspace }}/scripts/build-macos-app-bundle.sh"
             "${{ github.workspace }}/scripts/build-macos-app-bundle.sh" "${{ github.workspace }}"
@@ -265,28 +260,6 @@ jobs:
         with:
           path: inno-setup-config-github.iss
           options: /O+ /dOUTPATH="${{ github.workspace }}\output" /dSOURCEPATH="${{ github.workspace }}\dist\Obrew-Studio"
-
-      # 7b. Package with CMake/CPack (macOS/Linux)
-      - name: Install CMake
-        uses: lukka/get-cmake@latest
-        if: runner.os != 'Windows'
-        with:
-          cmakeVersion: latest
-
-      - name: Configure CMake
-        shell: bash
-        if: runner.os != 'Windows'
-        run: |
-          echo "Listing files in the GitHub workspace: ${{ github.workspace }}"
-          echo "Checking dist directory for app bundle:"
-          ls -la "${{ github.workspace }}/dist/" || echo "No dist directory yet"
-          # Configure CMake - no need to override install prefix, let CMakeLists.txt handle it
-          cmake -S "${{ github.workspace }}" -B build_temp
-
-      - name: Build Project (CMake)
-        shell: bash
-        if: runner.os != 'Windows'
-        run: cmake --build build_temp
 
       - name: Debug - Verify app bundle before packaging
         shell: bash
