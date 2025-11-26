@@ -10,47 +10,26 @@ echo "Working directory: $WORKSPACE_DIR"
 # The app bundle should be in dist/Obrew-Studio.app
 echo "macOS build completed"
 
-# Ensure the app bundle exists
-if [ ! -d "$WORKSPACE_DIR/dist/Obrew-Studio.app" ]; then
-  echo "ERROR: App bundle not found at dist/Obrew-Studio.app"
-  echo "Checking what PyInstaller created:"
-  ls -la "$WORKSPACE_DIR/dist/"
-  echo "Checking build directory:"
-  ls -la "$WORKSPACE_DIR/build/" 2>/dev/null || echo "No build directory"
+# Check what PyInstaller created
+echo "Checking what PyInstaller created:"
+ls -la "$WORKSPACE_DIR/dist/"
 
-  # If PyInstaller created a onedir build, we need to manually create an app bundle structure
-  if [ -d "$WORKSPACE_DIR/dist/Obrew-Studio" ]; then
-    echo "Found onedir build, creating app bundle structure..."
-    mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS"
-    mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp"
-    # Copy llama.cpp binaries for macOS
-    cp -r "$WORKSPACE_DIR/servers/llama.cpp/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
-    echo "Copied llama.cpp files to dist:"
-    ls -lh "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
-    # Copy app and dependencies over to app bundle
-    mv "$WORKSPACE_DIR/dist/Obrew-Studio/Obrew-Studio" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
-    mv "$WORKSPACE_DIR/dist/Obrew-Studio/_deps/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/"
-    # Create minimal Info.plist
-    cat > "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Info.plist" << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleExecutable</key>
-    <string>Obrew-Studio</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.openbrewai.obrew-studio</string>
-    <key>CFBundleName</key>
-    <string>Obrew Studio</string>
-    <key>CFBundleVersion</key>
-    <string>0.9.0</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-</dict>
-</plist>
-EOF
-  fi
+# Verify PyInstaller created the app bundle
+if [ ! -d "$WORKSPACE_DIR/dist/Obrew-Studio.app" ]; then
+  echo "ERROR: PyInstaller did not create Obrew-Studio.app bundle"
+  exit 1
 fi
+
+# Copy llama.cpp binaries into the app bundle
+# (PyInstaller handles the executable and dependencies, but we need to add llama.cpp)
+echo "Copying llama.cpp binaries to app bundle..."
+mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp"
+cp -r "$WORKSPACE_DIR/servers/llama.cpp/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
+echo "Copied llama.cpp files:"
+ls -lh "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
+
+# Copy and rename .env.example to .env then place in Frameworks/
+cp "$WORKSPACE_DIR/.env.example" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/.env"
 
 echo "macOS app bundle prepared"
 
@@ -70,14 +49,6 @@ echo ""
 echo "=== macOS App Bundle Verification ==="
 if [ -d "$WORKSPACE_DIR/dist/Obrew-Studio.app" ]; then
   echo "✓ App bundle exists at dist/Obrew-Studio.app"
-
-  # Copy llama.cpp binaries into the app bundle's Frameworks
-  echo "Copying llama.cpp binaries to app bundle..."
-  mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp"
-  cp -r "$WORKSPACE_DIR/servers/llama.cpp/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
-  echo "Copied llama.cpp files:"
-  ls -lh "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
-
   echo "App bundle structure:"
   find "$WORKSPACE_DIR/dist/Obrew-Studio.app" -maxdepth 3 -type f -o -type d | head -30
   echo ""

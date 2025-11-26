@@ -319,8 +319,9 @@
 }
 
 .btn-primary:disabled {
-  background: #e9ecef;
-  color: #adb5bd;
+  background: #f472b6;
+  color: #db2777;
+  border: 1px solid #db2777;
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
