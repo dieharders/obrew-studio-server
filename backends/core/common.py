@@ -77,11 +77,13 @@ def dep_path(relative_path=None):
 def get_env_path():
     """
     Get the path to the .env file.
-    On macOS, this is in Application Support. On first run, copies from app bundle if needed.
-    On Windows, uses the current working directory.
+    On macOS production builds, uses Application Support. On first run, copies from app bundle if needed.
+    In development or on Windows/Linux, uses dep_path (cwd).
     """
-    if sys.platform == "darwin":
-        # Always use Application Support on macOS
+    is_frozen = getattr(sys, "frozen", False)
+
+    # Only use Application Support for macOS production builds
+    if sys.platform == "darwin" and is_frozen:
         env_path = app_path(".env")
 
         # If .env doesn't exist in Application Support, copy from app bundle
@@ -102,7 +104,7 @@ def get_env_path():
 
         return env_path
     else:
-        # Windows/Linux: use dep_path for bundled or cwd for dev
+        # Development mode or Windows/Linux: use dep_path (cwd)
         return dep_path(".env")
 
 
