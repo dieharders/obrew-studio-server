@@ -74,6 +74,38 @@ def dep_path(relative_path=None):
     return base_path
 
 
+def get_env_path():
+    """
+    Get the path to the .env file.
+    On macOS, this is in Application Support. On first run, copies from app bundle if needed.
+    On Windows, uses the current working directory.
+    """
+    if sys.platform == "darwin":
+        # Always use Application Support on macOS
+        env_path = app_path(".env")
+
+        # If .env doesn't exist in Application Support, copy from app bundle
+        if not os.path.exists(env_path):
+            bundled_env = dep_path(".env")
+            if os.path.exists(bundled_env):
+                import shutil
+                # Ensure the directory exists
+                os.makedirs(os.path.dirname(env_path), exist_ok=True)
+                shutil.copy(bundled_env, env_path)
+                print(f"{bcolors.HEADER}[OBREW]{bcolors.ENDC} Copied .env from app bundle to {env_path}", flush=True)
+            else:
+                # Create an empty .env if no bundled one exists
+                os.makedirs(os.path.dirname(env_path), exist_ok=True)
+                with open(env_path, "w") as f:
+                    f.write("# Obrew Server Environment Variables\n")
+                print(f"{bcolors.HEADER}[OBREW]{bcolors.ENDC} Created new .env at {env_path}", flush=True)
+
+        return env_path
+    else:
+        # Windows/Linux: use dep_path for bundled or cwd for dev
+        return dep_path(".env")
+
+
 MODEL_METADATAS_FILENAME = "installed_models.json"
 EMBEDDING_METADATAS_FILENAME = "installed_embedding_models.json"
 BACKENDS_FOLDER = "backends"
