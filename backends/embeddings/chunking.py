@@ -1,8 +1,7 @@
 from nanoid import generate as generate_uuid
 from typing import List, Tuple
-from llama_index.core import Document
-from llama_index.core.schema import IndexNode, TextNode
 from core import common
+from core.document import Document, IndexNode, TextNode
 
 
 # Chunks are created from each document and will inherit their metadata

@@ -1,23 +1,6 @@
 import re
-from llama_index.core import SimpleDirectoryReader
-from llama_index.core.node_parser import (
-    LangchainNodeParser,
-    MarkdownNodeParser,
-    SentenceSplitter,
-)
-
-# from langchain.text_splitter import (
-#     CharacterTextSplitter,
-#     RecursiveCharacterTextSplitter,
-#     Language,
-# )
-# import io
-# import base64
-# from PIL import Image  # use `pip install pillow` instead of PIL
-
-# Unstructured lib helps make your data LLM ready - unstructured.io
-# from unstructured.partition.pdf import partition_pdf
-# from unstructured.staging.base import elements_to_json
+from typing import List
+from core.document import Document, TextNode
 
 OUTPUT_PDF_IMAGES_PATH = "memories/parsed/pdfImages/"
 
@@ -62,13 +45,139 @@ def combine_sentences(sentences, buffer_size=1):
 # Document Splitters
 
 
+class SimpleSentenceSplitter:
+    """Simple text splitter that splits by sentences and respects chunk size."""
+
+    def __init__(
+        self,
+        chunk_size: int = 500,
+        chunk_overlap: int = 0,
+        paragraph_separator: str = "\n\n",
+    ):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.paragraph_separator = paragraph_separator
+
+    def get_nodes_from_documents(
+        self, documents: List[Document], show_progress: bool = False
+    ) -> List[TextNode]:
+        """Split documents into text nodes."""
+        nodes = []
+        node_count = 0
+
+        for doc in documents:
+            text = doc.text
+            # Split by paragraph separator first
+            paragraphs = text.split(self.paragraph_separator)
+
+            current_chunk = ""
+            for para in paragraphs:
+                # If adding this paragraph would exceed chunk size
+                if len(current_chunk) + len(para) + len(self.paragraph_separator) > self.chunk_size:
+                    # Save current chunk if not empty
+                    if current_chunk.strip():
+                        nodes.append(TextNode(
+                            id_=str(node_count),
+                            text=current_chunk.strip(),
+                            metadata=doc.metadata.copy(),
+                        ))
+                        node_count += 1
+
+                    # Handle overlap - keep end of previous chunk
+                    if self.chunk_overlap > 0 and current_chunk:
+                        overlap_text = current_chunk[-self.chunk_overlap:]
+                        current_chunk = overlap_text + self.paragraph_separator + para
+                    else:
+                        current_chunk = para
+                else:
+                    if current_chunk:
+                        current_chunk += self.paragraph_separator + para
+                    else:
+                        current_chunk = para
+
+            # Don't forget the last chunk
+            if current_chunk.strip():
+                nodes.append(TextNode(
+                    id_=str(node_count),
+                    text=current_chunk.strip(),
+                    metadata=doc.metadata.copy(),
+                ))
+                node_count += 1
+
+        return nodes
+
+
+class SimpleMarkdownSplitter:
+    """Simple markdown splitter that splits by headings."""
+
+    def __init__(
+        self,
+        chunk_size: int = 500,
+        chunk_overlap: int = 0,
+    ):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+
+    def get_nodes_from_documents(
+        self, documents: List[Document], show_progress: bool = False
+    ) -> List[TextNode]:
+        """Split markdown documents by headings."""
+        nodes = []
+        node_count = 0
+
+        for doc in documents:
+            text = doc.text
+            # Split by markdown headings (## for h2)
+            sections = re.split(r'\n(?=## )', text)
+
+            for section in sections:
+                if section.strip():
+                    # If section is too long, split further
+                    if len(section) > self.chunk_size:
+                        # Split by sentences
+                        sentences = re.split(r'(?<=[.!?])\s+', section)
+                        current_chunk = ""
+                        for sentence in sentences:
+                            if len(current_chunk) + len(sentence) > self.chunk_size:
+                                if current_chunk.strip():
+                                    nodes.append(TextNode(
+                                        id_=str(node_count),
+                                        text=current_chunk.strip(),
+                                        metadata=doc.metadata.copy(),
+                                    ))
+                                    node_count += 1
+                                current_chunk = sentence
+                            else:
+                                current_chunk += " " + sentence if current_chunk else sentence
+                        if current_chunk.strip():
+                            nodes.append(TextNode(
+                                id_=str(node_count),
+                                text=current_chunk.strip(),
+                                metadata=doc.metadata.copy(),
+                            ))
+                            node_count += 1
+                    else:
+                        nodes.append(TextNode(
+                            id_=str(node_count),
+                            text=section.strip(),
+                            metadata=doc.metadata.copy(),
+                        ))
+                        node_count += 1
+
+        return nodes
+
+
 def split_sentence(file_path: str):
-    documents = SimpleDirectoryReader(input_files=[file_path]).load_data()
-    if len(documents) == 0:
+    """Split a file into sentence-based chunks."""
+    with open(file_path, 'r', encoding='utf-8') as f:
+        text = f.read()
+
+    if not text:
         raise Exception("No documents found.")
-    text_splitter = SentenceSplitter(chunk_size=550, chunk_overlap=15)
-    #  nodes are chunks of the source document
-    nodes = text_splitter.get_nodes_from_documents(documents)
+
+    doc = Document(id_="0", text=text)
+    text_splitter = SimpleSentenceSplitter(chunk_size=550, chunk_overlap=15)
+    nodes = text_splitter.get_nodes_from_documents([doc])
     return nodes
 
 
@@ -175,25 +284,20 @@ def agentic_split(text: str):
 #     return
 
 
-# Parsers
+# Parsers / Factory Functions
 
 
-# Recommended for markdown or code documents
 def markdown_document_split(chunk_size: int = 500, chunk_overlap: int = 0):
-    return LangchainNodeParser(
-        MarkdownNodeParser(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
-            keep_separator=True,
-            # length_function=length_function,
-        )
+    """Recommended for markdown or code documents."""
+    return SimpleMarkdownSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
     )
 
 
-# Split along major headings (h2) then by whole sentences
 def markdown_heading_split(chunk_size: int = 500, chunk_overlap: int = 0):
-    return SentenceSplitter(
-        # @TODO This seems to work for now, maybe expand on this later?
+    """Split along major headings (h2) then by whole sentences."""
+    return SimpleSentenceSplitter(
         paragraph_separator="\n## ",
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,

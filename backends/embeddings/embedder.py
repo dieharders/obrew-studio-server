@@ -4,11 +4,7 @@ from typing import List, TYPE_CHECKING
 from fastapi import BackgroundTasks, UploadFile
 from core import common
 from core.classes import EmbedDocumentRequest, FastAPIApp
-from llama_index.core import VectorStoreIndex, Document
-from llama_index.core.callbacks import CallbackManager, LlamaDebugHandler
-from llama_index.core.ingestion import IngestionPipeline
-from llama_index.core.storage.docstore import SimpleDocumentStore
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from core.document import Document
 from .file_parsers import copy_file_to_disk, create_parsed_id, process_documents
 from .text_splitters import markdown_heading_split, markdown_document_split
 from .chunking import chunks_from_documents, create_source_record
@@ -18,21 +14,13 @@ from .gguf_embedder import GGUFEmbedder
 if TYPE_CHECKING:
     from embeddings.vector_storage import Vector_Storage
 
-# from llama_index.vector_stores.chroma import ChromaVectorStore
-# from llama_index.core import StorageContext
 
-
+# GGUF embedding models only
 embedding_model_names = dict(
-    bge_small="BAAI/bge-small-en-v1.5",
-    bge_large="BAAI/bge-large-en",
-    gte_small="thenlper/gte-small",
-    gte_large="thenlper/gte-large",
-    gte_base="thenlper/gte-base",  # what we have historically been using
-    all_mini="sentence-transformers/all-MiniLM-L6-v2",
-    multilingual_large="intfloat/multilingual-e5-large-instruct",  # currently top of leaderboard
+    nomic_v1_5="nomic-ai/nomic-embed-text-v1.5-GGUF",
 )
 
-DEFAULT_EMBEDDING_MODEL_NAME = embedding_model_names["multilingual_large"]
+DEFAULT_EMBEDDING_MODEL_NAME = embedding_model_names["nomic_v1_5"]
 EMBEDDING_MODEL_CACHE_PATH = common.app_path("embed_models")
 EMBEDDING_MODELS_CACHE_DIR = common.app_path(common.EMBEDDING_MODELS_CACHE_DIR)
 CHUNKING_STRATEGIES = {
@@ -66,29 +54,24 @@ class Embedder:
         self.embed_model_name = embed_model or DEFAULT_EMBEDDING_MODEL_NAME
         self.is_gguf = is_gguf_model(self.embed_model_name)
 
-        if self.is_gguf:
-            # For GGUF models, we need to find the model file path
-            model_path = self._find_gguf_model_path()
-            self.embed_model = GGUFEmbedder(
-                app=app,
-                model_path=model_path,
-                embed_model=self.embed_model_name,
+        if not self.is_gguf:
+            raise ValueError(
+                f"Only GGUF embedding models are supported. "
+                f"Model '{self.embed_model_name}' does not appear to be a GGUF model. "
+                f"Please use a model with 'GGUF' in the name or ending in '.gguf'."
             )
-            print(
-                f"{common.PRNT_EMBED} Using GGUF embedder with model: {self.embed_model_name}",
-                flush=True,
-            )
-        else:
-            # Standard transformer model
-            self.embed_model = HuggingFaceEmbedding(
-                self.embed_model_name,
-                cache_folder=self.cache,
-                # trust_remote_code=True,
-            )
-            print(
-                f"{common.PRNT_EMBED} Using HuggingFace embedder with model: {self.embed_model_name}",
-                flush=True,
-            )
+
+        # For GGUF models, we need to find the model file path
+        model_path = self._find_gguf_model_path()
+        self.embed_model = GGUFEmbedder(
+            app=app,
+            model_path=model_path,
+            embed_model=self.embed_model_name,
+        )
+        print(
+            f"{common.PRNT_EMBED} Using GGUF embedder with model: {self.embed_model_name}",
+            flush=True,
+        )
 
     def _find_gguf_model_path(self) -> str:
         """Find the path to a GGUF model file."""
@@ -167,10 +150,9 @@ class Embedder:
 
                 collection = vector_storage.get_collection(name=collection_name)
                 if collection:
-                    vector_index = vector_storage.add_chunks_to_collection(
+                    vector_storage.add_chunks_to_collection(
                         collection=collection,
                         nodes=chunk_nodes,
-                        callback_manager=self.create_index_callback_manager(),
                     )
                     # Add/update `collection.metadata.sources` list
                     print(
@@ -186,16 +168,6 @@ class Embedder:
         except (Exception, KeyError) as e:
             msg = f"Embedding failed: {e}"
             print(f"{common.PRNT_EMBED} {msg}", flush=True)
-
-    # Create document embeddings from chunks, not currently used.
-    def _embed_pipeline(self, parser, vector_store, documents: List[Document]):
-        pipeline = IngestionPipeline(
-            transformations=[parser],
-            vector_store=vector_store,
-            docstore=SimpleDocumentStore(),  # enabled document management
-        )
-        # Ingest directly into a vector db
-        pipeline.run(documents=documents)
 
     def embed_text(self, text: str) -> List[float]:
         """Create vector embeddings from query text."""
@@ -260,14 +232,9 @@ class Embedder:
             sources_to_delete = vector_storage.get_sources_from_ids(
                 collection=collection, source_ids=[prev_document_id]
             )
-            vector_index = self.load_embedding(
-                collection_name=collection_name, vector_storage=vector_storage
-            )
             vector_storage.delete_sources(
                 collection_name=collection_name,
                 sources=sources_to_delete,
-                vector_storage=vector_storage,
-                vector_index=vector_index,
             )
         # Write uploaded file to disk temporarily
         # @TODO Is there a way to pass this in memory so we dont have to write the file to disk.
@@ -328,25 +295,6 @@ class Embedder:
         )
         return file_path
 
-    # Load collection of document embeddings from disk
-    # @TODO Cleanup args, some (context_window, num_output, chunk_size, prompts) should be updated before a query is called
-    def load_embedding(
-        self, collection_name: str, vector_storage: "Vector_Storage"
-    ) -> VectorStoreIndex:
-        vector_index = None
-        try:
-            # Get collection
-            collection = vector_storage.get_collection(name=collection_name)
-            if collection:
-                vector_index = vector_storage.add_chunks_to_collection(
-                    collection=collection,
-                    nodes=[],  # empty since we're just loading
-                    callback_manager=self.create_index_callback_manager(),
-                )
-        except Exception as e:
-            print(f"{common.PRNT_EMBED} Failed to load vector index: {e}", flush=True)
-        return vector_index
-
     # Create nodes from a single source Document
     async def create_index_nodes(
         self,
@@ -371,10 +319,3 @@ class Embedder:
         if is_dirty:
             file_nodes = process_documents(nodes=file_nodes)
         return file_nodes
-
-    # For debugging llama-index events
-    def create_index_callback_manager(self) -> CallbackManager:
-        # Debugging - https://docs.llamaindex.ai/en/v0.10.19/examples/callbacks/LlamaDebugHandler.html
-        llama_debug = LlamaDebugHandler(print_trace_on_end=True)
-        callback_manager = CallbackManager([llama_debug])
-        return callback_manager

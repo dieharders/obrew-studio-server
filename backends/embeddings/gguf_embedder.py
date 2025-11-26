@@ -2,79 +2,41 @@ import os
 import subprocess
 import json
 import tempfile
-from typing import List, Any
+from typing import List
 from core import common
 from core.classes import FastAPIApp
-from llama_index.core.embeddings import BaseEmbedding
-from pydantic.v1 import PrivateAttr
 
 LOG_PREFIX = "[GGUF-EMBEDDER]"
 
 
-class GGUFEmbedder(BaseEmbedding):
+class GGUFEmbedder:
     """Handle GGUF embedding models using llama-cli binary."""
-
-    # Use PrivateAttr for attributes not part of the pydantic model
-    _app: Any = PrivateAttr(default=None)
-    _model_path: str = PrivateAttr(default=None)
-    _binary_path: str = PrivateAttr(default=None)
 
     def __init__(
         self,
         app: FastAPIApp,
         model_path: str = None,
         embed_model: str = None,
-        **kwargs: Any,
     ):
-        # Initialize BaseEmbedding
-        super().__init__(model_name=embed_model or "GGUF Embedding Model", **kwargs)
-
-        self._app = app
-        self._model_path = model_path
+        self.app = app
+        self.model_name = embed_model or "GGUF Embedding Model"
+        self.model_path = model_path
 
         # Get path to llama-embedding binary
         deps_path = common.dep_path()
         binary_name = "llama-embedding.exe" if os.name == "nt" else "llama-embedding"
-        self._binary_path = os.path.join(deps_path, "servers", "llama.cpp", binary_name)
+        self.binary_path = os.path.join(deps_path, "servers", "llama.cpp", binary_name)
 
         # Verify binary exists
-        if not os.path.exists(self._binary_path):
+        if not os.path.exists(self.binary_path):
             raise FileNotFoundError(
-                f"llama-embedding binary not found at {self._binary_path}. "
+                f"llama-embedding binary not found at {self.binary_path}. "
                 "Please restart the server to download required binaries."
             )
 
         print(f"{LOG_PREFIX} Initialized with model: {self.model_name}", flush=True)
-        print(f"{LOG_PREFIX} Binary path: {self._binary_path}", flush=True)
-        print(f"{LOG_PREFIX} Model path: {self._model_path}", flush=True)
-
-    @classmethod
-    def class_name(cls) -> str:
-        return "GGUFEmbedder"
-
-    def _get_text_embedding(self, text: str) -> List[float]:
-        """
-        Internal method to get embeddings (required by BaseEmbedding).
-
-        Args:
-            text: Input text to embed
-
-        Returns:
-            List of floats representing the embedding vector
-        """
-        return self.embed_text(text, normalize=True)
-
-    async def _aget_text_embedding(self, text: str) -> List[float]:
-        """Async version (required by BaseEmbedding)."""
-        return self._get_text_embedding(text)
-
-    def _get_query_embedding(self, query: str) -> List[float]:
-        """Get query embedding (required by BaseEmbedding)."""
-        return self._get_text_embedding(query)
-
-    async def _aget_query_embedding(self, query: str) -> List[float]:
-        """Async version (required by BaseEmbedding)."""
-        return self._get_query_embedding(query)
+        print(f"{LOG_PREFIX} Binary path: {self.binary_path}", flush=True)
+        print(f"{LOG_PREFIX} Model path: {self.model_path}", flush=True)
 
     def embed_text(self, text: str, normalize: bool = True) -> List[float]:
         """
@@ -87,9 +49,9 @@ class GGUFEmbedder(BaseEmbedding):
         Returns:
             List of floats representing the embedding vector
         """
-        if not self._model_path or not os.path.exists(self._model_path):
+        if not self.model_path or not os.path.exists(self.model_path):
             raise FileNotFoundError(
-                f"Model file not found at {self._model_path}. "
+                f"Model file not found at {self.model_path}. "
                 "Please ensure the GGUF embedding model is downloaded."
             )
 
@@ -113,9 +75,9 @@ class GGUFEmbedder(BaseEmbedding):
             # Format: ./llama-embedding -m /embed_models/models--nomic-ai--nomic-embed-text-v1.5-GGUF/snapshots/0188c9bf409793f810680a5a431e7b899c46104c/nomic-embed-text-v1.5.Q8_0.gguf -p 'Hello World!' --pooling mean --n-gpu-layers 99 --embd-output-format array --embd-normalize 2
             # Note: batch-size must be >= ctx-size to avoid assertion failure
             cmd = [
-                self._binary_path,
+                self.binary_path,
                 "-m",
-                self._model_path,
+                self.model_path,
                 # "-p",
                 # "Hello World!",
                 "-f",

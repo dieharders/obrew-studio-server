@@ -1,7 +1,5 @@
-from typing import Optional
-from llama_index_client import Document
+from typing import Optional, List, Sequence
 from typing_extensions import TypedDict
-from typing import List, Optional, Sequence
 from core import common
 from inference.classes import (
     DEFAULT_SYSTEM_MESSAGE,
@@ -46,7 +44,7 @@ def sanitize_kwargs(kwargs: dict) -> list[str]:
 def apply_query_template(
     template: str,
     query: str,
-    context_list: List[Document] = [],
+    context_list: List[str] = [],
     new_chunk_text: str = "",
     schema: str = "",
     dialect: str = "",

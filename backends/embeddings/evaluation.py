@@ -1,38 +1,56 @@
-from llama_index.core.evaluation.faithfulness import FaithfulnessEvaluator
+"""
+Response evaluation utilities.
+
+NOTE: These functions are stubs and need implementation.
+The previous implementation used llama-index's FaithfulnessEvaluator which
+required an LLM connection. A new implementation could use a local LLM
+to evaluate response faithfulness.
+"""
 
 
-# Determine which nodes contributed to the answer
-def contributing_references(response, eval_result):
-    num_source_nodes = len(response.source_nodes)
+def contributing_references(response: dict, eval_result: dict = None):
+    """
+    Determine which nodes contributed to the answer.
+
+    Args:
+        response: Response containing source_nodes
+        eval_result: Optional evaluation result
+
+    Returns:
+        Dict with reference information
+    """
+    # Stub implementation
+    source_nodes = response.get("source_nodes", [])
+    num_source_nodes = len(source_nodes)
     print(f"[embedding api] Number of source nodes: {num_source_nodes}", flush=True)
-    print(f"[embedding api] Result is passing? {str(eval_result.passing)}", flush=True)
-    for s in response.source_nodes:
-        print(f"[embedding api] Node Score: {s.score}", flush=True)
-        print(s.node.metadata, flush=True)
     return {
         "num_refs": num_source_nodes,
     }
 
 
-# Verifies whether a response is faithful to the contexts
-# @TODO Needs refactor for llama-index 0.10.0
-def verify_response(response, query=""):
-    print("[embedding api] Verifying truthiness of response...", flush=True)
-    evaluator = FaithfulnessEvaluator()
-    eval_result = evaluator.evaluate_response(query=query, response=response)
-    print(f"[embedding api] Faithfulness results: {eval_result}", flush=True)
-    contributing_references(response, eval_result)
+def verify_response(response: dict, query: str = ""):
+    """
+    Verify whether a response is faithful to the contexts.
+
+    NOTE: This is a stub. Needs implementation with local LLM.
+
+    Args:
+        response: The response to verify
+        query: The original query
+    """
+    print("[embedding api] Response verification not implemented.", flush=True)
+    print("[embedding api] Skipping faithfulness check.", flush=True)
 
 
-# Evaluates whether a response is faithful to the query
-# @TODO Needs refactor for llama-index 0.10.0
-def evaluate_response(response, query=""):
-    # Define evaluator, evaluates whether a response is faithful to the contexts
-    print("[embedding api] Evaluating correctness of response...", flush=True)
-    evaluator = FaithfulnessEvaluator()
-    eval_result = evaluator.evaluate(
-        query=query,
-        response=response,
-    )
-    print(f"[embedding api] Verification results: {eval_result}", flush=True)
-    contributing_references(response, eval_result)
+def evaluate_response(response: dict, query: str = ""):
+    """
+    Evaluate whether a response is faithful to the query.
+
+    NOTE: This is a stub. Needs implementation with local LLM.
+
+    Args:
+        response: The response to evaluate
+        query: The original query
+    """
+    print("[embedding api] Response evaluation not implemented.", flush=True)
+    print("[embedding api] Skipping evaluation check.", flush=True)

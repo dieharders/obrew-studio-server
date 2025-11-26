@@ -206,14 +206,6 @@ def download_and_extract(
         print(f"[UPDATER] An error occurred: {e}")
 
 
-# Install NLTK and download stopwords (req by llama-index)
-# def download_extra_deps():
-#     try:
-#         nltk.data.find("corpora/stopwords")
-#     except LookupError:
-#         nltk.download("stopwords")
-
-
 def check_llama_cpp_exists(file_paths):
     """
     Check if all required llama.cpp files exist.
