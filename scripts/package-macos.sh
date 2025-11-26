@@ -23,7 +23,13 @@ TEMP_DIR="$PROJECT_ROOT/build_temp/custom_pkg"
 echo "Creating packaging directories..."
 rm -rf "$TEMP_DIR"
 mkdir -p "$TEMP_DIR/payload/Applications"
+mkdir -p "$TEMP_DIR/scripts"
 mkdir -p "$OUTPUT_DIR"
+
+# Copy postinstall script (must be named exactly "postinstall" with no extension)
+echo "Setting up installer scripts..."
+cp "$PROJECT_ROOT/certs/postinstall.sh" "$TEMP_DIR/scripts/postinstall"
+chmod +x "$TEMP_DIR/scripts/postinstall"
 
 # Check if app bundle exists
 if [ ! -d "$DIST_DIR/$APP_BUNDLE" ]; then
@@ -39,13 +45,14 @@ cp -R "$DIST_DIR/$APP_BUNDLE" "$TEMP_DIR/payload/Applications/"
 echo "App bundle size:"
 du -sh "$TEMP_DIR/payload/Applications/$APP_BUNDLE"
 
-# Create the component package
+# Create the component package (with postinstall script)
 echo "Creating component package..."
 pkgbuild \
     --root "$TEMP_DIR/payload" \
     --identifier "$PKG_IDENTIFIER" \
     --version "$PKG_VERSION" \
     --install-location "/" \
+    --scripts "$TEMP_DIR/scripts" \
     "$TEMP_DIR/component.pkg"
 
 # Check component package size
