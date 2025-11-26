@@ -14,33 +14,14 @@ echo "macOS build completed"
 echo "Checking what PyInstaller created:"
 ls -la "$WORKSPACE_DIR/dist/"
 
-# Create app bundle structure if it doesn't exist
+# Verify PyInstaller created the app bundle
 if [ ! -d "$WORKSPACE_DIR/dist/Obrew-Studio.app" ]; then
-  echo "Creating app bundle structure manually..."
-  mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS"
-  mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp"
-  # Create minimal Info.plist
-  cat > "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Info.plist" << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleExecutable</key>
-    <string>Obrew-Studio</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.openbrewai.obrew-studio</string>
-    <key>CFBundleName</key>
-    <string>Obrew Studio</string>
-    <key>CFBundleVersion</key>
-    <string>0.9.0</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-</dict>
-</plist>
-EOF
+  echo "ERROR: PyInstaller did not create Obrew-Studio.app bundle"
+  exit 1
 fi
 
-# Copy llama.cpp binaries for macOS
+# Copy llama.cpp binaries into the app bundle
+# (PyInstaller handles the executable and dependencies, but we need to add llama.cpp)
 echo "Copying llama.cpp binaries to app bundle..."
 mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp"
 cp -r "$WORKSPACE_DIR/servers/llama.cpp/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
@@ -48,16 +29,19 @@ echo "Copied llama.cpp files:"
 ls -lh "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
 
 # Copy executable if not already in the app bundle
-if [ -f "$WORKSPACE_DIR/dist/Obrew-Studio/Obrew-Studio" ]; then
-  echo "Moving executable to app bundle..."
-  mv "$WORKSPACE_DIR/dist/Obrew-Studio/Obrew-Studio" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
-fi
+# if [ -f "$WORKSPACE_DIR/dist/Obrew-Studio/Obrew-Studio" ]; then
+#   echo "Moving executable to app bundle..."
+#   mv "$WORKSPACE_DIR/dist/Obrew-Studio/Obrew-Studio" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
+# fi
 
 # Copy dependencies if they exist
-if [ -d "$WORKSPACE_DIR/dist/Obrew-Studio/_deps" ]; then
-  echo "Moving dependencies to app bundle..."
-  mv "$WORKSPACE_DIR/dist/Obrew-Studio/_deps/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/"
-fi
+# if [ -d "$WORKSPACE_DIR/dist/Obrew-Studio/_deps" ]; then
+#   echo "Moving dependencies to app bundle..."
+#   mv "$WORKSPACE_DIR/dist/Obrew-Studio/_deps/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/"
+# fi
+
+# Copy and rename .env.example to .env then place in Frameworks/
+cp "$WORKSPACE_DIR/.env.example" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/.env"
 
 echo "macOS app bundle prepared"
 
