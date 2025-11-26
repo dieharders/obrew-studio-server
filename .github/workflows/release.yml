@@ -179,8 +179,7 @@ jobs:
             SITE_PACKAGES=".venv/lib/python3.12/site-packages"
             HNSWLIB_BINARY="$SITE_PACKAGES/hnswlib.cpython-312-darwin.so"
             PYINSTALLER=".venv/bin/pyinstaller"
-            # On macOS, use --onefile to create the app bundle properly
-            PYINSTALLER_OPTS="--onefile"
+            PYINSTALLER_OPTS="--onedir"
           fi
           # Debug: Show the paths we're using
           echo "Checking if paths exist:"
