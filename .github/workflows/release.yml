@@ -141,7 +141,7 @@ jobs:
           workflow: llama-binary.yml
           name: llama-${{ matrix.platform }}-${{ steps.llama_tag.outputs.tag }}
           path: llama-artifact
-          search_artifacts: true
+          search_artifacts: true # finds most recent artifact (if dupes exist)
           if_no_artifact_found: fail
 
       # Extract and copy llama.cpp files to servers directory
