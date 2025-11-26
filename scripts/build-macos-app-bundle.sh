@@ -18,11 +18,11 @@ if [ ! -d "$WORKSPACE_DIR/dist/Obrew-Studio.app" ]; then
   echo "Checking build directory:"
   ls -la "$WORKSPACE_DIR/build/" 2>/dev/null || echo "No build directory"
 
-  # If PyInstaller created just an executable, we need to manually create an app bundle structure
-  if [ -f "$WORKSPACE_DIR/dist/Obrew-Studio" ]; then
-    echo "Found executable, creating app bundle structure..."
+  # If PyInstaller created a onedir build, we need to manually create an app bundle structure
+  if [ -d "$WORKSPACE_DIR/dist/Obrew-Studio" ]; then
+    echo "Found onedir build, creating app bundle structure..."
     mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS"
-    mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Resources"
+    mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Resources/servers/llama.cpp"
     # Copy llama.cpp binaries for macOS
     cp -r "$WORKSPACE_DIR/servers/llama.cpp/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Resources/servers/llama.cpp/"
     echo "Copied llama.cpp files to dist:"
