@@ -18,13 +18,18 @@ if [ ! -d "$WORKSPACE_DIR/dist/Obrew-Studio.app" ]; then
   echo "Checking build directory:"
   ls -la "$WORKSPACE_DIR/build/" 2>/dev/null || echo "No build directory"
 
-  # If PyInstaller created just an executable, we need to manually create an app bundle structure
-  if [ -f "$WORKSPACE_DIR/dist/Obrew-Studio" ]; then
-    echo "Found executable, creating app bundle structure..."
+  # If PyInstaller created a onedir build, we need to manually create an app bundle structure
+  if [ -d "$WORKSPACE_DIR/dist/Obrew-Studio" ]; then
+    echo "Found onedir build, creating app bundle structure..."
     mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS"
-    mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Resources"
-    mv "$WORKSPACE_DIR/dist/Obrew-Studio" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
-
+    mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp"
+    # Copy llama.cpp binaries for macOS
+    cp -r "$WORKSPACE_DIR/servers/llama.cpp/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
+    echo "Copied llama.cpp files to dist:"
+    ls -lh "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
+    # Copy app and dependencies over to app bundle
+    mv "$WORKSPACE_DIR/dist/Obrew-Studio/Obrew-Studio" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
+    mv "$WORKSPACE_DIR/dist/Obrew-Studio/_deps/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/"
     # Create minimal Info.plist
     cat > "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Info.plist" << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -65,6 +70,14 @@ echo ""
 echo "=== macOS App Bundle Verification ==="
 if [ -d "$WORKSPACE_DIR/dist/Obrew-Studio.app" ]; then
   echo "✓ App bundle exists at dist/Obrew-Studio.app"
+
+  # Copy llama.cpp binaries into the app bundle's Frameworks
+  echo "Copying llama.cpp binaries to app bundle..."
+  mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp"
+  cp -r "$WORKSPACE_DIR/servers/llama.cpp/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
+  echo "Copied llama.cpp files:"
+  ls -lh "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
+
   echo "App bundle structure:"
   find "$WORKSPACE_DIR/dist/Obrew-Studio.app" -maxdepth 3 -type f -o -type d | head -30
   echo ""
