@@ -31,8 +31,8 @@ numpy<2
 python-docx==1.1.0  # .docx files
 python-pptx==0.6.23  # .pptx files
 striprtf==0.0.26  # .rtf files
-# Optional: LlamaParse cloud service (requires API key)
-# llama-parse==0.4.9
+# LlamaParse cloud service (requires API key)
+llama-parse==0.4.9
 # For building single exe python
 pyinstaller==6.11.1
 python-multipart==0.0.18
