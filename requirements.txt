@@ -34,8 +34,8 @@ striprtf==0.0.26  # .rtf files
 # Sentence boundary detection (no runtime downloads required, unlike NLTK)
 pysbd==0.3.4
 # LlamaParse cloud service (requires API key)
-llama-parse==0.4.9
-python-dateutil  # Required by llama-parse
+# llama-parse==0.4.9
+# python-dateutil  # Required by llama-parse
 # For building single exe python
 pyinstaller==6.11.1
 python-multipart==0.0.18

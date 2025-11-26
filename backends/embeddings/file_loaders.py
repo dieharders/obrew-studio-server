@@ -8,6 +8,15 @@ import fitz  # PyMuPDF
 from core import classes, common
 from core.document import Document
 
+# Optional llama-parse for cloud PDF parsing (requires API key)
+try:
+    from llama_parse import LlamaParse
+
+    LLAMA_PARSE_AVAILABLE = True
+except ImportError:
+    LLAMA_PARSE_AVAILABLE = False
+    LlamaParse = None
+
 ###########
 # METHODS #
 ###########
@@ -329,24 +338,49 @@ def unstructured_loader(
     return simple_file_loader(sources, source_id, source_metadata)
 
 
+def is_llama_parse_available() -> bool:
+    """Check if llama-parse is installed and API key is configured."""
+    if not LLAMA_PARSE_AVAILABLE:
+        return False
+    load_dotenv()
+    return bool(os.getenv("LLAMA_CLOUD_API_KEY"))
+
+
 async def llama_parse_loader(
     sources: List[str],
     source_id: str,
     source_metadata: dict,
 ) -> List[Document]:
-    """LlamaParse cloud service loader."""
-    try:
-        from llama_parse import LlamaParse
-    except ImportError:
-        raise ImportError("llama-parse is required. Install with: pip install llama-parse")
+    """
+    LlamaParse cloud service loader for advanced PDF parsing.
 
-    document_results: List[Document] = []
+    Requires:
+    - llama-parse package: pip install llama-parse
+    - LLAMA_CLOUD_API_KEY environment variable
+
+    Falls back to simple_pdf_loader if not available.
+    """
+    if not LLAMA_PARSE_AVAILABLE:
+        print(
+            f"{common.PRNT_EMBED} llama-parse not installed. "
+            "Falling back to simple PDF loader. "
+            "Install with: pip install llama-parse",
+            flush=True,
+        )
+        return simple_pdf_loader(sources, source_id, source_metadata)
 
     load_dotenv()
     llama_parse_api_key = os.getenv("LLAMA_CLOUD_API_KEY")
 
     if not llama_parse_api_key:
-        raise ValueError("LLAMA_CLOUD_API_KEY environment variable is required for LlamaParse")
+        print(
+            f"{common.PRNT_EMBED} LLAMA_CLOUD_API_KEY not set. "
+            "Falling back to simple PDF loader.",
+            flush=True,
+        )
+        return simple_pdf_loader(sources, source_id, source_metadata)
+
+    document_results: List[Document] = []
 
     parser = LlamaParse(
         api_key=llama_parse_api_key,
@@ -357,18 +391,27 @@ async def llama_parse_loader(
     )
 
     for path in sources:
-        results = await parser.aload_data(path)
-        for result in results:
-            source_doc = create_source_document(
-                text=result.text if hasattr(result, 'text') else str(result),
-                source_id=source_id,
-                metadata=source_metadata,
+        try:
+            results = await parser.aload_data(path)
+            for result in results:
+                source_doc = create_source_document(
+                    text=result.text if hasattr(result, "text") else str(result),
+                    source_id=source_id,
+                    metadata=source_metadata,
+                )
+                source_doc = set_ignored_metadata(
+                    source_document=source_doc,
+                    ignore_metadata=source_metadata,
+                )
+                document_results.append(source_doc)
+        except Exception as e:
+            print(
+                f"{common.PRNT_EMBED} LlamaParse failed for {path}: {e}. "
+                "Falling back to simple PDF loader.",
+                flush=True,
             )
-            source_doc = set_ignored_metadata(
-                source_document=source_doc,
-                ignore_metadata=source_metadata,
-            )
-            document_results.append(source_doc)
+            fallback_docs = simple_pdf_loader([path], source_id, source_metadata)
+            document_results.extend(fallback_docs)
 
     return document_results
 
