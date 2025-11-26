@@ -191,8 +191,8 @@ if __name__ == "__main__":
 
     print(f"{common.PRNT_APP} Starting app...", flush=True)
 
-    # Path to the .env file in either the parent or /_deps directory
-    env_path = common.dep_path(".env")
+    # Path to the .env file (Application Support on macOS, cwd on Windows)
+    env_path = common.get_env_path()
     load_dotenv(env_path)
 
     # Check what env is running - prod/dev

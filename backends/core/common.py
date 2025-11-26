@@ -40,8 +40,10 @@ def get_app_base_dir():
 
 # Pass relative string to get absolute path
 def app_path(relative_path: str = None):
-    # MacOS - use Application Support (app bundle is read-only)
-    if sys.platform == "darwin":
+    is_frozen = getattr(sys, "frozen", False)
+
+    # MacOS production build - use Application Support (app bundle is read-only)
+    if sys.platform == "darwin" and is_frozen:
         base = os.path.join(
             os.path.expanduser("~"), "Library", "Application Support", "Obrew-Studio"
         )
@@ -50,7 +52,7 @@ def app_path(relative_path: str = None):
         if relative_path:
             return os.path.join(base, relative_path)
         return base
-    # Windows
+    # Development or Windows/Linux
     else:
         base = os.getcwd()
         if relative_path:
@@ -72,6 +74,40 @@ def dep_path(relative_path=None):
     if relative_path:
         return os.path.join(base_path, relative_path)
     return base_path
+
+
+def get_env_path():
+    """
+    Get the path to the .env file.
+    On macOS production builds, uses Application Support. On first run, copies from app bundle if needed.
+    In development or on Windows/Linux, uses dep_path (cwd).
+    """
+    is_frozen = getattr(sys, "frozen", False)
+
+    # Only use Application Support for macOS production builds
+    if sys.platform == "darwin" and is_frozen:
+        env_path = app_path(".env")
+
+        # If .env doesn't exist in Application Support, copy from app bundle
+        if not os.path.exists(env_path):
+            bundled_env = dep_path(".env")
+            if os.path.exists(bundled_env):
+                import shutil
+                # Ensure the directory exists
+                os.makedirs(os.path.dirname(env_path), exist_ok=True)
+                shutil.copy(bundled_env, env_path)
+                print(f"{bcolors.HEADER}[OBREW]{bcolors.ENDC} Copied .env from app bundle to {env_path}", flush=True)
+            else:
+                # Create an empty .env if no bundled one exists
+                os.makedirs(os.path.dirname(env_path), exist_ok=True)
+                with open(env_path, "w") as f:
+                    f.write("# Obrew Server Environment Variables\n")
+                print(f"{bcolors.HEADER}[OBREW]{bcolors.ENDC} Created new .env at {env_path}", flush=True)
+
+        return env_path
+    else:
+        # Development mode or Windows/Linux: use dep_path (cwd)
+        return dep_path(".env")
 
 
 MODEL_METADATAS_FILENAME = "installed_models.json"

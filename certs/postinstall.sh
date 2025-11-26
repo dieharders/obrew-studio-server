@@ -6,21 +6,34 @@
 set -e
 
 echo "[Obrew Studio Installer] Starting certificate installation..."
+echo "[Obrew Studio Installer] Script arguments: \$1=$1, \$2=$2, \$3=$3"
 
-# $2 is the installation target directory (usually /Applications)
-INSTALL_DIR="$2"
-APP_PATH="$INSTALL_DIR/Obrew-Studio.app/Contents/MacOS"
-DEPS_DIR="$APP_PATH/_deps"
+# $2 is the target volume (usually "/" for root), not /Applications
+# The app is installed to /Applications on the target volume
+TARGET_VOLUME="${2:-/}"
+APP_BUNDLE="${TARGET_VOLUME%/}/Applications/Obrew-Studio.app"
+# PyInstaller places dependencies in Contents/Frameworks on macOS
+FRAMEWORKS_DIR="$APP_BUNDLE/Contents/Frameworks"
 
-# Paths to mkcert and certificate directory
-MKCERT_BIN="$DEPS_DIR/certs/mkcert-darwin-$(uname -m)"
-# Create certificates in the app's MacOS directory (persistent location)
-# This way they persist across PyInstaller extractions
-CERT_DIR="$APP_PATH/public"
+echo "[Obrew Studio Installer] Target volume: $TARGET_VOLUME"
+echo "[Obrew Studio Installer] App bundle path: $APP_BUNDLE"
+
+# Get the actual logged-in user (not root, since installer runs with elevated privileges)
+CONSOLE_USER=$(stat -f '%Su' /dev/console)
+USER_HOME=$(eval echo ~"$CONSOLE_USER")
+
+# Paths to mkcert binary (bundled in Frameworks/certs/)
+MKCERT_BIN="$FRAMEWORKS_DIR/certs/mkcert-darwin-$(uname -m)"
+# Create certificates in Application Support (where app_path() looks on macOS)
+# This location is writable and persists across app updates
+CERT_DIR="$USER_HOME/Library/Application Support/Obrew-Studio/public"
+
+echo "[Obrew Studio Installer] Installing for user: $CONSOLE_USER"
+echo "[Obrew Studio Installer] Certificate directory: $CERT_DIR"
 
 # Validate installation directory
-if [ ! -d "$APP_PATH" ]; then
-    echo "[Obrew Studio Installer] Error: Application not found at $APP_PATH"
+if [ ! -d "$APP_BUNDLE" ]; then
+    echo "[Obrew Studio Installer] Error: Application not found at $APP_BUNDLE"
     exit 1
 fi
 
@@ -28,13 +41,14 @@ fi
 if [ ! -f "$MKCERT_BIN" ]; then
     # Try alternative architecture
     if [ "$(uname -m)" = "arm64" ]; then
-        MKCERT_BIN="$DEPS_DIR/certs/mkcert-darwin-amd64"
+        MKCERT_BIN="$FRAMEWORKS_DIR/certs/mkcert-darwin-amd64"
     else
-        MKCERT_BIN="$DEPS_DIR/certs/mkcert-darwin-arm64"
+        MKCERT_BIN="$FRAMEWORKS_DIR/certs/mkcert-darwin-arm64"
     fi
 
     if [ ! -f "$MKCERT_BIN" ]; then
-        echo "[Obrew Studio Installer] Warning: mkcert binary not found, skipping certificate installation"
+        echo "[Obrew Studio Installer] Warning: mkcert binary not found at $MKCERT_BIN"
+        echo "[Obrew Studio Installer] Skipping certificate installation - will use bundled fallback certs"
         exit 0  # Don't fail the installation
     fi
 fi
@@ -62,9 +76,11 @@ echo "[Obrew Studio Installer] Generating localhost certificates..."
     exit 0  # Don't fail the installation
 }
 
-# Set proper permissions on generated certificates
+# Set proper permissions and ownership on generated certificates
 chmod 644 "$CERT_DIR/cert.pem"
 chmod 644 "$CERT_DIR/key.pem"
+# Change ownership to the actual user (since we're running as root)
+chown -R "$CONSOLE_USER" "$USER_HOME/Library/Application Support/Obrew-Studio"
 
 echo "[Obrew Studio Installer] SSL certificates installed successfully!"
 exit 0
