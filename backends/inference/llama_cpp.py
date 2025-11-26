@@ -311,10 +311,6 @@ class LLAMA_CPP:
         try:
             self.abort_requested = False
 
-            print(
-                f"@@ self.BINARY_PATH{self.BINARY_PATH}::self.model_path--{self.model_path}"
-            )
-
             # If format type provided pass input unchanged, llama.cpp will handle it?
             formatted_prompt = prompt.strip()
             if not self.raw_input:
