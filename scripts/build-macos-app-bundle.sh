@@ -28,18 +28,6 @@ cp -r "$WORKSPACE_DIR/servers/llama.cpp/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app
 echo "Copied llama.cpp files:"
 ls -lh "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/servers/llama.cpp/"
 
-# Copy executable if not already in the app bundle
-# if [ -f "$WORKSPACE_DIR/dist/Obrew-Studio/Obrew-Studio" ]; then
-#   echo "Moving executable to app bundle..."
-#   mv "$WORKSPACE_DIR/dist/Obrew-Studio/Obrew-Studio" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
-# fi
-
-# Copy dependencies if they exist
-# if [ -d "$WORKSPACE_DIR/dist/Obrew-Studio/_deps" ]; then
-#   echo "Moving dependencies to app bundle..."
-#   mv "$WORKSPACE_DIR/dist/Obrew-Studio/_deps/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/"
-# fi
-
 # Copy and rename .env.example to .env then place in Frameworks/
 cp "$WORKSPACE_DIR/.env.example" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Frameworks/.env"
 
