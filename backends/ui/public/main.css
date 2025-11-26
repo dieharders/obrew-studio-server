@@ -318,10 +318,15 @@
   transform: translateY(-2px);
 }
 
-.btn-primary:disabled {
-  background: #f472b6;
-  color: #db2777;
-  border: 1px solid #db2777;
+.btn-primary:disabled,
+.btn-primary:disabled:hover,
+.btn-primary:disabled:focus,
+.btn-primary:disabled:focus-visible,
+.btn-primary:disabled:active {
+  background: #e9ecef;
+  color: #adb5bd;
+  border: 1px solid #adb5bd;
+  outline: none;
   cursor: not-allowed;
   box-shadow: none;
   transform: none;
