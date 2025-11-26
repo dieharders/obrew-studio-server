@@ -219,6 +219,7 @@ jobs:
             --hidden-import "sklearn.utils._heap" \
             --hidden-import "sklearn.utils._sorting" \
             --hidden-import "sklearn.utils._vector_sentinel" \
+            --hidden-import "dateutil" \
             --add-data "${{ github.workspace }}/public:public/" \
             --add-data "${{ github.workspace }}/package.json:public/" \
             --add-data "${{ github.workspace }}/backends/ui/public:public/" \
