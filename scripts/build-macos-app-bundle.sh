@@ -20,7 +20,8 @@ echo "Found Obrew-Studio directory, converting to app bundle structure..."
 mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS"
 # mkdir -p "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/Resources"
 # Move all contents including _deps folder
-mv "$WORKSPACE_DIR/dist/Obrew-Studio/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
+# mv "$WORKSPACE_DIR/dist/Obrew-Studio/"* "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
+mv "$WORKSPACE_DIR/dist/Obrew-Studio/" "$WORKSPACE_DIR/dist/Obrew-Studio.app/Contents/MacOS/"
 rmdir "$WORKSPACE_DIR/dist/Obrew-Studio"
 
 # Create minimal Info.plist
