@@ -172,12 +172,14 @@ jobs:
           # Platform-specific paths handling
           if [ "$RUNNER_OS" == "Windows" ]; then
             SITE_PACKAGES=".venv/lib/site-packages"
-            HNSWLIB_BINARY="$SITE_PACKAGES/hnswlib.cp312-win_amd64.pyd"
+            # Dynamically find hnswlib binary (handles different architectures)
+            HNSWLIB_BINARY=$(find "$SITE_PACKAGES" -maxdepth 1 -name "hnswlib*.pyd" | head -1)
             PYINSTALLER=".venv/Scripts/pyinstaller"
             PYINSTALLER_OPTS="--onedir"
           else
             SITE_PACKAGES=".venv/lib/python3.12/site-packages"
-            HNSWLIB_BINARY="$SITE_PACKAGES/hnswlib.cpython-312-darwin.so"
+            # Dynamically find hnswlib binary (handles arm64/x86_64 architectures)
+            HNSWLIB_BINARY=$(find "$SITE_PACKAGES" -maxdepth 1 -name "hnswlib*.so" | head -1)
             PYINSTALLER=".venv/bin/pyinstaller"
             PYINSTALLER_OPTS="--onedir"
           fi
