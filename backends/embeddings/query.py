@@ -5,8 +5,7 @@ This module provides prompt templates and helper functions for building
 RAG queries. The actual querying is done via ChromaDB directly.
 """
 
-from typing import List, Optional
-from chromadb import Collection
+from typing import Optional
 from core import common
 
 
@@ -51,29 +50,6 @@ def build_refine_prompt(
     prompt = prompt.replace("{existing_answer}", existing_answer)
     prompt = prompt.replace("{context_str}", context)
     return prompt
-
-
-def query_collection(
-    collection: Collection,
-    query_embedding: List[float],
-    top_k: int = 5,
-) -> dict:
-    """
-    Query a ChromaDB collection with an embedding vector.
-
-    Args:
-        collection: ChromaDB collection to query
-        query_embedding: Embedding vector for the query
-        top_k: Number of results to return
-
-    Returns:
-        ChromaDB query results containing ids, documents, distances, and metadatas
-    """
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=top_k,
-    )
-    return results
 
 
 def format_context_from_results(results: dict) -> str:

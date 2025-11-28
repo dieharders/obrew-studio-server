@@ -96,7 +96,9 @@ class Vector_Storage:
         embeddings = [self.embed_fn(node.text) for node in nodes]
         metadatas = [node.metadata for node in nodes]
 
-        print(f"{common.PRNT_API} Adding {len(nodes)} chunks to collection...", flush=True)
+        print(
+            f"{common.PRNT_API} Adding {len(nodes)} chunks to collection...", flush=True
+        )
 
         collection.add(
             ids=ids,
@@ -217,23 +219,6 @@ class Vector_Storage:
             sources=sources,
             mode="delete",
         )
-
-    def query_collection(
-        self,
-        collection: Collection,
-        query_text: str,
-        top_k: int = 5,
-    ) -> dict:
-        """Query ChromaDB collection with a text query."""
-        if not self.embed_fn:
-            raise ValueError("embed_fn is required to query collection")
-
-        query_embedding = self.embed_fn(query_text)
-        results = collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-        )
-        return results
 
     def delete_source_files(self, source: classes.SourceMetadata):
         """Delete all files and references associated with embedded docs"""
