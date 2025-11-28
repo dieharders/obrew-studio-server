@@ -56,6 +56,7 @@ def create_memory_collection(
         vector_storage.db_client.create_collection(
             name=collection_name,
             metadata=metadata,
+            embedding_function=None,
         )
         msg = f'Successfully created new collection "{collection_name}" with embedding model "{embedder.embed_model_name}"'
         print(f"{common.PRNT_API} {msg}")
