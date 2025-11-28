@@ -195,7 +195,6 @@ jobs:
             --contents-directory _deps \
             --icon "${{ github.workspace }}/backends/ui/favicon.ico" \
             --name "Obrew-Studio" \
-            --collect-all "tokenizers" \
             --hidden-import "scipy._cyutility" \
             --hidden-import "scipy._lib.messagestream" \
             --hidden-import "scipy.sparse._csparsetools" \
