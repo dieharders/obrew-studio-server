@@ -88,12 +88,10 @@ To use Ai locally with your private data for free:
 ✅ Knowledge Base: Search a vector database with Llama Index to retrieve information<br>
 ✅ Agents: Customized LLM, can choose or specify tool use<br>
 ✅ Tool Use: Choose from pre-made or write your own<br>
-❌ Workflows: Composable automation of tasks, teams of agents, parallel processing, conditional routing<br>
-❌ Monitors: Source citations, observability, logging, time-travel, transparency<br>
-❌ Support multi-modal: vision, text, audio, 3d, and beyond<br>
-❌ Support multi-device memory sharing (i.e. cluster of macs running single large model)<br>
-❌ Support voice-to-text and text-to-speech<br>
-❌ Auto Agents: Self-prompting, autonomous agent with access to a sandboxed env<br>
+❌ Observability: Source citations, logging<br>
+❌ Multi-modal: vision, text, audio, 3d, and beyond<br>
+❌ Multi-device memory sharing (i.e. cluster of macs running single large model)<br>
+❌ Voice-to-Text and Text-to-Speech<br>
 
 ## Supported Model Providers
 
@@ -110,5 +108,5 @@ This is a local first project. The ultimate goal is to support many providers vi
 
 - Backend: [FastAPI](https://fastapi.tiangolo.com/) - learn about FastAPI features and API.
 - Inference: [llama-cpp](https://github.com/ggerganov/llama.cpp) for LLM inference.
-- Memory: [Llama-Index](https://github.com/run-llama/llama_index) for data retrieval and [ChromaDB](https://github.com/chroma-core/chroma) for vector database.
-- WebUI: Vanilla HTML and [Next.js](https://nextjs.org/) for front-end UI and [Pywebview](https://github.com/r0x0r/pywebview) for rendering the webview.
+- Memory: [ChromaDB](https://github.com/chroma-core/chroma) for vector database.
+- WebUI: React for front-end UI and [Pywebview](https://github.com/r0x0r/pywebview) for rendering the webview.
