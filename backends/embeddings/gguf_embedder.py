@@ -10,7 +10,7 @@ LOG_PREFIX = "[GGUF-EMBEDDER]"
 
 
 class GGUFEmbedder:
-    """Handle GGUF embedding models using llama-cli binary."""
+    """Handle GGUF embedding models using llama-embedding binary."""
 
     def __init__(
         self,

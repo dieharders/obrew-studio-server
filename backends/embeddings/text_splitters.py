@@ -1,14 +1,7 @@
 import re
 from typing import List
 from core.document import Document, TextNode
-
-# Optional pysbd for better sentence boundary detection
-try:
-    import pysbd
-
-    PYSBD_AVAILABLE = True
-except ImportError:
-    PYSBD_AVAILABLE = False
+import pysbd
 
 # Alternative:
 # wtpsplit (State-of-the-art, heavier)
@@ -69,10 +62,10 @@ def _split_into_sentences(text: str, language: str = "en") -> List[str]:
     - URLs: "Visit https://example.com. It's great."
     - Ellipsis: "Wait... what happened?"
     """
-    if PYSBD_AVAILABLE:
+    try:
         segmenter = pysbd.Segmenter(language=language, clean=False)
         return segmenter.segment(text)
-    else:
+    except:
         # Fallback regex - handles basic sentence boundaries
         # but may incorrectly split on abbreviations like "Dr." or "Mr."
         sentences = re.split(r"(?<=[.!?])\s+", text)
