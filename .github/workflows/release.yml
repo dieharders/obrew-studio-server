@@ -171,15 +171,27 @@ jobs:
           # PyInstaller will output to "build/Obrew-Studio" folder in root
           # Platform-specific paths handling
           if [ "$RUNNER_OS" == "Windows" ]; then
-            SITE_PACKAGES=".venv/lib/site-packages"
+            SITE_PACKAGES=".venv/Lib/site-packages"  # Capital L on Windows
             # Dynamically find hnswlib binary (handles different architectures)
-            HNSWLIB_BINARY=$(find "$SITE_PACKAGES" -maxdepth 1 -name "hnswlib*.pyd" | head -1)
+            HNSWLIB_BINARY=$(find "$SITE_PACKAGES" -maxdepth 1 -name "hnswlib*.pyd" 2>/dev/null | head -1)
+            if [ -z "$HNSWLIB_BINARY" ]; then
+              echo "ERROR: Could not find hnswlib binary in $SITE_PACKAGES"
+              ls -la "$SITE_PACKAGES" | grep -i hnswlib || echo "No hnswlib files found"
+              exit 1
+            fi
+            echo "Found hnswlib binary: $HNSWLIB_BINARY"
             PYINSTALLER=".venv/Scripts/pyinstaller"
             PYINSTALLER_OPTS="--onedir"
           else
             SITE_PACKAGES=".venv/lib/python3.12/site-packages"
             # Dynamically find hnswlib binary (handles arm64/x86_64 architectures)
-            HNSWLIB_BINARY=$(find "$SITE_PACKAGES" -maxdepth 1 -name "hnswlib*.so" | head -1)
+            HNSWLIB_BINARY=$(find "$SITE_PACKAGES" -maxdepth 1 -name "hnswlib*.so" 2>/dev/null | head -1)
+            if [ -z "$HNSWLIB_BINARY" ]; then
+              echo "ERROR: Could not find hnswlib binary in $SITE_PACKAGES"
+              ls -la "$SITE_PACKAGES" | grep -i hnswlib || echo "No hnswlib files found"
+              exit 1
+            fi
+            echo "Found hnswlib binary: $HNSWLIB_BINARY"
             PYINSTALLER=".venv/bin/pyinstaller"
             PYINSTALLER_OPTS="--onedir"
           fi
