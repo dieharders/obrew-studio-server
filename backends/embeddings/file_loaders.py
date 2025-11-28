@@ -2,20 +2,14 @@ import os
 import csv
 import xml.etree.ElementTree as ET
 from typing import List, Optional
-from pathlib import Path
 from dotenv import load_dotenv
 import fitz  # PyMuPDF
 from core import classes, common
 from core.document import Document
 
 # Optional llama-parse for cloud PDF parsing (requires API key)
-try:
-    from llama_parse import LlamaParse
-
-    LLAMA_PARSE_AVAILABLE = True
-except ImportError:
-    LLAMA_PARSE_AVAILABLE = False
-    LlamaParse = None
+# Currently dep is removed.
+# from llama_parse import LlamaParse
 
 ###########
 # METHODS #
@@ -88,10 +82,14 @@ def simple_pdf_loader(
         for page in doc:
             text_parts.append(page.get_text())
 
-        metadata = {
-            "total_pages": len(doc),
-            **source_metadata,
-        } if make_metadata else source_metadata
+        metadata = (
+            {
+                "total_pages": len(doc),
+                **source_metadata,
+            }
+            if make_metadata
+            else source_metadata
+        )
 
         doc.close()
 
@@ -119,7 +117,9 @@ def ms_doc_loader(
     try:
         from docx import Document as DocxDocument
     except ImportError:
-        raise ImportError("python-docx is required for .docx files. Install with: pip install python-docx")
+        raise ImportError(
+            "python-docx is required for .docx files. Install with: pip install python-docx"
+        )
 
     for path in sources:
         doc = DocxDocument(path)
@@ -149,7 +149,9 @@ def rtf_loader(
     try:
         from striprtf.striprtf import rtf_to_text
     except ImportError:
-        raise ImportError("striprtf is required for .rtf files. Install with: pip install striprtf")
+        raise ImportError(
+            "striprtf is required for .rtf files. Install with: pip install striprtf"
+        )
 
     for path in sources:
         with open(path, "r", encoding="utf-8") as f:
@@ -243,7 +245,9 @@ def pptx_slides_loader(
     try:
         from pptx import Presentation
     except ImportError:
-        raise ImportError("python-pptx is required for .pptx files. Install with: pip install python-pptx")
+        raise ImportError(
+            "python-pptx is required for .pptx files. Install with: pip install python-pptx"
+        )
 
     for path in sources:
         prs = Presentation(path)
@@ -338,14 +342,6 @@ def unstructured_loader(
     return simple_file_loader(sources, source_id, source_metadata)
 
 
-def is_llama_parse_available() -> bool:
-    """Check if llama-parse is installed and API key is configured."""
-    if not LLAMA_PARSE_AVAILABLE:
-        return False
-    load_dotenv()
-    return bool(os.getenv("LLAMA_CLOUD_API_KEY"))
-
-
 async def llama_parse_loader(
     sources: List[str],
     source_id: str,
@@ -358,29 +354,24 @@ async def llama_parse_loader(
     - llama-parse package: pip install llama-parse
     - LLAMA_CLOUD_API_KEY environment variable
 
-    Falls back to simple_pdf_loader if not available.
+    Falls back to simple_pdf_loader as this is not currently being used.
     """
-    if not LLAMA_PARSE_AVAILABLE:
-        print(
-            f"{common.PRNT_EMBED} llama-parse not installed. "
-            "Falling back to simple PDF loader. "
-            "Install with: pip install llama-parse",
-            flush=True,
-        )
-        return simple_pdf_loader(sources, source_id, source_metadata)
+
+    print(
+        f"{common.PRNT_EMBED} llama-parse not installed. "
+        "Falling back to simple PDF loader. "
+        "Install with: pip install llama-parse",
+        flush=True,
+    )
+    return simple_pdf_loader(sources, source_id, source_metadata)
 
     load_dotenv()
     llama_parse_api_key = os.getenv("LLAMA_CLOUD_API_KEY")
+    document_results: List[Document] = []
 
     if not llama_parse_api_key:
-        print(
-            f"{common.PRNT_EMBED} LLAMA_CLOUD_API_KEY not set. "
-            "Falling back to simple PDF loader.",
-            flush=True,
-        )
-        return simple_pdf_loader(sources, source_id, source_metadata)
-
-    document_results: List[Document] = []
+        print(f"{common.PRNT_EMBED} LLAMA_CLOUD_API_KEY not set.", flush=True)
+        return document_results
 
     parser = LlamaParse(
         api_key=llama_parse_api_key,
