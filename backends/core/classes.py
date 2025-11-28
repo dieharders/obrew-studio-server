@@ -361,6 +361,7 @@ class GetCollectionResponse(BaseModel):
     data: Collection
 
     model_config = {
+        "arbitrary_types_allowed": True,
         "json_schema_extra": {
             "examples": [
                 {
