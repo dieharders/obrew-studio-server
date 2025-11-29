@@ -9,7 +9,7 @@ set -e
 APP_NAME="Obrew-Studio"
 APP_BUNDLE="$APP_NAME.app"
 PKG_IDENTIFIER="com.OpenBrewAi.$APP_NAME"
-PKG_VERSION="0.9.0"
+PKG_VERSION="0.12.0"
 PKG_NAME="$APP_NAME.macOS.Setup.pkg"
 
 # Paths
