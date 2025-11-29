@@ -43,6 +43,15 @@ class Vector_Storage:
             )
         return self.app.state.db_client
 
+    @staticmethod
+    def collection_to_dict(collection: Collection) -> dict:
+        """Convert a Collection object to a serializable dict for API responses"""
+        return {
+            "id": str(collection.id),
+            "name": collection.name,
+            "metadata": collection.metadata,
+        }
+
     # @TODO Implement this for knowledge base actions when uploading documents, or delete.
     # This is a newer example of a simpler implementation, not used yet.
     def add_documents(
@@ -151,11 +160,7 @@ class Vector_Storage:
             collection = self.db_client.get_collection(name)
             sources = self.get_collection_sources(collection)
             collection.metadata["sources"] = sources
-            collections.append({
-                "id": str(collection.id),
-                "name": collection.name,
-                "metadata": collection.metadata,
-            })
+            collections.append(self.collection_to_dict(collection))
         return collections
 
     def get_collection(self, name: str, tenant="default") -> Optional[Collection]:
@@ -166,15 +171,6 @@ class Vector_Storage:
             collection.metadata["sources"] = sources
             return collection
         raise Exception("No collection found.")
-
-    @staticmethod
-    def collection_to_dict(collection: Collection) -> dict:
-        """Convert a Collection object to a serializable dict for API responses"""
-        return {
-            "id": str(collection.id),
-            "name": collection.name,
-            "metadata": collection.metadata,
-        }
 
     def get_source_chunks(self, collection_name: str, source_id: str):
         """Returns all documents (chunks) associated with a source"""
