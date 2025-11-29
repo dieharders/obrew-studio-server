@@ -6,8 +6,8 @@ from typing import List, Optional
 from nanoid import generate as generate_uuid
 from core.classes import FastAPIApp
 from core import common
+from core.document import Document
 from fastapi import UploadFile
-from llama_index.core import Document
 
 MEMORY_FOLDER = "memories"
 TMP_FOLDER = "tmp"

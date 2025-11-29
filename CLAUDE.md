@@ -10,7 +10,7 @@ Obrew Studio is a general-purpose tool for building private AI desktop apps. It'
 
 - **Backend**: FastAPI web server (Python) that acts as the main gateway
 - **Inference**: llama-cpp for LLM inference with CPU & GPU support
-- **Memory**: Llama-Index for data retrieval and ChromaDB for vector database
+- **Memory**: ChromaDB for vector database
 - **Frontend**: WebUI with vanilla HTML/JS (in `backends/ui/public`) and Next.js
 - **Desktop**: Pywebview for rendering the native desktop app
 

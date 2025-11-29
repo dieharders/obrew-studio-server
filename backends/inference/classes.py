@@ -27,7 +27,6 @@ class ChatHistory(BaseModel):
     messages: List[ChatMessage]
 
 
-# @TODO Remove after we delete _llama_index_inference
 class RetrievalTypes(str, Enum):
     BASE = "base"
     AUGMENTED = "augmented"

@@ -2,16 +2,12 @@ import os
 import glob
 import json
 import uuid
-from typing import Callable, List, Optional, Type
+from typing import Callable, List, Optional
 from core import common, classes
+from core.document import IndexNode
 from chromadb import Collection, PersistentClient
 from chromadb.api import ClientAPI
 from chromadb.config import Settings
-from llama_index.core.schema import IndexNode
-from llama_index.vector_stores.chroma import ChromaVectorStore
-from llama_index.core import VectorStoreIndex, StorageContext
-from llama_index.core.callbacks import CallbackManager
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 
 VECTOR_DB_FOLDER = "chromadb"
@@ -19,13 +15,15 @@ VECTOR_STORAGE_PATH = common.app_path(VECTOR_DB_FOLDER)
 
 
 class Vector_Storage:
-    """Handles document storage and retrieval using ChromaDB (currently via llama-index wrapper)"""
+    """Handles document storage and retrieval using ChromaDB directly."""
 
     def __init__(
-        self, app: classes.FastAPIApp, embed_model: Type[HuggingFaceEmbedding] = None
+        self,
+        app: classes.FastAPIApp,
+        embed_fn: Callable[[str], List[float]] = None,
     ):
         self.app = app
-        self.embed_model = embed_model
+        self.embed_fn = embed_fn
         self.db_client = self._get_vector_db_client()
 
     def _get_vector_db_client(self) -> ClientAPI:
@@ -44,6 +42,15 @@ class Vector_Storage:
                 ),
             )
         return self.app.state.db_client
+
+    @staticmethod
+    def collection_to_dict(collection: Collection) -> dict:
+        """Convert a Collection object to a serializable dict for API responses"""
+        return {
+            "id": str(collection.id),
+            "name": collection.name,
+            "metadata": collection.metadata,
+        }
 
     # @TODO Implement this for knowledge base actions when uploading documents, or delete.
     # This is a newer example of a simpler implementation, not used yet.
@@ -85,20 +92,29 @@ class Vector_Storage:
         self,
         collection: Collection,
         nodes: List[IndexNode],
-        callback_manager: CallbackManager,
-    ) -> VectorStoreIndex:
-        """Add chunks to collection and return vector index"""
-        vector_store = ChromaVectorStore(chroma_collection=collection)
-        storage_context = StorageContext.from_defaults(vector_store=vector_store)
+    ) -> None:
+        """Add chunks directly to ChromaDB collection."""
+        if not nodes:
+            return
 
-        index = VectorStoreIndex(
-            embed_model=self.embed_model,
-            nodes=nodes,
-            storage_context=storage_context,
-            show_progress=True,
-            callback_manager=callback_manager,
+        if not self.embed_fn:
+            raise ValueError("embed_fn is required to add chunks to collection")
+
+        ids = [node.id_ for node in nodes]
+        documents = [node.text for node in nodes]
+        embeddings = [self.embed_fn(node.text) for node in nodes]
+        metadatas = [node.metadata for node in nodes]
+
+        print(
+            f"{common.PRNT_API} Adding {len(nodes)} chunks to collection...", flush=True
         )
-        return index
+
+        collection.add(
+            ids=ids,
+            documents=documents,
+            embeddings=embeddings,
+            metadatas=metadatas,
+        )
 
     def update_collection_sources(
         self, collection: Collection, sources: List[classes.SourceMetadata], mode="add"
@@ -144,7 +160,7 @@ class Vector_Storage:
             collection = self.db_client.get_collection(name)
             sources = self.get_collection_sources(collection)
             collection.metadata["sources"] = sources
-            collections.append(collection)
+            collections.append(self.collection_to_dict(collection))
         return collections
 
     def get_collection(self, name: str, tenant="default") -> Optional[Collection]:
@@ -182,36 +198,32 @@ class Vector_Storage:
     def delete_chunks(
         self,
         collection: Collection,
-        vector_index: VectorStoreIndex,
         chunk_ids: List[str],
     ):
-        """Delete chunk embeddings"""
-        collection.delete(ids=chunk_ids)
-        for c_id in chunk_ids:
-            vector_index.delete(c_id)
+        """Delete chunk embeddings from ChromaDB collection."""
+        if chunk_ids:
+            collection.delete(ids=chunk_ids)
+            print(f"{common.PRNT_API} Deleted {len(chunk_ids)} chunks from collection")
 
-    # Given source(s), delete all associated document chunks, metadata and files
     def delete_sources(
         self,
         collection_name: str,
         sources: List[classes.SourceMetadata],
-        vector_storage: "Vector_Storage",
-        vector_index: VectorStoreIndex,
     ):
-        collection = vector_storage.get_collection(name=collection_name)
+        """Delete all associated document chunks, metadata and files for given sources."""
+        collection = self.get_collection(name=collection_name)
         # Delete each source chunk and parsed file
         for source in sources:
             chunk_ids = source.get("chunkIds")
             # Delete all chunks
-            vector_storage.delete_chunks(
+            self.delete_chunks(
                 collection=collection,
-                vector_index=vector_index,
                 chunk_ids=chunk_ids,
             )
             # Delete associated files
-            vector_storage.delete_source_files(source)
+            self.delete_source_files(source)
         # Update collection metadata.sources to remove this source
-        vector_storage.update_collection_sources(
+        self.update_collection_sources(
             collection=collection,
             sources=sources,
             mode="delete",

@@ -4,9 +4,8 @@ import httpx
 from enum import Enum
 from types import NoneType
 from fastapi import FastAPI
-from typing import List, Optional, Union, Type, Literal
+from typing import Any, List, Optional, Union, Type, Literal
 from pydantic import BaseModel
-from chromadb import Collection
 from chromadb.api import ClientAPI
 from typing import TYPE_CHECKING
 from collections.abc import Callable
@@ -358,7 +357,7 @@ class GetCollectionRequest(BaseModel):
 class GetCollectionResponse(BaseModel):
     success: bool
     message: str
-    data: Collection
+    data: Any
 
     model_config = {
         "json_schema_extra": {
