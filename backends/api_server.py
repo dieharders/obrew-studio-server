@@ -1,5 +1,4 @@
 import os
-import signal
 import sys
 import json
 import uvicorn
@@ -15,7 +14,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 # Custom
-from embeddings.vector_storage import Vector_Storage
 from core import common, classes
 from services.route import router as services
 from embeddings.route import router as embeddings
@@ -255,19 +253,6 @@ class ApiServer:
             text_inference, prefix="/v1/text", tags=["text inference"]
         )
         app.include_router(endpoint_router)
-
-        # Keep server/database alive. Not currently used.
-        # @app.get("/v1/ping")
-        # def ping() -> classes.PingResponse:
-        #     try:
-        #         vector_storage = Vector_Storage(app=self.app)
-        #         db = vector_storage.db_client
-        #         # @TODO Perform this inside the Vector_Storage class
-        #         db.heartbeat()
-        #         return {"success": True, "message": "pong"}
-        #     except Exception as e:
-        #         print(f"{common.PRNT_API} Error pinging server: {e}", flush=True)
-        #         return {"success": False, "message": ""}
 
         # Tell client we are ready to accept requests
         @app.get("/v1/connect")
