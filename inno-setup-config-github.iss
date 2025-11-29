@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Obrew Studio"
-#define MyAppVersion "0.11.0"
+#define MyAppVersion "0.12.0"
 #define MyAppPublisher "OpenBrewAi"
 #define MyAppURL "https://www.openbrewai.com/"
 #define MyAppExeName "Obrew-Studio.exe"
