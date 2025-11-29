@@ -216,7 +216,7 @@ def get_collection(
         return {
             "success": True,
             "message": f"Returned collection(s) {name}",
-            "data": collection,
+            "data": vector_storage.collection_to_dict(collection),
         }
     except Exception as e:
         print(f"{common.PRNT_API} Error: {e}")

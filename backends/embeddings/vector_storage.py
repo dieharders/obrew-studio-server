@@ -158,18 +158,23 @@ class Vector_Storage:
             })
         return collections
 
-    def get_collection(self, name: str, tenant="default") -> Optional[dict]:
+    def get_collection(self, name: str, tenant="default") -> Optional[Collection]:
         """Returns a single collection and its metadata"""
         collection = self.db_client.get_collection(name) or None
         if collection:
             sources = self.get_collection_sources(collection)
             collection.metadata["sources"] = sources
-            return {
-                "id": str(collection.id),
-                "name": collection.name,
-                "metadata": collection.metadata,
-            }
+            return collection
         raise Exception("No collection found.")
+
+    @staticmethod
+    def collection_to_dict(collection: Collection) -> dict:
+        """Convert a Collection object to a serializable dict for API responses"""
+        return {
+            "id": str(collection.id),
+            "name": collection.name,
+            "metadata": collection.metadata,
+        }
 
     def get_source_chunks(self, collection_name: str, source_id: str):
         """Returns all documents (chunks) associated with a source"""
