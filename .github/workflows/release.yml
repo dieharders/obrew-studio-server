@@ -238,6 +238,7 @@ jobs:
             --hidden-import "dateutil.parser" \
             --hidden-import "dateutil.relativedelta" \
             --hidden-import "distro" \
+            --hidden-import "chromadb_rust_bindings" \
             --add-data "${{ github.workspace }}/public:public/" \
             --add-data "${{ github.workspace }}/package.json:public/" \
             --add-data "${{ github.workspace }}/backends/ui/public:public/" \
