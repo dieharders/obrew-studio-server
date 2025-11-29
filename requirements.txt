@@ -1,5 +1,8 @@
 # Use Python version 3.12.8
 #
+# Pin setuptools to avoid pkg_resources deprecation warning (pyinstaller ?).
+# Once the dep is identified and updated/removed this can be removed too.
+setuptools<81
 # Document reading
 PyMuPDF==1.25.5
 # Handling ai responses
