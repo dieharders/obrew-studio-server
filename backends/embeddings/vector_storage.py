@@ -151,16 +151,24 @@ class Vector_Storage:
             collection = self.db_client.get_collection(name)
             sources = self.get_collection_sources(collection)
             collection.metadata["sources"] = sources
-            collections.append(collection)
+            collections.append({
+                "id": str(collection.id),
+                "name": collection.name,
+                "metadata": collection.metadata,
+            })
         return collections
 
-    def get_collection(self, name: str, tenant="default") -> Optional[Collection]:
+    def get_collection(self, name: str, tenant="default") -> Optional[dict]:
         """Returns a single collection and its metadata"""
         collection = self.db_client.get_collection(name) or None
         if collection:
             sources = self.get_collection_sources(collection)
             collection.metadata["sources"] = sources
-            return collection
+            return {
+                "id": str(collection.id),
+                "name": collection.name,
+                "metadata": collection.metadata,
+            }
         raise Exception("No collection found.")
 
     def get_source_chunks(self, collection_name: str, source_id: str):
