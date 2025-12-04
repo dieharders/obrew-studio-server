@@ -407,8 +407,13 @@ function handleQRModalEscape(event) {
   }
 }
 
-function openAppQRModal(event, appTitle, qrData, qrUrl) {
+function openAppQRModal(event, element) {
   event.stopPropagation()
+
+  // Read data from element's data attributes
+  const appTitle = element.getAttribute('data-app-title')
+  const qrData = element.getAttribute('data-qr-data')
+  const qrUrl = element.getAttribute('data-qr-url')
 
   // Store current active element to restore focus later
   if (!previousActiveElement) {
@@ -481,7 +486,10 @@ function createAppCards(hostedApps) {
           src="data:image/png;base64,${app.qr_data}"
           alt="QR Code for ${app.title}"
           title="Click to enlarge"
-          onclick="openAppQRModal(event, '${app.title}', '${app.qr_data}', '${app.qr_url}')"
+          data-app-title="${app.title}"
+          data-qr-data="${app.qr_data}"
+          data-qr-url="${app.qr_url}"
+          onclick="openAppQRModal(event, this)"
         />
         <p class="app-qr-label">Scan to connect</p>
       </div>
@@ -492,7 +500,7 @@ function createAppCards(hostedApps) {
       <div class="app-card-content">
         <h3>${app.title}</h3>
         <p class="app-description">${app.description}</p>
-        <div style="display: flex; flex-direction: row; gap: 0.5rem">
+        <div class="app-card-actions">
           ${qrSection}
           <div class="app-buttons">
             <button type="button" class="btn btn-secondary btn-app" onclick="openInBrowser(this, event)">

@@ -489,6 +489,12 @@
   text-align: center;
 }
 
+.app-card-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+}
+
 .app-buttons {
   display: flex;
   flex-direction: row;

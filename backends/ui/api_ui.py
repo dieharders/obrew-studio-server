@@ -134,10 +134,12 @@ class ApiUI:
             hosted_apps_with_qr = []
             for app in self.hosted_apps:
                 app_copy = app.copy()
-                app_qr_url = f"{app['url']}?serverUrl={server_url}"
-                qr_code = pyqrcode.create(app_qr_url)
-                app_copy["qr_data"] = qr_code.png_as_base64_str(scale=5)
-                app_copy["qr_url"] = app_qr_url
+                app_url = app.get("url")
+                if app_url:
+                    app_qr_url = f"{app_url}?serverUrl={server_url}"
+                    qr_code = pyqrcode.create(app_qr_url)
+                    app_copy["qr_data"] = qr_code.png_as_base64_str(scale=5)
+                    app_copy["qr_url"] = app_qr_url
                 hosted_apps_with_qr.append(app_copy)
 
             page_data = dict(
