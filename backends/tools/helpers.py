@@ -147,15 +147,15 @@ def parse_json_block(text: str):
     except:
         pass
 
-    # Find all matches
-    pattern_json = r"```json\s*\n([\s\S]*?)\n\s*```"
-    pattern_ticks = r"```\s*(.*?)\s*```"  # Allow spaces between ticks and text
+    # Find all matches - try to extract JSON from markdown code blocks
+    pattern_json = r"```json\s*\r?\n([\s\S]*?)\r?\n\s*```"
+    pattern_ticks = r"```\s*([\s\S]*?)\s*```"
     patterns = [pattern_json, pattern_ticks]
     for pattern in patterns:
-        escaped_pattern = re.escape(pattern)
-        match = re.search(escaped_pattern, text, re.DOTALL)
+        match = re.search(pattern, text, re.DOTALL)
         if match:
-            json_str = match.group(1)
+            json_str = match.group(1).strip()
+            break
 
     # If none of the above patterns worked, try a more aggressive approach
     if json_str == text:

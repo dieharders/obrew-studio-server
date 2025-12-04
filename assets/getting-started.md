@@ -98,30 +98,30 @@ conda deactivate
 
 venv is the recommended tool for creating virtual environments for Python v3.6 and up. You should always switch environments when working or pyinstalling a different binary (launcher versus app).
 
-\* Note If using VS Code you may need to set the interpreter (while in a py file, click the interpreter button at the bottom, navigate to `.virtualenvs/Scripts/python.exe`)
+\* Note If using VS Code you may need to set the interpreter (while in a py file, click the interpreter button at the bottom, navigate to `.venv/Scripts/python.exe`)
 
 1. Create a new environment:
 
 ```bash
-python -m venv .virtualenvs/myenv
+python -m venv .venv
 ```
 
 2. Activate the environment:
 
 ```cmd
-.virtualenvs/myenv/Scripts/activate.bat
+.venv/Scripts/activate.bat
 ```
 
 OR
 
 ```powershell
-.virtualenvs/myenv/Scripts/Activate.ps1
+.venv/Scripts/Activate.ps1
 ```
 
 OR on MacOS/Linux
 
 ```bash
-source .virtualenvs/myvenv/bin/activate
+source .venv/bin/activate
 ```
 
 3. Install dependencies:

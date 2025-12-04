@@ -8,6 +8,11 @@ from typing import Tuple
 from dotenv import load_dotenv
 import ctypes
 
+# Fix Windows console encoding for Unicode characters
+if sys.platform == 'win32':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 # Custom
 from ui.view import Webview
 from ui.api_ui import ApiUI
