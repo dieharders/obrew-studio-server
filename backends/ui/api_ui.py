@@ -125,30 +125,27 @@ class ApiUI:
         try:
             PORT = port or self.port
             server_info = self.get_server_info()
+            # remote_url already includes protocol (e.g., "http://192.168.2.86")
             remote_url = server_info["remote_ip"]
             local_url = server_info["local_ip"]
-            ui_url = selected_webui_url
-            # Get protocol based on SSL setting
-            ssl_enabled = common.get_ssl_env()
-            protocol = "https" if ssl_enabled else "http"
-            # Generate QR code to remote url
-            if "localhost" in selected_webui_url:
-                # Use external url if we detect localhost
-                ui_url = f"{remote_url}:3000"
-            # Pass both old format (for backwards compatibility) and new serverUrl format
-            qr_code = pyqrcode.create(
-                f"{ui_url}/?protocol={protocol}&hostname={remote_url}&port={PORT}&serverUrl={protocol}://localhost:{PORT}"
-            )
-            qr_data = qr_code.png_as_base64_str(scale=5)
-            # qr_image = qr_code.png("image.png", scale=8) # Writes image file to disk
+            server_url = f"{remote_url}:{PORT}"
+
+            # Generate QR code for each hosted app
+            hosted_apps_with_qr = []
+            for app in self.hosted_apps:
+                app_copy = app.copy()
+                app_qr_url = f"{app['url']}?serverUrl={server_url}"
+                qr_code = pyqrcode.create(app_qr_url)
+                app_copy["qr_data"] = qr_code.png_as_base64_str(scale=5)
+                app_copy["qr_url"] = app_qr_url
+                hosted_apps_with_qr.append(app_copy)
 
             page_data = dict(
-                qr_data=qr_data,
                 local_url=local_url,
                 remote_url=remote_url,
                 host=self.host,
                 port=PORT,
-                hosted_apps=self.hosted_apps,
+                hosted_apps=hosted_apps_with_qr,
             )
             return page_data
         except Exception as e:

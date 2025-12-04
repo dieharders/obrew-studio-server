@@ -277,8 +277,13 @@ async function showPostServerView() {
     createAppCards(data.hosted_apps)
   }
 
-  // Generate QR code
-  updateQRCode(data)
+  // Update docs link with current server info
+  const docsLinkEl = document.getElementById('docs-link')
+  if (docsLinkEl && data.local_url && data.port) {
+    const docsLink = `${data.local_url}:${data.port}/docs`
+    docsLinkEl.innerHTML = docsLink
+    docsLinkEl.setAttribute('href', docsLink)
+  }
 
   // Set value for server status
   const sslEnabled = await window.pywebview.api.get_ssl_setting()
@@ -363,37 +368,6 @@ async function getPageData() {
   return data
 }
 
-function updateQRCode(data) {
-  const hostEl = document.getElementById('qrLink')
-  if (hostEl) {
-    hostEl.innerHTML = `${data.remote_url}:${data.port}`
-  }
-
-  const docsLinkEl = document.getElementById('docs-link')
-  if (docsLinkEl) {
-    const docsLink = `${data.local_url}:${data.port}/docs`
-    docsLinkEl.innerHTML = docsLink
-    docsLinkEl.setAttribute('href', docsLink)
-  }
-
-  // Show QR-Code (modal version)
-  const qrcodeEl = document.getElementById('qrcode')
-  const qrcodeImage = data.qr_data
-  if (qrcodeEl && qrcodeImage) {
-    qrcodeEl.setAttribute('data-state', 'qrcode')
-    qrcodeEl.setAttribute('alt', `qr code for ${data.remote_url}:${data.port}`)
-    qrcodeEl.src = `data:image/png;base64,${qrcodeImage}`
-  }
-
-  // Show QR-Code Preview
-  const qrPreviewEl = document.getElementById('qrPreview')
-  if (qrPreviewEl && qrcodeImage) {
-    qrPreviewEl.setAttribute('data-state', 'qrcode')
-    qrPreviewEl.setAttribute('alt', 'QR Code Preview')
-    qrPreviewEl.src = `data:image/png;base64,${qrcodeImage}`
-  }
-}
-
 function openQRModal() {
   // Store current active element to restore focus later
   if (!previousActiveElement) {
@@ -433,6 +407,45 @@ function handleQRModalEscape(event) {
   }
 }
 
+function openAppQRModal(event, appTitle, qrData, qrUrl) {
+  event.stopPropagation()
+
+  // Store current active element to restore focus later
+  if (!previousActiveElement) {
+    previousActiveElement = document.activeElement
+  }
+
+  // Update modal content with app-specific data
+  const modalTitle = document.getElementById('qrModalTitle')
+  const modalDescription = document.getElementById('qrModalDescription')
+  const qrcodeEl = document.getElementById('qrcode')
+  const qrLinkEl = document.getElementById('qrLink')
+
+  if (modalTitle) {
+    modalTitle.textContent = `Connect to ${appTitle}`
+  }
+  if (modalDescription) {
+    modalDescription.textContent = `Scan this QR code to open ${appTitle} on your mobile device`
+  }
+  if (qrcodeEl) {
+    qrcodeEl.setAttribute('data-state', 'qrcode')
+    qrcodeEl.src = `data:image/png;base64,${qrData}`
+    qrcodeEl.alt = `QR Code for ${appTitle}`
+  }
+  if (qrLinkEl) {
+    qrLinkEl.textContent = qrUrl
+    qrLinkEl.setAttribute('data-url', qrUrl)
+  }
+
+  // Open the modal
+  const modal = document.getElementById('qrModal')
+  if (modal) {
+    modal.classList.add('active')
+    document.body.style.overflow = 'hidden'
+    document.addEventListener('keydown', handleQRModalEscape)
+  }
+}
+
 function createAppCards(hostedApps) {
   if (!hostedApps || hostedApps.length === 0) return
 
@@ -459,18 +472,37 @@ function createAppCards(hostedApps) {
       selectAppCard(this)
     }
 
+    // Build QR code section if available
+    const qrSection = app.qr_data
+      ? `
+      <div class="app-qr-section">
+        <img
+          class="app-qr-code"
+          src="data:image/png;base64,${app.qr_data}"
+          alt="QR Code for ${app.title}"
+          title="Click to enlarge"
+          onclick="openAppQRModal(event, '${app.title}', '${app.qr_data}', '${app.qr_url}')"
+        />
+        <p class="app-qr-label">Scan to connect</p>
+      </div>
+    `
+      : ''
+
     card.innerHTML = `
       <div class="app-card-content">
         <h3>${app.title}</h3>
         <p class="app-description">${app.description}</p>
-      </div>
-      <div class="app-buttons">
-        <button type="button" class="btn btn-secondary btn-app" onclick="openInBrowser(this, event)">
-          Launch in Browser
-        </button>
-        <button type="button" class="btn btn-secondary btn-app" onclick="launchSelectedApp(this, event)">
-          Open
-        </button>
+        <div style="display: flex; flex-direction: row; gap: 0.5rem">
+          ${qrSection}
+          <div class="app-buttons">
+            <button type="button" class="btn btn-secondary btn-app" onclick="openInBrowser(this, event)">
+              Launch in Browser
+            </button>
+            <button type="button" class="btn btn-secondary btn-app" onclick="launchSelectedApp(this, event)">
+              Open
+            </button>
+          </div>
+        </div>
       </div>
     `
 
@@ -641,7 +673,8 @@ async function openInBrowser(element, event) {
 async function openQRLinkInBrowser() {
   try {
     const qrLinkEl = document.getElementById('qrLink')
-    const url = qrLinkEl.textContent
+    // Use data-url attribute (set by openAppQRModal) or fallback to textContent
+    const url = qrLinkEl.getAttribute('data-url') || qrLinkEl.textContent
 
     if (!url) {
       throw new Error('No QR link URL available')
