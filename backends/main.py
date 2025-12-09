@@ -9,9 +9,12 @@ from dotenv import load_dotenv
 import ctypes
 
 # Fix Windows console encoding for Unicode characters
+# Note: sys.stdout/stderr can be None when running as a GUI app without a console
 if sys.platform == 'win32':
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    if sys.stdout is not None:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    if sys.stderr is not None:
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 # Custom
 from ui.view import Webview
