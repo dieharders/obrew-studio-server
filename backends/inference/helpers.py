@@ -238,3 +238,60 @@ def read_event_data(data_events: List[dict]) -> AgentOutput:
     if not data:
         raise Exception("No data returned.")
     return data
+
+
+# Vision/Multi-modal utilities
+import base64
+import os
+
+
+def decode_base64_image(base64_string: str, temp_dir: str) -> str:
+    """
+    Decode a base64 encoded image and save to a temporary file.
+    Returns the path to the temporary file.
+    """
+    try:
+        # Remove data URL prefix if present (e.g., "data:image/png;base64,")
+        if "," in base64_string:
+            base64_string = base64_string.split(",", 1)[1]
+
+        image_data = base64.b64decode(base64_string)
+
+        # Detect image format from magic bytes
+        if image_data[:8] == b"\x89PNG\r\n\x1a\n":
+            ext = ".png"
+        elif image_data[:2] == b"\xff\xd8":
+            ext = ".jpg"
+        elif image_data[:4] == b"GIF8":
+            ext = ".gif"
+        elif image_data[:4] == b"RIFF" and image_data[8:12] == b"WEBP":
+            ext = ".webp"
+        else:
+            ext = ".png"  # Default to PNG
+
+        # Generate unique filename
+        unique_id = os.urandom(8).hex()
+        temp_path = os.path.join(temp_dir, f"vision_input_{unique_id}{ext}")
+
+        # Write image to file
+        with open(temp_path, "wb") as f:
+            f.write(image_data)
+
+        return temp_path
+    except Exception as e:
+        print(f"{common.PRNT_LLAMA} Error decoding base64 image: {e}")
+        raise Exception(f"Failed to decode base64 image: {e}")
+
+
+def cleanup_temp_images(image_paths: List[str]):
+    """
+    Remove temporary image files created during vision inference.
+    Only removes files that match the vision_input_ pattern.
+    """
+    for path in image_paths:
+        try:
+            if os.path.exists(path) and "vision_input_" in path:
+                os.remove(path)
+                print(f"{common.PRNT_LLAMA} Cleaned up temp image: {path}")
+        except Exception as e:
+            print(f"{common.PRNT_LLAMA} Error cleaning up temp image {path}: {e}")

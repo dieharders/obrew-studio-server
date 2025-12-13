@@ -207,14 +207,28 @@
     "name": "Qwen 2 VL 7B (vision, instruct)",
     "description": "SoTA understanding of images of various resolution & ratio. Understanding videos of 20min+. Agent that can operate your mobiles, robots, etc. Multilingual Support.",
     "messageFormat": "qwen",
-    "tags": ["vision", "instruct", "multilingual"]
+    "tags": ["vision", "instruct", "multilingual"],
+    "vision": {
+      "enabled": true,
+      "mmproj": {
+        "repoId": "lmstudio-community/Qwen2-VL-7B-Instruct-GGUF",
+        "filename": "mmproj-model-f32.gguf"
+      }
+    }
   },
   "bartowski/Qwen2-VL-2B-Instruct-GGUF": {
     "repoId": "bartowski/Qwen2-VL-2B-Instruct-GGUF",
     "name": "Qwen 2 VL 2B (vision, instruct)",
     "description": "SoTA understanding of images of various resolution & ratio. Understanding videos of 20min+. Agent that can operate your mobiles, robots, etc. Multilingual Support.",
     "messageFormat": "qwen",
-    "tags": ["vision", "instruct", "multilingual"]
+    "tags": ["vision", "instruct", "multilingual"],
+    "vision": {
+      "enabled": true,
+      "mmproj": {
+        "repoId": "bartowski/Qwen2-VL-2B-Instruct-GGUF",
+        "filename": "mmproj-Qwen2-VL-2B-Instruct-f16.gguf"
+      }
+    }
   },
   "bartowski/Qwen2.5-Coder-32B-Instruct-GGUF": {
     "repoId": "bartowski/Qwen2.5-Coder-32B-Instruct-GGUF",
@@ -239,24 +253,38 @@
   },
   "unsloth/gemma-3-1b-it-GGUF": {
     "repoId": "unsloth/gemma-3-1b-it-GGUF",
-    "name": "Gemma 3 1B (vision, instruct)",
-    "description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.\n\nGemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants.Gemma 3 has a large, 128K context window, multilingual support in over 140 languages, and is available in more sizes than previous versions.\n\nGemma 3 models are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure.",
+    "name": "Gemma 3 1B (instruct)",
+    "description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.\n\nGemma 3 1B is a text-only model (vision not supported at this size). Gemma 3 has a large, 128K context window, multilingual support in over 140 languages, and is available in more sizes than previous versions.\n\nGemma 3 models are well-suited for a variety of text generation tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure.",
     "messageFormat": "gemma3",
-    "tags": ["vision", "instruct", "multilingual", "long-context"]
+    "tags": ["instruct", "multilingual", "long-context"]
   },
   "unsloth/gemma-3-4b-it-GGUF": {
     "repoId": "unsloth/gemma-3-4b-it-GGUF",
     "name": "Gemma 3 4B (vision, instruct)",
     "description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.\n\nGemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants.Gemma 3 has a large, 128K context window, multilingual support in over 140 languages, and is available in more sizes than previous versions.\n\nGemma 3 models are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure.",
     "messageFormat": "gemma3",
-    "tags": ["vision", "instruct", "multilingual", "long-context"]
+    "tags": ["vision", "instruct", "multilingual", "long-context"],
+    "vision": {
+      "enabled": true,
+      "mmproj": {
+        "repoId": "ggml-org/gemma-3-4b-it-GGUF",
+        "filename": "mmproj-model-f16.gguf"
+      }
+    }
   },
   "unsloth/gemma-3-12b-it-GGUF": {
     "repoId": "unsloth/gemma-3-12b-it-GGUF",
     "name": "Gemma 3 12B (vision, instruct)",
     "description": "Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models.\n\nGemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants.Gemma 3 has a large, 128K context window, multilingual support in over 140 languages, and is available in more sizes than previous versions.\n\nGemma 3 models are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure.",
     "messageFormat": "gemma3",
-    "tags": ["vision", "instruct", "multilingual", "long-context"]
+    "tags": ["vision", "instruct", "multilingual", "long-context"],
+    "vision": {
+      "enabled": true,
+      "mmproj": {
+        "repoId": "ggml-org/gemma-3-12b-it-GGUF",
+        "filename": "mmproj-model-f16.gguf"
+      }
+    }
   },
   "bartowski/all-hands_openhands-lm-7b-v0.1-GGUF": {
     "repoId": "bartowski/all-hands_openhands-lm-7b-v0.1-GGUF",
@@ -299,5 +327,19 @@
     "description": "An innovative large language model with fine-grained Mixture-of-Experts (MoE) architecture featuring 80B total parameters with 13B active parameters. Supports 256K context window and hybrid reasoning modes (fast and slow thinking). Enhanced agent capabilities with competitive performance across mathematics, science, coding, and reasoning tasks.",
     "messageFormat": "chatml",
     "tags": ["MoE", "reasoning", "agent", "coding", "function-calling", "long-context"]
+  },
+  "unsloth/Mistral-Small-3.1-24B-Instruct-2503-GGUF": {
+    "repoId": "unsloth/Mistral-Small-3.1-24B-Instruct-2503-GGUF",
+    "name": "Mistral Small 3.1 24B (vision, instruct)",
+    "description": "State-of-the-art multimodal model with vision understanding. At 24B parameters, Mistral Small 3.1 surpasses GPT-4o on multiple benchmarks while fitting on a single RTX 4090 or 32GB MacBook when quantized. Supports 128K context length and is released under Apache 2.0 license.",
+    "messageFormat": "mistral-0.2-instruct",
+    "tags": ["vision", "instruct", "long-context"],
+    "vision": {
+      "enabled": true,
+      "mmproj": {
+        "repoId": "ggml-org/Mistral-Small-3.1-24B-Instruct-2503-GGUF",
+        "filename": "mmproj-Mistral-Small-3.1-24B-Instruct-2503-f16.gguf"
+      }
+    }
   }
 }
