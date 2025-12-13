@@ -1,8 +1,10 @@
 import os
 import json
+import tempfile
 from fastapi import APIRouter, Request, HTTPException, Depends
 from inference.agent import Agent
 from .llama_cpp import LLAMA_CPP
+from .llama_cpp_vision import LLAMA_CPP_VISION
 from core import classes, common
 from huggingface_hub import (
     hf_hub_download,
@@ -18,7 +20,11 @@ from inference.classes import (
     LoadInferenceRequest,
     CHAT_MODES,
     SSEResponse,
+    VisionInferenceRequest,
+    LoadVisionInferenceRequest,
+    DownloadMmprojRequest,
 )
+from inference.helpers import decode_base64_image, cleanup_temp_images
 from updater import get_gpu_details
 
 
@@ -386,9 +392,53 @@ def download_text_model(payload: classes.DownloadTextModelRequest):
             }
         )
 
+        # Check if this model has vision capabilities and auto-download mmproj
+        mmproj_path = None
+        try:
+            model_config = get_model_install_config(repo_id)
+            models_dict = model_config.get("models", {})
+            model_info = models_dict.get(repo_id, {})
+            vision_config = model_info.get("vision", {})
+
+            if vision_config.get("enabled") and vision_config.get("mmproj"):
+                mmproj_info = vision_config["mmproj"]
+                mmproj_repo_id = mmproj_info.get("repoId")
+                mmproj_filename = mmproj_info.get("filename")
+
+                if mmproj_repo_id and mmproj_filename:
+                    print(f"{common.PRNT_API} Vision model detected, downloading mmproj: {mmproj_filename}", flush=True)
+
+                    # Download mmproj file
+                    hf_hub_download(
+                        repo_id=mmproj_repo_id,
+                        filename=mmproj_filename,
+                        cache_dir=cache_dir,
+                        resume_download=False,
+                    )
+
+                    # Get mmproj file path from cache
+                    [mmproj_cache_info, mmproj_revisions] = common.scan_cached_repo(
+                        cache_dir=cache_dir, repo_id=mmproj_repo_id
+                    )
+                    mmproj_path = common.get_cached_blob_path(
+                        repo_revisions=mmproj_revisions, filename=mmproj_filename
+                    )
+
+                    # Save mmproj path to model metadata
+                    if mmproj_path:
+                        common.save_mmproj_path(repo_id, mmproj_path)
+                        print(f"{common.PRNT_API} Saved mmproj to {mmproj_path}", flush=True)
+        except Exception as mmproj_err:
+            # Don't fail the whole download if mmproj fails, just log it
+            print(f"{common.PRNT_API} Warning: Could not auto-download mmproj: {mmproj_err}", flush=True)
+
+        message = f"Saved model file to {file_path}."
+        if mmproj_path:
+            message += f" Also downloaded mmproj to {mmproj_path}."
+
         return {
             "success": True,
-            "message": f"Saved model file to {file_path}.",
+            "message": message,
             "data": None,
         }
     except (KeyError, Exception, EnvironmentError, OSError, ValueError) as err:
@@ -553,3 +603,225 @@ async def complete_request(app: classes.FastAPIApp):
     app.state.request_queue.task_done()  # Signal the end of requests
     await app.state.request_queue.join()  # Wait for all tasks to complete
     return
+
+
+# ==================== Vision/Multi-modal Endpoints ====================
+
+
+# Download mmproj file for vision model
+@router.post("/download/mmproj")
+def download_mmproj(payload: DownloadMmprojRequest):
+    """Download mmproj (multimodal projector) file for vision model."""
+    try:
+        repo_id = payload.repo_id
+        filename = payload.filename
+        model_repo_id = payload.model_repo_id
+        cache_dir = common.app_path(common.TEXT_MODELS_CACHE_DIR)
+
+        # Download mmproj file
+        hf_hub_download(
+            repo_id=repo_id,
+            filename=filename,
+            cache_dir=cache_dir,
+            resume_download=False,
+        )
+
+        # Get actual file path from cache
+        [model_cache_info, repo_revisions] = common.scan_cached_repo(
+            cache_dir=cache_dir, repo_id=repo_id
+        )
+        file_path = common.get_cached_blob_path(
+            repo_revisions=repo_revisions, filename=filename
+        )
+
+        if not isinstance(file_path, str):
+            raise Exception("mmproj path is not a string.")
+
+        # Save mmproj path to model metadata
+        common.save_mmproj_path(model_repo_id=model_repo_id, mmproj_path=file_path)
+
+        return {
+            "success": True,
+            "message": f"Downloaded mmproj to {file_path}",
+            "data": {"mmprojPath": file_path},
+        }
+    except Exception as err:
+        print(f"{common.PRNT_API} Error downloading mmproj: {err}", flush=True)
+        raise HTTPException(
+            status_code=400, detail=f"Failed to download mmproj: {err}"
+        )
+
+
+# Load vision model with mmproj
+@router.post("/vision/load")
+async def load_vision_model(
+    request: Request,
+    data: LoadVisionInferenceRequest,
+) -> LoadInferenceResponse:
+    """Load a vision model with its mmproj file."""
+    app: classes.FastAPIApp = request.app
+
+    try:
+        model_id = data.modelId
+        model_path = data.modelPath
+        mmproj_path = data.mmprojPath
+
+        # Validate paths
+        if not os.path.exists(model_path):
+            raise Exception(f"Model file not found: {model_path}")
+        if not os.path.exists(mmproj_path):
+            raise Exception(f"mmproj file not found: {mmproj_path}")
+
+        # Unload existing vision model if present
+        if hasattr(app.state, "vision_llm") and app.state.vision_llm:
+            print(f"{common.PRNT_API} Ejecting current vision model")
+            app.state.vision_llm.unload()
+            app.state.vision_llm = None
+
+        # Get model config
+        model_config = get_model_install_config(model_id)
+        model_name = model_config.get("model_name")
+
+        # Create vision model instance
+        app.state.vision_llm = LLAMA_CPP_VISION(
+            model_path=model_path,
+            mmproj_path=mmproj_path,
+            model_name=model_name,
+            model_id=model_id,
+            model_init_kwargs=data.init,
+            generate_kwargs=data.call,
+        )
+
+        print(f"{common.PRNT_API} Vision model {model_id} loaded")
+        return {
+            "message": f"Vision model [{model_id}] loaded.",
+            "success": True,
+            "data": None,
+        }
+    except Exception as error:
+        print(f"{common.PRNT_API} Failed loading vision model: {error}")
+        return {
+            "message": f"Unable to load vision model [{data.modelId}]: {error}",
+            "success": False,
+            "data": None,
+        }
+
+
+# Unload vision model
+@router.post("/vision/unload")
+def unload_vision_model(request: Request):
+    """Unload the currently loaded vision model."""
+    try:
+        app: classes.FastAPIApp = request.app
+        if hasattr(app.state, "vision_llm") and app.state.vision_llm:
+            app.state.vision_llm.unload()
+        app.state.vision_llm = None
+        return {
+            "success": True,
+            "message": "Vision model was unloaded",
+            "data": None,
+        }
+    except Exception as err:
+        print(f"{common.PRNT_API} Error unloading vision model: {err}", flush=True)
+        return {
+            "success": False,
+            "message": f"Error unloading vision model: {err}",
+            "data": None,
+        }
+
+
+# Run vision inference
+@router.post("/vision/generate")
+async def generate_vision(
+    request: Request,
+    payload: VisionInferenceRequest,
+) -> SSEResponse | AgentOutput | classes.GenericEmptyResponse:
+    """Run vision inference on image(s) with a text prompt."""
+    app: classes.FastAPIApp = request.app
+    temp_image_paths = []
+
+    try:
+        # Verify vision model is loaded
+        if not hasattr(app.state, "vision_llm") or not app.state.vision_llm:
+            raise Exception("No vision model loaded. Call /vision/load first.")
+
+        vision_llm = app.state.vision_llm
+
+        # Update generation settings
+        vision_llm.generate_kwargs = payload
+
+        # Process images
+        temp_dir = tempfile.gettempdir()
+        image_paths = []
+
+        for img in payload.images:
+            if payload.image_type == "base64":
+                # Decode base64 to temp file
+                path = decode_base64_image(img, temp_dir)
+                temp_image_paths.append(path)  # Track for cleanup
+            else:
+                # Use file path directly
+                if not os.path.exists(img):
+                    raise Exception(f"Image file not found: {img}")
+                path = img
+            image_paths.append(path)
+
+        if not image_paths:
+            raise Exception("No valid images provided.")
+
+        # Run vision inference
+        response = await vision_llm.vision_completion(
+            prompt=payload.prompt,
+            image_paths=image_paths,
+            request=request,
+            system_message=payload.systemMessage,
+            stream=payload.stream,
+        )
+
+        # Return streaming response
+        return response
+
+    except Exception as err:
+        print(f"{common.PRNT_API} Vision generation error: {err}", flush=True)
+        return {
+            "success": False,
+            "message": f"Vision generation failed: {err}",
+            "data": None,
+        }
+    finally:
+        # Cleanup temporary images
+        if temp_image_paths:
+            cleanup_temp_images(temp_image_paths)
+
+
+# Get currently loaded vision model info
+@router.get("/vision/model")
+def get_vision_model(request: Request):
+    """Get info about the currently loaded vision model."""
+    app: classes.FastAPIApp = request.app
+
+    try:
+        if hasattr(app.state, "vision_llm") and app.state.vision_llm:
+            vision_llm = app.state.vision_llm
+            return {
+                "success": True,
+                "message": f"{vision_llm.model_id} is loaded.",
+                "data": {
+                    "modelId": vision_llm.model_id,
+                    "modelName": vision_llm.model_name,
+                    "modelPath": vision_llm.model_path,
+                    "mmprojPath": vision_llm.mmproj_path,
+                },
+            }
+        else:
+            return {
+                "success": False,
+                "message": "No vision model is currently loaded.",
+                "data": {},
+            }
+    except Exception as error:
+        return {
+            "success": False,
+            "message": f"Error getting vision model info: {error}",
+            "data": {},
+        }

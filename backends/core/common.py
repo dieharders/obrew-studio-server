@@ -440,6 +440,52 @@ def save_text_model(data: SaveTextModelRequestArgs):
     return existing_data
 
 
+def save_mmproj_path(model_repo_id: str, mmproj_path: str):
+    """
+    Save the mmproj (multimodal projector) file path to a model's metadata.
+    Links the mmproj file to the parent text model for vision capabilities.
+    """
+    filepath = MODEL_METADATAS_FILEPATH
+    existing_data = DEFAULT_SETTINGS_DICT
+
+    try:
+        # Try to open the file
+        with open(filepath, "r") as file:
+            existing_data = json.load(file)
+    except (Exception, FileNotFoundError):
+        print(f"{PRNT_API} Settings file not found, creating new one.")
+        existing_data = DEFAULT_SETTINGS_DICT
+
+    # Find the model in the list
+    models_list: List = existing_data.get(INSTALLED_TEXT_MODELS, [])
+    model_index = next(
+        (i for i, item in enumerate(models_list) if item.get("repoId") == model_repo_id),
+        None,
+    )
+
+    if model_index is None:
+        # Model not found - create a new entry with mmproj info
+        new_entry = {
+            "repoId": model_repo_id,
+            "savePath": {},
+            "mmprojPath": mmproj_path,
+            "numTimesRun": 0,
+            "isFavorited": False,
+        }
+        models_list.append(new_entry)
+        print(f"{PRNT_API} Created new model entry with mmproj: {model_repo_id}")
+    else:
+        # Update existing model entry with mmproj path
+        models_list[model_index]["mmprojPath"] = mmproj_path
+        print(f"{PRNT_API} Updated mmproj path for: {model_repo_id}")
+
+    # Save updated data
+    with open(filepath, "w") as file:
+        json.dump(existing_data, file, indent=2)
+
+    return existing_data
+
+
 # Deletes all files associated with a revision (model)
 def delete_text_model_revisions(repo_id: str):
     filepath = MODEL_METADATAS_FILEPATH
@@ -614,47 +660,46 @@ def store_tool_definition(
             return
         os.makedirs(folderpath)
 
-    match operation:
-        # Write new tool
-        case "w":
-            # Try to open the file (if it exists)
-            try:
-                with open(filepath, "r") as file:
-                    existing_data = json.load(file)
-            except FileNotFoundError:
-                # If the file doesn't exist yet, create an empty
-                existing_data = {}
-            except json.JSONDecodeError:
-                existing_data = {}
-            # Update the existing data
-            existing_data = {**existing_data, **data}
-            # Save the updated data to the file, this will overwrite all values
-            with open(filepath, "w") as file:
-                json.dump(existing_data, file, indent=2)
-        # Read all tools
-        case "r":
-            try:
-                existing_data = []
-                files = os.listdir(folderpath)
-                for file_name in files:
-                    file_path = os.path.join(folderpath, file_name)
-                    if os.path.isfile(file_path) and file_path.endswith(".json"):
-                        with open(file_path, "r") as file:
-                            prev_data = json.load(file)
-                            existing_data.append(prev_data)
-            except:
-                existing_data = []
-            return existing_data
-        # Delete tool by id
-        case "d":
-            if not id:
-                return
+    # Write new tool
+    if operation == "w":
+        # Try to open the file (if it exists)
+        try:
+            with open(filepath, "r") as file:
+                existing_data = json.load(file)
+        except FileNotFoundError:
+            # If the file doesn't exist yet, create an empty
+            existing_data = {}
+        except json.JSONDecodeError:
+            existing_data = {}
+        # Update the existing data
+        existing_data = {**existing_data, **data}
+        # Save the updated data to the file, this will overwrite all values
+        with open(filepath, "w") as file:
+            json.dump(existing_data, file, indent=2)
+    # Read all tools
+    elif operation == "r":
+        try:
+            existing_data = []
             files = os.listdir(folderpath)
             for file_name in files:
                 file_path = os.path.join(folderpath, file_name)
-                file_id = file_name.split(".")[0]
-                if file_id == id:
-                    os.remove(file_path)
+                if os.path.isfile(file_path) and file_path.endswith(".json"):
+                    with open(file_path, "r") as file:
+                        prev_data = json.load(file)
+                        existing_data.append(prev_data)
+        except:
+            existing_data = []
+        return existing_data
+    # Delete tool by id
+    elif operation == "d":
+        if not id:
+            return
+        files = os.listdir(folderpath)
+        for file_name in files:
+            file_path = os.path.join(folderpath, file_name)
+            file_id = file_name.split(".")[0]
+            if file_id == id:
+                os.remove(file_path)
 
 
 def save_bot_settings_file(folderpath: str, filepath: str, data: BotSettings):

@@ -119,6 +119,7 @@ class ApiServer:
             app.state.request_queue = asyncio.Queue()
             app.state.db_client = None
             app.state.llm = None  # Set each time user loads a model
+            app.state.vision_llm = None  # Set each time user loads a vision model
             # https://www.python-httpx.org/quickstart/
             app.state.requests_client = httpx.Client()
 
@@ -153,6 +154,8 @@ class ApiServer:
             print(f"{common.PRNT_API} Server forced to shutdown.", flush=True)
             if self.app.state.llm:
                 self.app.state.llm.unload()
+            if self.app.state.vision_llm:
+                self.app.state.vision_llm.unload()
 
             # Gracefully shutdown uvicorn server
             if self.server:

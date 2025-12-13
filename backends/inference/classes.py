@@ -268,3 +268,53 @@ class InferenceResponse(BaseModel):
             ]
         }
     }
+
+
+# Vision/Multi-modal classes
+class VisionInferenceRequest(BaseModel):
+    """Request for vision inference with image input."""
+
+    prompt: str
+    images: List[str]  # Base64 encoded images or file paths
+    image_type: Optional[str] = "base64"  # "base64" or "path"
+    stream: Optional[bool] = True
+    temperature: Optional[float] = 0.7
+    max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
+    systemMessage: Optional[str] = None
+    top_k: Optional[int] = 40
+    top_p: Optional[float] = 0.95
+    min_p: Optional[float] = 0.05
+    repeat_penalty: Optional[float] = 1.1
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "prompt": "What objects are in this image?",
+                    "images": ["<base64_encoded_image>"],
+                    "image_type": "base64",
+                    "stream": True,
+                    "temperature": 0.7,
+                    "max_tokens": 1024,
+                }
+            ]
+        }
+    }
+
+
+class LoadVisionInferenceRequest(BaseModel):
+    """Load a vision model with mmproj file."""
+
+    modelPath: str
+    mmprojPath: str  # Required for vision models
+    modelId: str
+    init: LoadTextInferenceInit
+    call: LoadTextInferenceCall
+
+
+class DownloadMmprojRequest(BaseModel):
+    """Request to download mmproj file for vision model."""
+
+    repo_id: str  # HuggingFace repo containing mmproj
+    filename: str  # mmproj filename
+    model_repo_id: str  # Parent model repo ID to link mmproj to
