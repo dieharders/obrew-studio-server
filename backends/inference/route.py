@@ -18,6 +18,8 @@ from inference.classes import (
     LoadedTextModelResponse,
     LoadInferenceResponse,
     LoadInferenceRequest,
+    LoadTextInferenceInit,
+    LoadTextInferenceCall,
     CHAT_MODES,
     SSEResponse,
     VisionInferenceRequest,
@@ -741,9 +743,49 @@ async def generate_vision(
     temp_image_paths = []
 
     try:
-        # Verify vision model is loaded
+        # Auto-load vision model if text model is vision-capable
         if not hasattr(app.state, "vision_llm") or not app.state.vision_llm:
-            raise Exception("No vision model loaded. Call /vision/load first.")
+            # Check if text model is loaded and has vision capability
+            if hasattr(app.state, "llm") and app.state.llm:
+                text_llm = app.state.llm
+                model_id = text_llm.model_id
+
+                # Check if this model has an mmproj file
+                mmproj_path = common.get_mmproj_path(model_id)
+                model_path = common.get_model_file_path(model_id)
+
+                if mmproj_path and model_path and os.path.exists(mmproj_path):
+                    print(
+                        f"{common.PRNT_API} Auto-loading vision model for {model_id}",
+                        flush=True,
+                    )
+
+                    # Create init kwargs from text model's settings
+                    init_kwargs = LoadTextInferenceInit(
+                        n_gpu_layers=text_llm.model_init_kwargs.get("--n-gpu-layers", 0),
+                        n_ctx=text_llm.model_init_kwargs.get("--ctx-size", 4096),
+                        n_batch=text_llm.model_init_kwargs.get("--batch-size", 2048),
+                    )
+
+                    # Auto-load vision model using text model's settings
+                    app.state.vision_llm = LLAMA_CPP_VISION(
+                        model_path=model_path,
+                        mmproj_path=mmproj_path,
+                        model_name=text_llm.model_name,
+                        model_id=model_id,
+                        model_init_kwargs=init_kwargs,
+                        generate_kwargs=LoadTextInferenceCall(),
+                    )
+                    print(
+                        f"{common.PRNT_API} Vision model auto-loaded successfully",
+                        flush=True,
+                    )
+                else:
+                    raise Exception(
+                        "No vision model loaded and text model doesn't have vision capability."
+                    )
+            else:
+                raise Exception("No vision model loaded. Call /vision/load first.")
 
         vision_llm = app.state.vision_llm
 
@@ -770,7 +812,7 @@ async def generate_vision(
             raise Exception("No valid images provided.")
 
         # Run vision inference
-        response = await vision_llm.vision_completion(
+        response_gen = await vision_llm.vision_completion(
             prompt=payload.prompt,
             image_paths=image_paths,
             request=request,
@@ -778,8 +820,25 @@ async def generate_vision(
             stream=payload.stream,
         )
 
-        # Return streaming response
-        return response
+        # Handle streaming vs non-streaming response
+        if payload.stream:
+            # Return streaming SSE response
+            return response_gen
+        else:
+            # For non-streaming, consume the generator and return final text
+            text = ""
+            async for chunk in response_gen:
+                if isinstance(chunk, dict) and "content" in chunk:
+                    text = chunk["content"]
+                elif isinstance(chunk, str):
+                    try:
+                        parsed = json.loads(chunk)
+                        if "content" in parsed:
+                            text = parsed["content"]
+                    except json.JSONDecodeError:
+                        pass
+
+            return {"success": True, "text": text, "data": None}
 
     except Exception as err:
         print(f"{common.PRNT_API} Vision generation error: {err}", flush=True)

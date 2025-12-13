@@ -131,7 +131,7 @@ class LLAMA_CPP_VISION:
         self,
         prompt: str,
         image_paths: List[str],
-        request: Request,
+        request: Optional[Request] = None,
         system_message: Optional[str] = None,
         stream: bool = False,
         override_args: Optional[dict] = None,
@@ -215,7 +215,7 @@ class LLAMA_CPP_VISION:
     async def _vision_generator(
         self,
         stream: bool,
-        request: Request,
+        request: Optional[Request] = None,
     ):
         """Parse incoming tokens and yield response"""
         content = ""
@@ -227,8 +227,8 @@ class LLAMA_CPP_VISION:
         yield event_payload(FEEDING_PROMPT)
 
         while True:
-            # Handle abort
-            aborted = await request.is_disconnected()
+            # Handle abort (only check if request context exists)
+            aborted = await request.is_disconnected() if request else False
             if aborted or not self.process or self.abort_requested:
                 print(f"{common.PRNT_LLAMA} Vision generation aborted", flush=True)
                 break

@@ -42,6 +42,7 @@ class AppState(dict):
     db_client: Type[ClientAPI] | None
     api: Type[ApiServerClass] | None
     llm: "LLAMA_CPP"
+    vision_llm: "LLAMA_CPP_VISION"
 
 
 class FastAPIApp(FastAPI):

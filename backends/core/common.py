@@ -486,6 +486,63 @@ def save_mmproj_path(model_repo_id: str, mmproj_path: str):
     return existing_data
 
 
+def get_mmproj_path(model_repo_id: str) -> str | None:
+    """
+    Get the mmproj (multimodal projector) file path for a model.
+    Returns None if the model doesn't have an mmproj or isn't found.
+    """
+    filepath = MODEL_METADATAS_FILEPATH
+
+    try:
+        with open(filepath, "r") as file:
+            existing_data = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+    models_list: List = existing_data.get(INSTALLED_TEXT_MODELS, [])
+
+    # Find the model by repo ID
+    model_entry = next(
+        (item for item in models_list if item.get("repoId") == model_repo_id),
+        None,
+    )
+
+    if model_entry:
+        return model_entry.get("mmprojPath")
+
+    return None
+
+
+def get_model_file_path(model_repo_id: str) -> str | None:
+    """
+    Get the file path for an installed model.
+    Returns the first available file path from savePath.
+    """
+    filepath = MODEL_METADATAS_FILEPATH
+
+    try:
+        with open(filepath, "r") as file:
+            existing_data = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+    models_list: List = existing_data.get(INSTALLED_TEXT_MODELS, [])
+
+    # Find the model by repo ID
+    model_entry = next(
+        (item for item in models_list if item.get("repoId") == model_repo_id),
+        None,
+    )
+
+    if model_entry and model_entry.get("savePath"):
+        save_paths = model_entry["savePath"]
+        if isinstance(save_paths, dict) and save_paths:
+            # Return the first available path
+            return next(iter(save_paths.values()), None)
+
+    return None
+
+
 # Deletes all files associated with a revision (model)
 def delete_text_model_revisions(repo_id: str):
     filepath = MODEL_METADATAS_FILEPATH

@@ -1,5 +1,6 @@
 import os
 import csv
+import json
 import xml.etree.ElementTree as ET
 from typing import List, Optional
 from dotenv import load_dotenv
@@ -295,6 +296,96 @@ def simple_image_loader(
     return document_results
 
 
+async def vision_image_loader(
+    app: classes.FastAPIApp,
+    sources: List[str],
+    source_id: str,
+    source_metadata: dict,
+) -> List[Document]:
+    """Load images using vision model for transcription.
+
+    Uses the loaded vision model to generate text descriptions of images.
+    Falls back to simple_image_loader if vision model is not available or fails.
+    """
+    document_results: List[Document] = []
+
+    # Check if vision model is loaded
+    if not hasattr(app.state, "vision_llm") or not app.state.vision_llm:
+        print(
+            f"{common.PRNT_EMBED} No vision model loaded. "
+            "Falling back to placeholder text.",
+            flush=True,
+        )
+        return simple_image_loader(sources, source_id, source_metadata)
+
+    vision_llm = app.state.vision_llm
+
+    for path in sources:
+        filename = os.path.basename(path)
+        try:
+            print(
+                f"{common.PRNT_EMBED} Transcribing image with vision model: {filename}",
+                flush=True,
+            )
+
+            # Run vision inference (non-streaming for embedding)
+            prompt = (
+                "Describe this image in detail. Include any visible text, "
+                "objects, people, scenes, colors, and relevant context. "
+                "If there is text in the image, transcribe it exactly."
+            )
+
+            response_gen = await vision_llm.vision_completion(
+                prompt=prompt,
+                image_paths=[path],
+                request=None,  # No request context needed for embedding
+                stream=False,
+            )
+
+            # Collect response from generator
+            text = ""
+            async for chunk in response_gen:
+                if isinstance(chunk, dict) and "content" in chunk:
+                    text = chunk["content"]
+                elif isinstance(chunk, str):
+                    # Parse JSON string response
+                    try:
+                        parsed = json.loads(chunk)
+                        if "content" in parsed:
+                            text = parsed["content"]
+                    except json.JSONDecodeError:
+                        pass
+
+            if not text:
+                raise Exception("Empty response from vision model")
+
+            print(
+                f"{common.PRNT_EMBED} Vision transcription complete for: {filename}",
+                flush=True,
+            )
+
+        except Exception as e:
+            print(
+                f"{common.PRNT_EMBED} Vision transcription failed for {filename}: {e}. "
+                "Falling back to placeholder.",
+                flush=True,
+            )
+            text = f"[Image: {filename}]"
+
+        source_doc = create_source_document(
+            text=text,
+            source_id=source_id,
+            metadata=source_metadata,
+        )
+        source_doc = set_ignored_metadata(
+            source_document=source_doc,
+            ignore_metadata=source_metadata,
+        )
+        document_results.append(source_doc)
+
+    return document_results
+
+
 def simple_audio_video_loader(
     sources: List[str],
     source_id: str,
@@ -478,7 +569,8 @@ async def documents_from_sources(
             case "pptx":
                 documents = pptx_slides_loader(**payload)
             case "png" | "jpg" | "jpeg" | "gif":
-                documents = simple_image_loader(**payload)
+                # Use vision model for transcription if available
+                documents = await vision_image_loader(app=app, **payload)
             case "mp4" | "mp3":
                 documents = simple_audio_video_loader(**payload)
             case "pdf":

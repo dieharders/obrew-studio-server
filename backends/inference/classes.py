@@ -277,7 +277,7 @@ class VisionInferenceRequest(BaseModel):
     prompt: str
     images: List[str]  # Base64 encoded images or file paths
     image_type: Optional[str] = "base64"  # "base64" or "path"
-    stream: Optional[bool] = True
+    stream: Optional[bool] = False
     temperature: Optional[float] = 0.7
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
     systemMessage: Optional[str] = None
@@ -293,7 +293,7 @@ class VisionInferenceRequest(BaseModel):
                     "prompt": "What objects are in this image?",
                     "images": ["<base64_encoded_image>"],
                     "image_type": "base64",
-                    "stream": True,
+                    "stream": False,
                     "temperature": 0.7,
                     "max_tokens": 1024,
                 }
