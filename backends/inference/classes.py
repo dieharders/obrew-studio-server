@@ -318,3 +318,54 @@ class DownloadMmprojRequest(BaseModel):
     repo_id: str  # HuggingFace repo containing mmproj
     filename: str  # mmproj filename
     model_repo_id: str  # Parent model repo ID to link mmproj to
+
+
+# Image Embedding classes
+class VisionEmbedRequest(BaseModel):
+    """Request to create embedding for an image and store in ChromaDB."""
+
+    image_path: Optional[str] = None  # Path to image file
+    image_base64: Optional[str] = None  # Base64 encoded image
+    image_type: Optional[str] = "path"  # "path" or "base64"
+    collection_name: Optional[str] = None  # ChromaDB collection (auto-create from filename if not provided)
+    include_transcription: Optional[bool] = True  # Whether to transcribe image for metadata
+    transcription_prompt: Optional[str] = "Describe this image in detail."  # Prompt for transcription
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "image_path": "/path/to/image.jpg",
+                    "image_type": "path",
+                    "collection_name": "my_images",
+                    "include_transcription": True,
+                }
+            ]
+        }
+    }
+
+
+class VisionEmbedLoadRequest(BaseModel):
+    """Request to load a multimodal embedding model."""
+
+    model_path: str  # Path to GGUF model file
+    mmproj_path: str  # Path to mmproj file
+    model_name: Optional[str] = None  # Friendly name
+    model_id: Optional[str] = None  # Model identifier
+    port: Optional[int] = 8081  # Port for embedding server
+    n_gpu_layers: Optional[int] = 99  # GPU layers to offload
+    n_threads: Optional[int] = 4  # CPU threads
+    n_ctx: Optional[int] = 2048  # Context window
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "model_path": "/path/to/model.gguf",
+                    "mmproj_path": "/path/to/mmproj.gguf",
+                    "model_name": "jina-embeddings-v4",
+                    "n_gpu_layers": 99,
+                }
+            ]
+        }
+    }

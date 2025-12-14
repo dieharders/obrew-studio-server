@@ -1,8 +1,12 @@
 import os
 import json
+import uuid
 import tempfile
+from pathlib import Path
+from datetime import datetime
 from fastapi import APIRouter, Request, HTTPException
 from .llama_cpp_vision import LLAMA_CPP_VISION
+from .image_embedder import ImageEmbedder
 from core import classes, common
 from huggingface_hub import hf_hub_download
 from inference.classes import (
@@ -14,6 +18,8 @@ from inference.classes import (
     VisionInferenceRequest,
     LoadVisionInferenceRequest,
     DownloadMmprojRequest,
+    VisionEmbedRequest,
+    VisionEmbedLoadRequest,
 )
 from inference.helpers import decode_base64_image, cleanup_temp_images
 
@@ -362,3 +368,255 @@ def get_vision_model(request: Request):
             "message": f"Error getting vision model info: {error}",
             "data": {},
         }
+
+
+# ============================================================================
+# Image Embedding Endpoints
+# ============================================================================
+
+
+def _get_image_embedder(app: classes.FastAPIApp) -> ImageEmbedder:
+    """Get or create the image embedder instance."""
+    if not hasattr(app.state, "image_embedder") or app.state.image_embedder is None:
+        app.state.image_embedder = ImageEmbedder(app)
+    return app.state.image_embedder
+
+
+@router.post("/embed/load")
+async def load_embedding_model(
+    request: Request,
+    data: VisionEmbedLoadRequest,
+):
+    """
+    Load a multimodal embedding model for image embeddings.
+    This starts a separate llama-server process with --embedding flag.
+    """
+    app: classes.FastAPIApp = request.app
+
+    try:
+        embedder = _get_image_embedder(app)
+
+        success = await embedder.load_model(
+            model_path=data.model_path,
+            mmproj_path=data.mmproj_path,
+            model_name=data.model_name,
+            model_id=data.model_id,
+            port=data.port,
+            n_gpu_layers=data.n_gpu_layers,
+            n_threads=data.n_threads,
+            n_ctx=data.n_ctx,
+        )
+
+        if success:
+            return {
+                "success": True,
+                "message": f"Embedding model loaded: {embedder.model_name}",
+                "data": embedder.get_model_info(),
+            }
+        else:
+            return {
+                "success": False,
+                "message": "Failed to load embedding model",
+                "data": None,
+            }
+    except Exception as err:
+        print(f"{common.PRNT_API} Error loading embedding model: {err}", flush=True)
+        return {
+            "success": False,
+            "message": f"Failed to load embedding model: {err}",
+            "data": None,
+        }
+
+
+@router.post("/embed/unload")
+async def unload_embedding_model(request: Request):
+    """Unload the currently loaded image embedding model."""
+    app: classes.FastAPIApp = request.app
+
+    try:
+        embedder = _get_image_embedder(app)
+        await embedder.unload()
+
+        return {
+            "success": True,
+            "message": "Embedding model unloaded",
+            "data": None,
+        }
+    except Exception as err:
+        print(f"{common.PRNT_API} Error unloading embedding model: {err}", flush=True)
+        return {
+            "success": False,
+            "message": f"Failed to unload embedding model: {err}",
+            "data": None,
+        }
+
+
+@router.get("/embed/model")
+def get_embedding_model(request: Request):
+    """Get info about the currently loaded image embedding model."""
+    app: classes.FastAPIApp = request.app
+
+    try:
+        embedder = _get_image_embedder(app)
+        info = embedder.get_model_info()
+
+        return {
+            "success": True,
+            "message": "Embedding model info retrieved",
+            "data": info,
+        }
+    except Exception as err:
+        return {
+            "success": False,
+            "message": f"Error getting embedding model info: {err}",
+            "data": None,
+        }
+
+
+@router.post("/embed")
+async def embed_image(
+    request: Request,
+    payload: VisionEmbedRequest,
+):
+    """
+    Create embedding for an image and optionally store in ChromaDB.
+
+    The image can be provided as a file path or base64 encoded string.
+    If include_transcription is True, the image will also be transcribed
+    using the vision model and the transcription stored as metadata.
+    """
+    app: classes.FastAPIApp = request.app
+    temp_image_path = None
+
+    try:
+        embedder = _get_image_embedder(app)
+
+        if not embedder.is_loaded:
+            raise HTTPException(
+                status_code=400,
+                detail="No embedding model loaded. Call /vision/embed/load first.",
+            )
+
+        # Get image path
+        if payload.image_type == "base64":
+            if not payload.image_base64:
+                raise HTTPException(status_code=400, detail="image_base64 is required when image_type is 'base64'")
+            # Decode base64 to temp file
+            temp_dir = tempfile.gettempdir()
+            temp_image_path = decode_base64_image(payload.image_base64, temp_dir)
+            image_path = temp_image_path
+        else:
+            if not payload.image_path:
+                raise HTTPException(status_code=400, detail="image_path is required when image_type is 'path'")
+            if not os.path.exists(payload.image_path):
+                raise HTTPException(status_code=400, detail=f"Image file not found: {payload.image_path}")
+            image_path = payload.image_path
+
+        # Get embedding
+        print(f"{common.PRNT_API} Creating embedding for image: {image_path}", flush=True)
+        embedding = await embedder.embed_image_from_path(image_path)
+        embedding_dim = len(embedding)
+
+        # Optionally transcribe image for metadata
+        transcription = None
+        if payload.include_transcription:
+            # Check if vision model is loaded
+            if hasattr(app.state, "vision_llm") and app.state.vision_llm:
+                try:
+                    print(f"{common.PRNT_API} Transcribing image for metadata...", flush=True)
+                    vision_llm = app.state.vision_llm
+
+                    # Run transcription
+                    response_gen = await vision_llm.vision_completion(
+                        prompt=payload.transcription_prompt,
+                        image_paths=[image_path],
+                        request=request,
+                        stream=False,
+                    )
+
+                    # Extract transcription text
+                    async for chunk in response_gen:
+                        if isinstance(chunk, dict) and "data" in chunk:
+                            if isinstance(chunk["data"], dict):
+                                transcription = chunk["data"].get("text", "")
+
+                    print(f"{common.PRNT_API} Transcription complete: {transcription[:100]}..." if transcription else "No transcription", flush=True)
+                except Exception as trans_err:
+                    print(f"{common.PRNT_API} Transcription failed (non-fatal): {trans_err}", flush=True)
+                    transcription = None
+
+        # Determine collection name
+        collection_name = payload.collection_name
+        if not collection_name:
+            # Auto-create from filename
+            collection_name = Path(image_path).stem
+            # Sanitize collection name (ChromaDB requirements)
+            collection_name = "".join(c if c.isalnum() or c in "_-" else "_" for c in collection_name)
+            if not collection_name or collection_name[0].isdigit():
+                collection_name = f"images_{collection_name}"
+
+        # Prepare metadata
+        source_file_name = Path(image_path).name
+        metadata = {
+            "type": "image",
+            "source_file_name": source_file_name,
+            "source_file_path": payload.image_path or "base64_upload",
+            "created_at": datetime.now().isoformat(),
+            "embedding_model": embedder.model_name,
+            "embedding_dim": embedding_dim,
+        }
+
+        # Add transcription to metadata if available
+        if transcription:
+            metadata["transcription"] = transcription
+
+        # Store in ChromaDB if vector storage is available
+        stored = False
+        doc_id = str(uuid.uuid4())
+
+        if hasattr(app.state, "db_client") and app.state.db_client:
+            try:
+                # Get or create collection
+                collection = app.state.db_client.get_or_create_collection(
+                    name=collection_name,
+                    metadata={"type": "image_embeddings"},
+                )
+
+                # Add to collection
+                collection.add(
+                    ids=[doc_id],
+                    embeddings=[embedding],
+                    metadatas=[metadata],
+                    documents=[transcription or ""],
+                )
+
+                stored = True
+                print(f"{common.PRNT_API} Stored embedding in collection: {collection_name}", flush=True)
+            except Exception as store_err:
+                print(f"{common.PRNT_API} Failed to store embedding (non-fatal): {store_err}", flush=True)
+
+        return {
+            "success": True,
+            "message": "Image embedding created successfully",
+            "data": {
+                "id": doc_id,
+                "collection_name": collection_name,
+                "embedding_dim": embedding_dim,
+                "transcription": transcription,
+                "stored": stored,
+                "metadata": metadata,
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as err:
+        print(f"{common.PRNT_API} Error creating image embedding: {err}", flush=True)
+        raise HTTPException(status_code=500, detail=f"Failed to create image embedding: {err}")
+    finally:
+        # Cleanup temp image
+        if temp_image_path and os.path.exists(temp_image_path):
+            try:
+                os.unlink(temp_image_path)
+            except Exception:
+                pass
