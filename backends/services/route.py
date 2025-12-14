@@ -106,12 +106,6 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
             #     "urlPath": "/v1/text/extraction",
             #     "method": "POST",
             # },
-            # Vision to Text (llama.cpp uses LLaVa but BakLLaVa is another option)
-            # {
-            #     "name": "vision",
-            #     "urlPath": "/v1/text/vision",
-            #     "method": "POST",
-            # },
             # Code completion via Copilot
             # {
             #     "name": "copilot",
@@ -121,6 +115,21 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
         ],
     }
     data.append(text_inference_api)
+
+    # Return vision inference services
+    vison_inference_api = {
+        "name": "vision",
+        "port": app.state.api.SERVER_PORT,
+        "endpoints": [
+            # Vision to Text (New: mmproj) (Legacy: LLaVa or BakLLaVa)
+            {
+                "name": "generate",
+                "urlPath": "/v1/vision/generate",
+                "method": "POST",
+            }
+        ],
+    }
+    data.append(vison_inference_api)
 
     # Return persistent file storage services
     storage_api = {

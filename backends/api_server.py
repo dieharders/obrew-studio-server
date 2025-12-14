@@ -18,6 +18,7 @@ from core import common, classes
 from services.route import router as services
 from embeddings.route import router as embeddings
 from inference.route import router as text_inference
+from vision.route import router as vision_inference
 from storage.route import router as storage
 
 
@@ -254,6 +255,9 @@ class ApiServer:
         endpoint_router.include_router(storage, prefix="/v1/persist", tags=["storage"])
         endpoint_router.include_router(
             text_inference, prefix="/v1/text", tags=["text inference"]
+        )
+        endpoint_router.include_router(
+            vision_inference, prefix="/v1/vision", tags=["vision inference"]
         )
         app.include_router(endpoint_router)
 

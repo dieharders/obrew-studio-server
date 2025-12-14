@@ -23,7 +23,7 @@ from inference.classes import (
 )
 
 
-# @TODO Wondering if this should be merged with llama_cpp ?
+# @TODO Wondering if this could be merged or share code with llama_cpp ?
 class LLAMA_CPP_VISION:
     """Run llama-mtmd-cli binary for multimodal (vision) inference"""
 
@@ -143,15 +143,32 @@ class LLAMA_CPP_VISION:
         try:
             self.abort_requested = False
 
+            # Verify binary exists
+            if not os.path.exists(self.BINARY_PATH):
+                raise Exception(
+                    f"llama-mtmd-cli binary not found at: {self.BINARY_PATH}"
+                )
+
+            # Verify model files exist
+            if not os.path.exists(self.model_path):
+                raise Exception(f"Model file not found at: {self.model_path}")
+            if not os.path.exists(self.mmproj_path):
+                raise Exception(f"mmproj file not found at: {self.mmproj_path}")
+
+            # Verify image files exist
+            for img_path in image_paths:
+                if not os.path.exists(img_path):
+                    raise Exception(f"Image file not found at: {img_path}")
+
             # Build command arguments
+            # Note: llama-mtmd-cli has different flags than llama-cli
+            # It doesn't support --no-display-prompt or --simple-io
             cmd_args = [
                 self.BINARY_PATH,
                 "--model",
                 self.model_path,
                 "--mmproj",
                 self.mmproj_path,
-                "--no-display-prompt",
-                "--simple-io",
             ]
 
             # Add image paths
@@ -176,9 +193,30 @@ class LLAMA_CPP_VISION:
 
             # Start process
             print(
-                f"{common.PRNT_LLAMA} Starting llama-mtmd-cli for vision...\n"
-                f"With command: {cmd_args}"
+                f"{common.PRNT_LLAMA} Starting llama-mtmd-cli for vision...",
+                flush=True,
             )
+            print(
+                f"{common.PRNT_LLAMA} Binary: {self.BINARY_PATH}",
+                flush=True,
+            )
+            print(
+                f"{common.PRNT_LLAMA} Model: {self.model_path}",
+                flush=True,
+            )
+            print(
+                f"{common.PRNT_LLAMA} mmproj: {self.mmproj_path}",
+                flush=True,
+            )
+            print(
+                f"{common.PRNT_LLAMA} Images: {image_paths}",
+                flush=True,
+            )
+            if self.verbose:
+                print(
+                    f"{common.PRNT_LLAMA} Full command: {' '.join(str(arg) for arg in cmd_args)}",
+                    flush=True,
+                )
             await self._run(cmd_args)
 
             # Read logs
@@ -266,10 +304,27 @@ class LLAMA_CPP_VISION:
         content = content.rstrip(eos_token).strip()
 
         if not content:
+            # Try to capture stderr for debugging
+            stderr_output = ""
+            if self.process and self.process.stderr:
+                try:
+                    stderr_data = await asyncio.wait_for(
+                        self.process.stderr.read(), timeout=1.0
+                    )
+                    stderr_output = stderr_data.decode("utf-8", errors="ignore").strip()
+                except asyncio.TimeoutError:
+                    pass
+
+            if stderr_output:
+                print(f"{common.PRNT_LLAMA_LOG} stderr output:\n{stderr_output}")
+
             errMsg = (
                 "No response from vision model. Check available memory, "
                 "ensure mmproj file is valid, or try lowering GPU layers."
             )
+            if stderr_output:
+                errMsg += f"\nBinary stderr: {stderr_output[:500]}"
+
             print(f"{common.PRNT_LLAMA} {errMsg}")
             if self.task_logging:
                 self.task_logging.cancel()

@@ -12,6 +12,7 @@ from collections.abc import Callable
 
 if TYPE_CHECKING:
     from inference.llama_cpp import LLAMA_CPP
+    from backends.vision.llama_cpp_vision import LLAMA_CPP_VISION
 
 
 class ApiServerClass(dict):
