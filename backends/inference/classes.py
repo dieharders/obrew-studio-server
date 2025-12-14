@@ -327,9 +327,11 @@ class VisionEmbedRequest(BaseModel):
     image_path: Optional[str] = None  # Path to image file
     image_base64: Optional[str] = None  # Base64 encoded image
     image_type: Optional[str] = "path"  # "path" or "base64"
-    collection_name: Optional[str] = None  # ChromaDB collection (auto-create from filename if not provided)
-    include_transcription: Optional[bool] = True  # Whether to transcribe image for metadata
-    transcription_prompt: Optional[str] = "Describe this image in detail."  # Prompt for transcription
+    collection_name: Optional[str] = (
+        None  # ChromaDB collection (auto-create from filename if not provided)
+    )
+    transcription_text: Optional[str] = None
+    auto_unload: Optional[bool] = True  # Unload embedding server after operation
 
     model_config = {
         "json_schema_extra": {
@@ -338,7 +340,7 @@ class VisionEmbedRequest(BaseModel):
                     "image_path": "/path/to/image.jpg",
                     "image_type": "path",
                     "collection_name": "my_images",
-                    "include_transcription": True,
+                    "transcription_text": "Description of the image.",
                 }
             ]
         }

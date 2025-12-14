@@ -500,50 +500,33 @@ async def embed_image(
         # Get image path
         if payload.image_type == "base64":
             if not payload.image_base64:
-                raise HTTPException(status_code=400, detail="image_base64 is required when image_type is 'base64'")
+                raise HTTPException(
+                    status_code=400,
+                    detail="image_base64 is required when image_type is 'base64'",
+                )
             # Decode base64 to temp file
             temp_dir = tempfile.gettempdir()
             temp_image_path = decode_base64_image(payload.image_base64, temp_dir)
             image_path = temp_image_path
         else:
             if not payload.image_path:
-                raise HTTPException(status_code=400, detail="image_path is required when image_type is 'path'")
+                raise HTTPException(
+                    status_code=400,
+                    detail="image_path is required when image_type is 'path'",
+                )
             if not os.path.exists(payload.image_path):
-                raise HTTPException(status_code=400, detail=f"Image file not found: {payload.image_path}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Image file not found: {payload.image_path}",
+                )
             image_path = payload.image_path
 
         # Get embedding
-        print(f"{common.PRNT_API} Creating embedding for image: {image_path}", flush=True)
+        print(
+            f"{common.PRNT_API} Creating embedding for image: {image_path}", flush=True
+        )
         embedding = await embedder.embed_image_from_path(image_path)
         embedding_dim = len(embedding)
-
-        # Optionally transcribe image for metadata
-        transcription = None
-        if payload.include_transcription:
-            # Check if vision model is loaded
-            if hasattr(app.state, "vision_llm") and app.state.vision_llm:
-                try:
-                    print(f"{common.PRNT_API} Transcribing image for metadata...", flush=True)
-                    vision_llm = app.state.vision_llm
-
-                    # Run transcription
-                    response_gen = await vision_llm.vision_completion(
-                        prompt=payload.transcription_prompt,
-                        image_paths=[image_path],
-                        request=request,
-                        stream=False,
-                    )
-
-                    # Extract transcription text
-                    async for chunk in response_gen:
-                        if isinstance(chunk, dict) and "data" in chunk:
-                            if isinstance(chunk["data"], dict):
-                                transcription = chunk["data"].get("text", "")
-
-                    print(f"{common.PRNT_API} Transcription complete: {transcription[:100]}..." if transcription else "No transcription", flush=True)
-                except Exception as trans_err:
-                    print(f"{common.PRNT_API} Transcription failed (non-fatal): {trans_err}", flush=True)
-                    transcription = None
 
         # Determine collection name
         collection_name = payload.collection_name
@@ -551,7 +534,9 @@ async def embed_image(
             # Auto-create from filename
             collection_name = Path(image_path).stem
             # Sanitize collection name (ChromaDB requirements)
-            collection_name = "".join(c if c.isalnum() or c in "_-" else "_" for c in collection_name)
+            collection_name = "".join(
+                c if c.isalnum() or c in "_-" else "_" for c in collection_name
+            )
             if not collection_name or collection_name[0].isdigit():
                 collection_name = f"images_{collection_name}"
 
@@ -567,7 +552,8 @@ async def embed_image(
         }
 
         # Add transcription to metadata if available
-        if transcription:
+        transcription = payload.transcription_text or None
+        if payload.transcription_text:
             metadata["transcription"] = transcription
 
         # Store in ChromaDB if vector storage is available
@@ -587,13 +573,25 @@ async def embed_image(
                     ids=[doc_id],
                     embeddings=[embedding],
                     metadatas=[metadata],
+                    # Add raw transcription text for reference
                     documents=[transcription or ""],
                 )
 
                 stored = True
-                print(f"{common.PRNT_API} Stored embedding in collection: {collection_name}", flush=True)
+                print(
+                    f"{common.PRNT_API} Stored embedding in collection: {collection_name}",
+                    flush=True,
+                )
             except Exception as store_err:
-                print(f"{common.PRNT_API} Failed to store embedding (non-fatal): {store_err}", flush=True)
+                print(
+                    f"{common.PRNT_API} Failed to store embedding (non-fatal): {store_err}",
+                    flush=True,
+                )
+
+        # Unload embedding server if auto_unload is enabled
+        if payload.auto_unload:
+            print(f"{common.PRNT_API} Auto-unloading embedding server", flush=True)
+            await embedder.unload()
 
         return {
             "success": True,
@@ -603,7 +601,7 @@ async def embed_image(
                 "collection_name": collection_name,
                 "embedding_dim": embedding_dim,
                 "transcription": transcription,
-                "stored": stored,
+                "stored": stored,  # @TODO Why we need this prop?
                 "metadata": metadata,
             },
         }
@@ -612,7 +610,9 @@ async def embed_image(
         raise
     except Exception as err:
         print(f"{common.PRNT_API} Error creating image embedding: {err}", flush=True)
-        raise HTTPException(status_code=500, detail=f"Failed to create image embedding: {err}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create image embedding: {err}"
+        )
     finally:
         # Cleanup temp image
         if temp_image_path and os.path.exists(temp_image_path):

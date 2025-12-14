@@ -14,6 +14,8 @@ from core import common
 LOG_PREFIX = f"{common.bcolors.OKCYAN}[IMAGE-EMBED-SERVER]{common.bcolors.ENDC}"
 
 
+# This is a stop-gap to support vision based embeddings for RAG.
+# Since there is no dedicated binary for this, we must use the llmaa-server binary.
 class EmbeddingServer:
     """Manages llama-server process for multimodal image embeddings."""
 
@@ -59,7 +61,9 @@ class EmbeddingServer:
         """
         # Validate files exist
         if not os.path.exists(self.binary_path):
-            raise FileNotFoundError(f"llama-server binary not found at {self.binary_path}")
+            raise FileNotFoundError(
+                f"llama-server binary not found at {self.binary_path}"
+            )
         if not os.path.exists(self.model_path):
             raise FileNotFoundError(f"Model file not found at {self.model_path}")
         if not os.path.exists(self.mmproj_path):
@@ -68,13 +72,19 @@ class EmbeddingServer:
         # Build command
         cmd = [
             self.binary_path,
-            "-m", self.model_path,
-            "--mmproj", self.mmproj_path,
+            "-m",
+            self.model_path,
+            "--mmproj",
+            self.mmproj_path,
             "--embedding",
-            "--port", str(self.port),
-            "-ngl", str(self.n_gpu_layers),
-            "-t", str(self.n_threads),
-            "-c", str(self.n_ctx),
+            "--port",
+            str(self.port),
+            "-ngl",
+            str(self.n_gpu_layers),
+            "-t",
+            str(self.n_threads),
+            "-c",
+            str(self.n_ctx),
         ]
 
         print(f"{LOG_PREFIX} Starting embedding server on port {self.port}", flush=True)
@@ -129,7 +139,10 @@ class EmbeddingServer:
                 # Check if process died
                 if self.process and self.process.returncode is not None:
                     stderr = await self.process.stderr.read()
-                    print(f"{LOG_PREFIX} Server process died: {stderr.decode()}", flush=True)
+                    print(
+                        f"{LOG_PREFIX} Server process died: {stderr.decode()}",
+                        flush=True,
+                    )
                     return False
 
                 await asyncio.sleep(1)
@@ -178,6 +191,7 @@ class EmbeddingServer:
             }
         }
 
+        # @TODO Dont call http, send commands directly to the binary process for the server
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.post(
@@ -202,7 +216,10 @@ class EmbeddingServer:
                 raise ValueError(f"Unexpected response format: {data}")
 
             except httpx.HTTPStatusError as e:
-                print(f"{LOG_PREFIX} HTTP error: {e.response.status_code} - {e.response.text}", flush=True)
+                print(
+                    f"{LOG_PREFIX} HTTP error: {e.response.status_code} - {e.response.text}",
+                    flush=True,
+                )
                 raise
             except Exception as e:
                 print(f"{LOG_PREFIX} Error embedding image: {e}", flush=True)

@@ -34,12 +34,12 @@ class ImageEmbedder:
         self,
         model_path: str,
         mmproj_path: str,
-        model_name: str = None,
-        model_id: str = None,
+        model_name: str = None,  # @TODO Do we rly need this?
+        model_id: str = None,  # @TODO Do we rly need this?
         port: int = 8081,
-        n_gpu_layers: int = 99,
-        n_threads: int = 4,
-        n_ctx: int = 2048,
+        n_gpu_layers: int = 999,
+        n_threads: int = 4,  # @TODO set to auto
+        n_ctx: int = 2048,  # @TODO Do we rly need this, can set to max?
     ) -> bool:
         """
         Load a multimodal embedding model.
@@ -89,7 +89,9 @@ class ImageEmbedder:
         success = await self.server.start()
 
         if success:
-            print(f"{LOG_PREFIX} Model loaded successfully: {self.model_name}", flush=True)
+            print(
+                f"{LOG_PREFIX} Model loaded successfully: {self.model_name}", flush=True
+            )
         else:
             print(f"{LOG_PREFIX} Failed to load model", flush=True)
             self.server = None
@@ -123,6 +125,7 @@ class ImageEmbedder:
         Returns:
             List of floats representing the embedding vector
         """
+        # @TODO Perhaps we should auto load the model here instead and pass the model to load to this.
         if not self.is_loaded:
             raise RuntimeError("No embedding model loaded. Call load_model() first.")
 
