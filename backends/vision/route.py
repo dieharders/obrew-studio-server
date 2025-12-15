@@ -25,6 +25,7 @@ from inference.classes import (
 )
 from inference.helpers import decode_base64_image, cleanup_temp_images, preprocess_image
 from .image_embedder import VISION_EMBEDDING_MODELS_CACHE_DIR
+from embeddings.vector_storage import Vector_Storage
 
 
 def get_model_install_config(model_id: str = None) -> dict:
@@ -577,10 +578,14 @@ async def embed_image(
         if payload.transcription_text:
             metadata["transcription"] = transcription
 
-        # Store in ChromaDB if vector storage is available
+        # Store in ChromaDB - ensure db_client is initialized
         doc_id = str(uuid.uuid4())
 
-        if hasattr(app.state, "db_client") and app.state.db_client:
+        # Initialize db_client if not already done (Vector_Storage handles this)
+        if not hasattr(app.state, "db_client") or not app.state.db_client:
+            Vector_Storage(app=app)  # This initializes app.state.db_client
+
+        if app.state.db_client:
             try:
                 # Get or create collection
                 collection = app.state.db_client.get_or_create_collection(
