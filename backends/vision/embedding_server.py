@@ -184,11 +184,13 @@ class EmbeddingServer:
 
         # Build request payload
         # Format based on llama.cpp multimodal embedding API
+        # The content must contain image placeholder [img-N] and image_data array with matching id
+        content = f"[img-1]{f' {prompt}' if prompt else ''}"
         payload = {
-            "content": {
-                "prompt_string": prompt,
-                "multimodal_data": [image_base64],
-            }
+            "content": content,
+            "image_data": [
+                {"id": 1, "data": image_base64}
+            ]
         }
 
         # @TODO Dont call http, send commands directly to the binary process for the server
