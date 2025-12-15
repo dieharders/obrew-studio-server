@@ -260,6 +260,7 @@ class LLAMA_CPP_VISION:
         decoder = codecs.getincrementaldecoder("utf-8")()
         eos_token = "[end of text]"
         has_gen_started = False
+        break_reason = "unknown"
 
         # Start of generation
         yield event_payload(FEEDING_PROMPT)
@@ -269,11 +270,13 @@ class LLAMA_CPP_VISION:
             aborted = await request.is_disconnected() if request else False
             if aborted or not self.process or self.abort_requested:
                 print(f"{common.PRNT_LLAMA} Vision generation aborted", flush=True)
+                break_reason = "aborted"
                 break
 
             try:
                 byte = await self.process.stdout.read(1)
                 if not byte:
+                    break_reason = "eof"
                     break
 
                 if not has_gen_started:
@@ -281,15 +284,19 @@ class LLAMA_CPP_VISION:
                     yield event_payload(GENERATING_TOKENS)
 
                 byte_text = decoder.decode(byte)
-            except (UnicodeEncodeError, UnicodeDecodeError):
+            except (UnicodeEncodeError, UnicodeDecodeError) as e:
+                print(f"{common.PRNT_LLAMA} Decode error (skipping byte): {e}", flush=True)
                 continue
 
             # Check for end of sequence
             if content.endswith(eos_token):
+                break_reason = "eos_token"
                 break
 
-            # Check for CLI turn marker
-            if byte_text == ">":
+            # Check for CLI turn marker (only after we have some content)
+            # This prevents breaking on ">" characters in the model's output
+            if byte_text == ">" and len(content) > 100:
+                break_reason = "cli_marker"
                 break
 
             content += byte_text
@@ -302,6 +309,12 @@ class LLAMA_CPP_VISION:
         # Finalize content
         content += decoder.decode(b"", final=True)
         content = content.rstrip(eos_token).strip()
+
+        if self.verbose:
+            print(
+                f"{common.PRNT_LLAMA} Generation complete. Reason: {break_reason}, Content length: {len(content)}",
+                flush=True,
+            )
 
         if not content:
             # Try to capture stderr for debugging
@@ -340,8 +353,17 @@ class LLAMA_CPP_VISION:
             yield payload
 
         # Cleanup
-        if self.task_logging:
-            self.task_logging.cancel()
-        if self.process:
-            self.process.terminate()
+        try:
+            if self.task_logging:
+                self.task_logging.cancel()
+            if self.process:
+                # Check if process is still running before terminating
+                if self.process.returncode is None:
+                    self.process.terminate()
+                self.process = None
+        except ProcessLookupError:
+            # Process already terminated, this is fine
+            self.process = None
+        except Exception as cleanup_err:
+            print(f"{common.PRNT_LLAMA} Cleanup error (non-fatal): {cleanup_err}", flush=True)
             self.process = None

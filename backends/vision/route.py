@@ -23,7 +23,7 @@ from inference.classes import (
     DownloadVisionEmbedModelRequest,
     DeleteVisionEmbedModelRequest,
 )
-from inference.helpers import decode_base64_image, cleanup_temp_images
+from inference.helpers import decode_base64_image, cleanup_temp_images, preprocess_image
 from .image_embedder import VISION_EMBEDDING_MODELS_CACHE_DIR
 
 
@@ -295,7 +295,13 @@ async def generate_vision(
                 if not os.path.exists(img):
                     raise Exception(f"Image file not found: {img}")
                 path = img
-            image_paths.append(path)
+
+            # Preprocess image for llama.cpp compatibility
+            # This fixes issues with macOS screenshots and resizes large images
+            processed_path = preprocess_image(path, temp_dir)
+            if processed_path != path:
+                temp_image_paths.append(processed_path)  # Track for cleanup
+            image_paths.append(processed_path)
 
         if not image_paths:
             raise Exception("No valid images provided.")
@@ -332,10 +338,15 @@ async def generate_vision(
             return {"success": True, "text": text, "data": None}
 
     except Exception as err:
-        print(f"{common.PRNT_API} Vision generation error: {err}", flush=True)
+        err_type = type(err).__name__
+        err_msg = str(err) if str(err) else "Unknown error (no message)"
+        print(
+            f"{common.PRNT_API} Vision generation error [{err_type}]: {err_msg}",
+            flush=True,
+        )
         return {
             "success": False,
-            "message": f"Vision generation failed: {err}",
+            "message": f"Vision generation failed: {err_msg}",
             "data": None,
         }
     finally:
@@ -494,11 +505,13 @@ async def embed_image(
     """
     app: classes.FastAPIApp = request.app
     temp_image_path = None
+    temp_processed_path = None
 
     try:
         embedder = _get_vision_embedder(app)
 
         # Get image path
+        temp_dir = tempfile.gettempdir()
         if payload.image_type == "base64":
             if not payload.image_base64:
                 raise HTTPException(
@@ -506,7 +519,6 @@ async def embed_image(
                     detail="image_base64 is required when image_type is 'base64'",
                 )
             # Decode base64 to temp file
-            temp_dir = tempfile.gettempdir()
             temp_image_path = decode_base64_image(payload.image_base64, temp_dir)
             image_path = temp_image_path
         else:
@@ -521,6 +533,13 @@ async def embed_image(
                     detail=f"Image file not found: {payload.image_path}",
                 )
             image_path = payload.image_path
+
+        # Preprocess image for llama.cpp compatibility
+        # This fixes issues with macOS screenshots and resizes large images
+        processed_path = preprocess_image(image_path, temp_dir)
+        if processed_path != image_path:
+            temp_processed_path = processed_path
+        image_path = processed_path
 
         # Get embedding
         print(
@@ -608,10 +627,15 @@ async def embed_image(
             status_code=500, detail=f"Failed to create image embedding: {err}"
         )
     finally:
-        # Cleanup temp image
+        # Cleanup temp images
         if temp_image_path and os.path.exists(temp_image_path):
             try:
                 os.unlink(temp_image_path)
+            except Exception:
+                pass
+        if temp_processed_path and os.path.exists(temp_processed_path):
+            try:
+                os.unlink(temp_processed_path)
             except Exception:
                 pass
 
@@ -786,7 +810,9 @@ def delete_vision_embedding_model(payload: DeleteVisionEmbedModelRequest):
                 print(f"{common.PRNT_API} Deleted model file: {model_path}", flush=True)
             if mmproj_path and os.path.exists(mmproj_path):
                 os.remove(mmproj_path)
-                print(f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}", flush=True)
+                print(
+                    f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}", flush=True
+                )
 
         # Delete metadata record
         common.delete_vision_embedding_model(repo_id)

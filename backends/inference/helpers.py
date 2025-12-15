@@ -283,14 +283,77 @@ def decode_base64_image(base64_string: str, temp_dir: str) -> str:
         raise Exception(f"Failed to decode base64 image: {e}")
 
 
+def preprocess_image(input_path: str, temp_dir: str, max_resolution: int = 1024) -> str:
+    """
+    Preprocess image for llama.cpp vision compatibility.
+
+    This function addresses several issues:
+    1. Re-encodes images to fix stb_image compatibility issues with macOS screenshots
+       (stb_image has known issues with PNG files saved on macOS)
+    2. Resizes large images to reduce memory usage and improve processing speed
+    3. Converts to RGB color space (removes alpha channel)
+    4. Supports additional formats like WebP that stb_image doesn't support
+
+    Args:
+        input_path: Path to the input image file
+        temp_dir: Directory to save the preprocessed image
+        max_resolution: Maximum width/height (maintains aspect ratio)
+
+    Returns:
+        Path to the preprocessed image file
+    """
+    try:
+        from PIL import Image
+
+        with Image.open(input_path) as img:
+            # Convert to RGB (handles RGBA, P, L, LA modes)
+            if img.mode in ("RGBA", "LA"):
+                # Create white background and paste image with alpha
+                background = Image.new("RGB", img.size, (255, 255, 255))
+                background.paste(img, mask=img.split()[-1])
+                img = background
+            elif img.mode == "P":
+                # Palette mode - convert to RGBA first to handle transparency
+                img = img.convert("RGBA")
+                background = Image.new("RGB", img.size, (255, 255, 255))
+                background.paste(img, mask=img.split()[-1])
+                img = background
+            elif img.mode != "RGB":
+                img = img.convert("RGB")
+
+            # Resize if too large (maintains aspect ratio)
+            if img.width > max_resolution or img.height > max_resolution:
+                img.thumbnail((max_resolution, max_resolution), Image.Resampling.LANCZOS)
+                print(
+                    f"{common.PRNT_LLAMA} Resized image to {img.width}x{img.height}",
+                    flush=True,
+                )
+
+            # Save as PNG (lossless, no compression artifacts)
+            unique_id = os.urandom(8).hex()
+            output_path = os.path.join(temp_dir, f"vision_processed_{unique_id}.png")
+            img.save(output_path, "PNG")
+
+            return output_path
+
+    except Exception as e:
+        print(f"{common.PRNT_LLAMA} Error preprocessing image: {e}", flush=True)
+        # Fallback: return original path if preprocessing fails
+        print(
+            f"{common.PRNT_LLAMA} Falling back to original image: {input_path}",
+            flush=True,
+        )
+        return input_path
+
+
 def cleanup_temp_images(image_paths: List[str]):
     """
     Remove temporary image files created during vision inference.
-    Only removes files that match the vision_input_ pattern.
+    Only removes files that match the vision_input_ or vision_processed_ pattern.
     """
     for path in image_paths:
         try:
-            if os.path.exists(path) and "vision_input_" in path:
+            if os.path.exists(path) and ("vision_input_" in path or "vision_processed_" in path):
                 os.remove(path)
                 print(f"{common.PRNT_LLAMA} Cleaned up temp image: {path}")
         except Exception as e:
