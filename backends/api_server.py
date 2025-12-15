@@ -162,6 +162,7 @@ class ApiServer:
                 self.app.state.vision_llm.unload()
             if self.app.state.vision_embedder:
                 # Note: unload is async but we're in sync context, schedule it
+                # This is done b/c our embedder is running in a binary that spawns a server.
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
                     asyncio.create_task(self.app.state.vision_embedder.unload())
