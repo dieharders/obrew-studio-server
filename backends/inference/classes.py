@@ -331,7 +331,6 @@ class VisionEmbedRequest(BaseModel):
         None  # ChromaDB collection (auto-create from filename if not provided)
     )
     transcription_text: Optional[str] = None
-    auto_unload: Optional[bool] = True  # Unload embedding server after operation
 
     model_config = {
         "json_schema_extra": {
@@ -371,3 +370,29 @@ class VisionEmbedLoadRequest(BaseModel):
             ]
         }
     }
+
+
+class DownloadVisionEmbedModelRequest(BaseModel):
+    """Request to download a vision embedding model from HuggingFace."""
+
+    repo_id: str  # HuggingFace repo ID
+    filename: str  # Model GGUF filename
+    mmproj_filename: str  # mmproj GGUF filename
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "repo_id": "mradermacher/GME-VARCO-VISION-Embedding-GGUF",
+                    "filename": "GME-VARCO-VISION-Embedding.Q4_K_M.gguf",
+                    "mmproj_filename": "GME-VARCO-VISION-Embedding.mmproj-Q8_0.gguf",
+                }
+            ]
+        }
+    }
+
+
+class DeleteVisionEmbedModelRequest(BaseModel):
+    """Request to delete a vision embedding model."""
+
+    repo_id: str  # HuggingFace repo ID

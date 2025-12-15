@@ -126,10 +126,13 @@ EMBEDDING_METADATAS_FILEPATH = os.path.join(
 )
 TEXT_MODELS_CACHE_DIR = "text_models"
 EMBEDDING_MODELS_CACHE_DIR = "embed_models"
+VISION_EMBEDDING_MODELS_CACHE_DIR = "vision_embed_models"
 INSTALLED_TEXT_MODELS = "installed_text_models"  # key in json file
 INSTALLED_EMBEDDING_MODELS = "installed_embedding_models"  # key in json file
+INSTALLED_VISION_EMBEDDING_MODELS = "installed_vision_embedding_models"  # key in json file
 DEFAULT_SETTINGS_DICT = {"current_download_path": "", INSTALLED_TEXT_MODELS: []}
 DEFAULT_EMBEDDING_SETTINGS_DICT = {INSTALLED_EMBEDDING_MODELS: []}
+DEFAULT_VISION_EMBEDDING_SETTINGS_DICT = {INSTALLED_VISION_EMBEDDING_MODELS: []}
 DEFAULT_MAX_TOKENS = 128
 
 
@@ -658,6 +661,149 @@ def delete_embedding_model_revisions(repo_id: str):
         print(f"{PRNT_API} File not found.", flush=True)
     except json.JSONDecodeError:
         print(f"{PRNT_API} JSON parsing error.", flush=True)
+
+
+# ============================================================================
+# Vision Embedding Model Metadata Functions
+# ============================================================================
+
+
+def save_vision_embedding_model(
+    repo_id: str,
+    model_path: str,
+    mmproj_path: str,
+    size: int = 0,
+):
+    """
+    Save vision embedding model metadata to installed_models.json.
+
+    Args:
+        repo_id: HuggingFace repository ID
+        model_path: Path to the downloaded GGUF model file
+        mmproj_path: Path to the downloaded mmproj file
+        size: Total size of model files in bytes
+    """
+    folderpath = APP_SETTINGS_PATH
+    filepath = MODEL_METADATAS_FILEPATH
+
+    try:
+        # Create folder
+        if not os.path.exists(folderpath):
+            os.makedirs(folderpath)
+        # Try to open the file (if it exists)
+        with open(filepath, "r") as file:
+            existing_data = json.load(file)
+    except (Exception, FileNotFoundError):
+        existing_data = DEFAULT_SETTINGS_DICT
+
+    # Ensure the vision embedding models key exists
+    if INSTALLED_VISION_EMBEDDING_MODELS not in existing_data:
+        existing_data[INSTALLED_VISION_EMBEDDING_MODELS] = []
+
+    # Update the existing data with the new model
+    models_list: List = existing_data[INSTALLED_VISION_EMBEDDING_MODELS]
+    model_index = next(
+        (x for x, item in enumerate(models_list) if item["repoId"] == repo_id), None
+    )
+
+    new_data = {
+        "repoId": repo_id,
+        "modelPath": model_path,
+        "mmprojPath": mmproj_path,
+        "size": size,
+    }
+
+    if model_index is None:
+        # Add new entry
+        models_list.append(new_data)
+    else:
+        # Update existing entry
+        models_list[model_index] = new_data
+
+    # Save the updated data to the file
+    with open(filepath, "w") as file:
+        json.dump(existing_data, file, indent=2)
+
+    print(f"{PRNT_API} Saved vision embedding model metadata: {repo_id}", flush=True)
+    return existing_data
+
+
+def get_vision_embedding_model_path(repo_id: str) -> tuple:
+    """
+    Get the model and mmproj paths for an installed vision embedding model.
+
+    Args:
+        repo_id: HuggingFace repository ID
+
+    Returns:
+        Tuple of (model_path, mmproj_path) or (None, None) if not found.
+    """
+    filepath = MODEL_METADATAS_FILEPATH
+
+    try:
+        with open(filepath, "r") as file:
+            existing_data = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None, None
+
+    models_list: List = existing_data.get(INSTALLED_VISION_EMBEDDING_MODELS, [])
+
+    # Find the model by repo ID
+    for model in models_list:
+        if model.get("repoId") == repo_id:
+            return model.get("modelPath"), model.get("mmprojPath")
+
+    return None, None
+
+
+def delete_vision_embedding_model(repo_id: str):
+    """
+    Delete vision embedding model metadata from installed_models.json.
+
+    Args:
+        repo_id: HuggingFace repository ID to remove
+    """
+    filepath = MODEL_METADATAS_FILEPATH
+
+    try:
+        with open(filepath, "r") as file:
+            metadata = json.load(file)
+
+        if INSTALLED_VISION_EMBEDDING_MODELS not in metadata:
+            return
+
+        models_list: List = metadata[INSTALLED_VISION_EMBEDDING_MODELS]
+        model_index = next(
+            (x for x, item in enumerate(models_list) if item["repoId"] == repo_id), None
+        )
+
+        if model_index is not None:
+            del models_list[model_index]
+            with open(filepath, "w") as file:
+                json.dump(metadata, file, indent=2)
+            print(f"{PRNT_API} Deleted vision embedding model: {repo_id}", flush=True)
+
+    except FileNotFoundError:
+        print(f"{PRNT_API} Metadata file not found.", flush=True)
+    except json.JSONDecodeError:
+        print(f"{PRNT_API} JSON parsing error.", flush=True)
+
+
+def get_installed_vision_embedding_models() -> List:
+    """
+    Get list of all installed vision embedding models.
+
+    Returns:
+        List of vision embedding model metadata dictionaries.
+    """
+    filepath = MODEL_METADATAS_FILEPATH
+
+    try:
+        with open(filepath, "r") as file:
+            existing_data = json.load(file)
+        return existing_data.get(INSTALLED_VISION_EMBEDDING_MODELS, [])
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
 
 
 def delete_vector_store(target_file_path: str, folder_path):

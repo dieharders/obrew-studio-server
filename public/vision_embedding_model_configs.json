@@ -1,0 +1,28 @@
+{
+  "mradermacher/GME-VARCO-VISION-Embedding-GGUF": {
+    "repoId": "mradermacher/GME-VARCO-VISION-Embedding-GGUF",
+    "name": "GME VARCO Vision Embedding",
+    "description": "8B parameter multimodal vision embedding model based on Qwen2-VL architecture. Creates embeddings from images for similarity search and retrieval tasks.",
+    "modelSize": "4.8 GB (Q4_K_M)",
+    "dimensions": 4096,
+    "filename": "GME-VARCO-VISION-Embedding.Q4_K_M.gguf",
+    "mmproj": {
+      "filename": "GME-VARCO-VISION-Embedding.mmproj-Q8_0.gguf",
+      "size": "0.8 GB"
+    },
+    "tags": ["vision", "multimodal", "qwen2-vl", "8B"]
+  },
+  "mradermacher/GME-VARCO-VISION-Embedding-i1-GGUF": {
+    "repoId": "mradermacher/GME-VARCO-VISION-Embedding-i1-GGUF",
+    "name": "GME VARCO Vision Embedding (i1)",
+    "description": "Improved 8B parameter multimodal vision embedding model based on Qwen2-VL architecture. Alternative quantization variant with potentially better quality.",
+    "modelSize": "4.8 GB (Q4_K_M)",
+    "dimensions": 4096,
+    "filename": "GME-VARCO-VISION-Embedding-i1.Q4_K_M.gguf",
+    "mmproj": {
+      "filename": "GME-VARCO-VISION-Embedding-i1.mmproj-Q8_0.gguf",
+      "size": "0.8 GB"
+    },
+    "tags": ["vision", "multimodal", "qwen2-vl", "8B", "improved"]
+  }
+}

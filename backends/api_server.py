@@ -121,6 +121,9 @@ class ApiServer:
             app.state.db_client = None
             app.state.llm = None  # Set each time user loads a model
             app.state.vision_llm = None  # Set each time user loads a vision model
+            app.state.vision_embedder = (
+                None  # Set each time user loads a vision embedding model
+            )
             # https://www.python-httpx.org/quickstart/
             app.state.requests_client = httpx.Client()
 
@@ -157,6 +160,13 @@ class ApiServer:
                 self.app.state.llm.unload()
             if self.app.state.vision_llm:
                 self.app.state.vision_llm.unload()
+            if self.app.state.vision_embedder:
+                # Note: unload is async but we're in sync context, schedule it
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(self.app.state.vision_embedder.unload())
+                else:
+                    loop.run_until_complete(self.app.state.vision_embedder.unload())
 
             # Gracefully shutdown uvicorn server
             if self.server:

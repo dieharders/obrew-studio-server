@@ -386,55 +386,47 @@ def download_text_model(payload: classes.DownloadTextModelRequest):
             }
         )
 
-        # Check if this model has vision capabilities and auto-download mmproj
-        # @TODO Use the func download_mmproj() from vision route in place of this code.
+        # Download mmproj file if explicitly provided (for multimodal/vision models)
         mmproj_path = None
-        try:
-            model_config = get_model_install_config(repo_id)
-            models_dict = model_config.get("models", {})
-            model_info = models_dict.get(repo_id, {})
-            vision_config = model_info.get("vision", {})
+        mmproj_repo_id = payload.mmproj_repo_id
+        mmproj_filename = payload.mmproj_filename
 
-            if vision_config.get("enabled") and vision_config.get("mmproj"):
-                mmproj_info = vision_config["mmproj"]
-                mmproj_repo_id = mmproj_info.get("repoId")
-                mmproj_filename = mmproj_info.get("filename")
+        if mmproj_repo_id and mmproj_filename:
+            try:
+                print(
+                    f"{common.PRNT_API} Downloading mmproj: {mmproj_filename} from {mmproj_repo_id}",
+                    flush=True,
+                )
 
-                if mmproj_repo_id and mmproj_filename:
+                # Download mmproj file
+                hf_hub_download(
+                    repo_id=mmproj_repo_id,
+                    filename=mmproj_filename,
+                    cache_dir=cache_dir,
+                    resume_download=False,
+                )
+
+                # Get mmproj file path from cache
+                [mmproj_cache_info, mmproj_revisions] = common.scan_cached_repo(
+                    cache_dir=cache_dir, repo_id=mmproj_repo_id
+                )
+                mmproj_path = common.get_cached_blob_path(
+                    repo_revisions=mmproj_revisions, filename=mmproj_filename
+                )
+
+                # Save mmproj path to model metadata
+                if mmproj_path:
+                    common.save_mmproj_path(repo_id, mmproj_path)
                     print(
-                        f"{common.PRNT_API} Vision model detected, downloading mmproj: {mmproj_filename}",
+                        f"{common.PRNT_API} Saved mmproj to {mmproj_path}",
                         flush=True,
                     )
-
-                    # Download mmproj file
-                    hf_hub_download(
-                        repo_id=mmproj_repo_id,
-                        filename=mmproj_filename,
-                        cache_dir=cache_dir,
-                        resume_download=False,
-                    )
-
-                    # Get mmproj file path from cache
-                    [mmproj_cache_info, mmproj_revisions] = common.scan_cached_repo(
-                        cache_dir=cache_dir, repo_id=mmproj_repo_id
-                    )
-                    mmproj_path = common.get_cached_blob_path(
-                        repo_revisions=mmproj_revisions, filename=mmproj_filename
-                    )
-
-                    # Save mmproj path to model metadata
-                    if mmproj_path:
-                        common.save_mmproj_path(repo_id, mmproj_path)
-                        print(
-                            f"{common.PRNT_API} Saved mmproj to {mmproj_path}",
-                            flush=True,
-                        )
-        except Exception as mmproj_err:
-            # Don't fail the whole download if mmproj fails, just log it
-            print(
-                f"{common.PRNT_API} Warning: Could not auto-download mmproj: {mmproj_err}",
-                flush=True,
-            )
+            except Exception as mmproj_err:
+                # Don't fail the whole download if mmproj fails, just log it
+                print(
+                    f"{common.PRNT_API} Warning: Could not download mmproj: {mmproj_err}",
+                    flush=True,
+                )
 
         message = f"Saved model file to {file_path}."
         if mmproj_path:
@@ -467,6 +459,9 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
             cache_dir=cache_dir, repo_id=repo_id, filename=filename
         )
 
+        # Check if this model has an associated mmproj file to delete
+        mmproj_path = common.get_mmproj_path(repo_id)
+
         # Find model hash
         [model_cache_info, repo_revisions] = common.scan_cached_repo(
             cache_dir=cache_dir, repo_id=repo_id
@@ -484,6 +479,39 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
         # Delete install record from json file
         if freed_size != "0.0":
             common.delete_text_model_revisions(repo_id=repo_id)
+
+        # Also delete the mmproj file if it exists
+        # The mmproj may be in a different repo, so we need to delete it separately
+        if mmproj_path:
+            try:
+                # Try to extract repo info from the mmproj path and delete via HF cache
+                # Path format: .../models--org--repo/snapshots/hash/filename
+                if os.path.exists(mmproj_path):
+                    # Get the repo folder from the path
+                    path_parts = mmproj_path.split(os.sep)
+                    models_idx = next((i for i, p in enumerate(path_parts) if p.startswith("models--")), None)
+                    if models_idx is not None:
+                        repo_folder = path_parts[models_idx]  # e.g., "models--org--repo"
+                        mmproj_repo = repo_folder.replace("models--", "").replace("--", "/", 1)
+                        try:
+                            [mmproj_cache_info, mmproj_revisions] = common.scan_cached_repo(
+                                cache_dir=cache_dir, repo_id=mmproj_repo
+                            )
+                            mmproj_commit_hashes = [r.commit_hash for r in mmproj_revisions]
+                            if mmproj_commit_hashes:
+                                mmproj_delete_strategy = mmproj_cache_info.delete_revisions(*mmproj_commit_hashes)
+                                mmproj_delete_strategy.execute()
+                                print(f"{common.PRNT_API} Deleted mmproj repo: {mmproj_repo}", flush=True)
+                        except Exception:
+                            # If HF cache deletion fails, try simple file removal
+                            os.remove(mmproj_path)
+                            print(f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}", flush=True)
+                    else:
+                        # Fallback to simple file removal
+                        os.remove(mmproj_path)
+                        print(f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}", flush=True)
+            except Exception as mmproj_err:
+                print(f"{common.PRNT_API} Warning: Could not delete mmproj: {mmproj_err}", flush=True)
 
         return {
             "success": True,

@@ -20,8 +20,11 @@ from inference.classes import (
     DownloadMmprojRequest,
     VisionEmbedRequest,
     VisionEmbedLoadRequest,
+    DownloadVisionEmbedModelRequest,
+    DeleteVisionEmbedModelRequest,
 )
 from inference.helpers import decode_base64_image, cleanup_temp_images
+from .image_embedder import VISION_EMBEDDING_MODELS_CACHE_DIR
 
 
 def get_model_install_config(model_id: str = None) -> dict:
@@ -51,6 +54,10 @@ def get_model_install_config(model_id: str = None) -> dict:
 
 
 router = APIRouter()
+
+# ============================================================================
+# Image/Multi-Modal Inference Endpoints
+# ============================================================================
 
 
 # Download mmproj file for vision model
@@ -95,7 +102,7 @@ def download_mmproj(payload: DownloadMmprojRequest):
         raise HTTPException(status_code=400, detail=f"Failed to download mmproj: {err}")
 
 
-# Load vision model with mmproj
+# Load vision (inference) model with mmproj
 @router.post("/load")
 async def load_vision_model(
     request: Request,
@@ -150,7 +157,7 @@ async def load_vision_model(
         }
 
 
-# Unload vision model
+# Unload vision (inference) model
 @router.post("/unload")
 def unload_vision_model(request: Request):
     """Unload the currently loaded vision model."""
@@ -337,7 +344,7 @@ async def generate_vision(
             cleanup_temp_images(temp_image_paths)
 
 
-# Get currently loaded vision model info
+# Get currently loaded vision (inference) model info
 @router.get("/model")
 def get_vision_model(request: Request):
     """Get info about the currently loaded vision model."""
@@ -371,15 +378,15 @@ def get_vision_model(request: Request):
 
 
 # ============================================================================
-# Image Embedding Endpoints
+# Image/Multi-Modal Embedding Endpoints
 # ============================================================================
 
 
-def _get_image_embedder(app: classes.FastAPIApp) -> ImageEmbedder:
-    """Get or create the image embedder instance."""
-    if not hasattr(app.state, "image_embedder") or app.state.image_embedder is None:
-        app.state.image_embedder = ImageEmbedder(app)
-    return app.state.image_embedder
+def _get_vision_embedder(app: classes.FastAPIApp) -> ImageEmbedder:
+    """Get or create the vision embedder instance."""
+    if not hasattr(app.state, "vision_embedder") or app.state.vision_embedder is None:
+        app.state.vision_embedder = ImageEmbedder(app)
+    return app.state.vision_embedder
 
 
 @router.post("/embed/load")
@@ -394,7 +401,7 @@ async def load_embedding_model(
     app: classes.FastAPIApp = request.app
 
     try:
-        embedder = _get_image_embedder(app)
+        embedder = _get_vision_embedder(app)
 
         success = await embedder.load_model(
             model_path=data.model_path,
@@ -434,7 +441,7 @@ async def unload_embedding_model(request: Request):
     app: classes.FastAPIApp = request.app
 
     try:
-        embedder = _get_image_embedder(app)
+        embedder = _get_vision_embedder(app)
         await embedder.unload()
 
         return {
@@ -457,7 +464,7 @@ def get_embedding_model(request: Request):
     app: classes.FastAPIApp = request.app
 
     try:
-        embedder = _get_image_embedder(app)
+        embedder = _get_vision_embedder(app)
         info = embedder.get_model_info()
 
         return {
@@ -489,13 +496,7 @@ async def embed_image(
     temp_image_path = None
 
     try:
-        embedder = _get_image_embedder(app)
-
-        if not embedder.is_loaded:
-            raise HTTPException(
-                status_code=400,
-                detail="No embedding model loaded. Call /vision/embed/load first.",
-            )
+        embedder = _get_vision_embedder(app)
 
         # Get image path
         if payload.image_type == "base64":
@@ -525,7 +526,8 @@ async def embed_image(
         print(
             f"{common.PRNT_API} Creating embedding for image: {image_path}", flush=True
         )
-        embedding = await embedder.embed_image_from_path(image_path)
+        embeddings = await embedder.embed_images([image_path])
+        embedding = embeddings[0]
         embedding_dim = len(embedding)
 
         # Determine collection name
@@ -557,7 +559,6 @@ async def embed_image(
             metadata["transcription"] = transcription
 
         # Store in ChromaDB if vector storage is available
-        stored = False
         doc_id = str(uuid.uuid4())
 
         if hasattr(app.state, "db_client") and app.state.db_client:
@@ -577,7 +578,6 @@ async def embed_image(
                     documents=[transcription or ""],
                 )
 
-                stored = True
                 print(
                     f"{common.PRNT_API} Stored embedding in collection: {collection_name}",
                     flush=True,
@@ -588,11 +588,6 @@ async def embed_image(
                     flush=True,
                 )
 
-        # Unload embedding server if auto_unload is enabled
-        if payload.auto_unload:
-            print(f"{common.PRNT_API} Auto-unloading embedding server", flush=True)
-            await embedder.unload()
-
         return {
             "success": True,
             "message": "Image embedding created successfully",
@@ -601,7 +596,6 @@ async def embed_image(
                 "collection_name": collection_name,
                 "embedding_dim": embedding_dim,
                 "transcription": transcription,
-                "stored": stored,  # @TODO Why we need this prop?
                 "metadata": metadata,
             },
         }
@@ -620,3 +614,194 @@ async def embed_image(
                 os.unlink(temp_image_path)
             except Exception:
                 pass
+
+
+@router.post("/embed/download")
+def download_vision_embedding_model(payload: DownloadVisionEmbedModelRequest):
+    """
+    Download a vision embedding model (GGUF + mmproj) from HuggingFace.
+
+    This downloads both the main model file and the mmproj file required
+    for multimodal vision embeddings.
+    """
+    try:
+        repo_id = payload.repo_id
+        filename = payload.filename
+        mmproj_filename = payload.mmproj_filename
+        cache_dir = VISION_EMBEDDING_MODELS_CACHE_DIR
+
+        # Create cache directory if it doesn't exist
+        if not os.path.exists(cache_dir):
+            os.makedirs(cache_dir)
+
+        print(
+            f"{common.PRNT_API} Downloading vision embedding model: {repo_id}",
+            flush=True,
+        )
+
+        # Download main model file
+        print(f"{common.PRNT_API} Downloading model file: {filename}", flush=True)
+        hf_hub_download(
+            repo_id=repo_id,
+            filename=filename,
+            cache_dir=cache_dir,
+            resume_download=True,
+        )
+
+        # Download mmproj file
+        print(
+            f"{common.PRNT_API} Downloading mmproj file: {mmproj_filename}", flush=True
+        )
+        hf_hub_download(
+            repo_id=repo_id,
+            filename=mmproj_filename,
+            cache_dir=cache_dir,
+            resume_download=True,
+        )
+
+        # Get actual file paths from cache
+        [model_cache_info, repo_revisions] = common.scan_cached_repo(
+            cache_dir=cache_dir, repo_id=repo_id
+        )
+
+        model_path = common.get_cached_blob_path(
+            repo_revisions=repo_revisions, filename=filename
+        )
+        mmproj_path = common.get_cached_blob_path(
+            repo_revisions=repo_revisions, filename=mmproj_filename
+        )
+
+        if not isinstance(model_path, str):
+            raise Exception("Model path is not a string.")
+        if not isinstance(mmproj_path, str):
+            raise Exception("mmproj path is not a string.")
+
+        # Calculate total size
+        total_size = 0
+        if os.path.exists(model_path):
+            total_size += os.path.getsize(model_path)
+        if os.path.exists(mmproj_path):
+            total_size += os.path.getsize(mmproj_path)
+
+        # Save metadata
+        common.save_vision_embedding_model(
+            repo_id=repo_id,
+            model_path=model_path,
+            mmproj_path=mmproj_path,
+            size=total_size,
+        )
+
+        print(
+            f"{common.PRNT_API} Vision embedding model downloaded successfully",
+            flush=True,
+        )
+
+        return {
+            "success": True,
+            "message": f"Downloaded vision embedding model: {repo_id}",
+            "data": {
+                "repoId": repo_id,
+                "modelPath": model_path,
+                "mmprojPath": mmproj_path,
+                "size": total_size,
+            },
+        }
+    except Exception as err:
+        print(
+            f"{common.PRNT_API} Error downloading vision embedding model: {err}",
+            flush=True,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to download vision embedding model: {err}",
+        )
+
+
+@router.get("/embed/installed")
+def get_installed_vision_embedding_models():
+    """
+    Get list of all installed vision embedding models.
+
+    Returns the metadata for all vision embedding models that have been
+    downloaded, including repo ID, model path, mmproj path, and size.
+    """
+    try:
+        installed = common.get_installed_vision_embedding_models()
+        return {
+            "success": True,
+            "message": f"Found {len(installed)} installed vision embedding models",
+            "data": installed,
+        }
+    except Exception as err:
+        print(
+            f"{common.PRNT_API} Error getting installed vision embedding models: {err}",
+            flush=True,
+        )
+        return {
+            "success": False,
+            "message": f"Failed to get installed models: {err}",
+            "data": [],
+        }
+
+
+@router.post("/embed/delete")
+def delete_vision_embedding_model(payload: DeleteVisionEmbedModelRequest):
+    """
+    Delete a vision embedding model (GGUF + mmproj) from local storage.
+
+    This deletes both the main model file and the mmproj file, as well as
+    the metadata record.
+    """
+    try:
+        repo_id = payload.repo_id
+        cache_dir = VISION_EMBEDDING_MODELS_CACHE_DIR
+
+        print(
+            f"{common.PRNT_API} Deleting vision embedding model: {repo_id}",
+            flush=True,
+        )
+
+        # Get the model paths from metadata before deleting
+        model_path, mmproj_path = common.get_vision_embedding_model_path(repo_id)
+
+        # Delete files from HF cache using the cache deletion mechanism
+        try:
+            [model_cache_info, repo_revisions] = common.scan_cached_repo(
+                cache_dir=cache_dir, repo_id=repo_id
+            )
+            repo_commit_hashes = [r.commit_hash for r in repo_revisions]
+            if repo_commit_hashes:
+                delete_strategy = model_cache_info.delete_revisions(*repo_commit_hashes)
+                delete_strategy.execute()
+                freed_size = delete_strategy.expected_freed_size_str
+                print(f"{common.PRNT_API} Freed {freed_size} space.", flush=True)
+        except Exception as cache_err:
+            print(
+                f"{common.PRNT_API} Warning: Could not delete from HF cache: {cache_err}",
+                flush=True,
+            )
+            # Try direct file deletion as fallback
+            if model_path and os.path.exists(model_path):
+                os.remove(model_path)
+                print(f"{common.PRNT_API} Deleted model file: {model_path}", flush=True)
+            if mmproj_path and os.path.exists(mmproj_path):
+                os.remove(mmproj_path)
+                print(f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}", flush=True)
+
+        # Delete metadata record
+        common.delete_vision_embedding_model(repo_id)
+
+        return {
+            "success": True,
+            "message": f"Deleted vision embedding model: {repo_id}",
+            "data": None,
+        }
+    except Exception as err:
+        print(
+            f"{common.PRNT_API} Error deleting vision embedding model: {err}",
+            flush=True,
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to delete vision embedding model: {err}",
+        )

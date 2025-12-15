@@ -64,6 +64,7 @@ next-env.d.ts
 /tools
 /embed_models
 /text_models
+/vision_embed_models
 /output
 /installer
 /examples/models_cache

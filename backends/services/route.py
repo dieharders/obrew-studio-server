@@ -117,19 +117,38 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
     data.append(text_inference_api)
 
     # Return vision inference services
-    vison_inference_api = {
+    vision_inference_api = {
         "name": "vision",
         "port": app.state.api.SERVER_PORT,
         "endpoints": [
             # Vision to Text (New: mmproj) (Legacy: LLaVa or BakLLaVa)
+            # This assumes the base textInference GGUF is loaded already
             {
                 "name": "generate",
                 "urlPath": "/v1/vision/generate",
                 "method": "POST",
-            }
+            },
+            # Download a vision embedding model from HuggingFace
+            {
+                "name": "downloadEmbedModel",
+                "urlPath": "/v1/vision/embed/download",
+                "method": "POST",
+            },
+            # Delete a vision embedding model from local storage
+            {
+                "name": "deleteEmbedModel",
+                "urlPath": "/v1/vision/embed/delete",
+                "method": "POST",
+            },
+            # Get list of installed vision embedding models
+            {
+                "name": "installedEmbedModels",
+                "urlPath": "/v1/vision/embed/installed",
+                "method": "GET",
+            },
         ],
     }
-    data.append(vison_inference_api)
+    data.append(vision_inference_api)
 
     # Return persistent file storage services
     storage_api = {
