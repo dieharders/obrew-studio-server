@@ -128,6 +128,54 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
                 "urlPath": "/v1/vision/generate",
                 "method": "POST",
             },
+            # Load vision inference model with mmproj
+            {
+                "name": "load",
+                "urlPath": "/v1/vision/load",
+                "method": "POST",
+            },
+            # Unload vision inference model
+            {
+                "name": "unload",
+                "urlPath": "/v1/vision/unload",
+                "method": "POST",
+            },
+            # Get currently loaded vision model info
+            {
+                "name": "model",
+                "urlPath": "/v1/vision/model",
+                "method": "GET",
+            },
+            # Download mmproj file for vision model
+            {
+                "name": "downloadMmproj",
+                "urlPath": "/v1/vision/download/mmproj",
+                "method": "POST",
+            },
+            # Load a vision embedding model
+            {
+                "name": "loadEmbedModel",
+                "urlPath": "/v1/vision/embed/load",
+                "method": "POST",
+            },
+            # Unload vision embedding model
+            {
+                "name": "unloadEmbedModel",
+                "urlPath": "/v1/vision/embed/unload",
+                "method": "POST",
+            },
+            # Get currently loaded vision embedding model info
+            {
+                "name": "getEmbedModel",
+                "urlPath": "/v1/vision/embed/model",
+                "method": "GET",
+            },
+            # Create embedding for an image
+            {
+                "name": "embed",
+                "urlPath": "/v1/vision/embed",
+                "method": "POST",
+            },
             # Download a vision embedding model from HuggingFace
             {
                 "name": "downloadEmbedModel",
