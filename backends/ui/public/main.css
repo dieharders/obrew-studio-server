@@ -615,6 +615,7 @@
   display: flex;
   flex-direction: row;
   padding: 1.5rem;
+  padding-bottom: 0.5rem;
   border-left: transparent;
   border-right: transparent;
   border-top: transparent;
