@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from inference.agent import Agent
 from .llama_cpp import LLAMA_CPP
 from core import classes, common
+from core.common import get_model_install_config, get_prompt_formats
 from huggingface_hub import (
     hf_hub_download,
     get_hf_file_metadata,
@@ -20,46 +21,6 @@ from inference.classes import (
     SSEResponse,
 )
 from updater import get_gpu_details
-
-
-def get_model_install_config(model_id: str = None) -> dict:
-    try:
-        # Get the config for the model
-        config_path = common.dep_path(os.path.join("public", "text_model_configs.json"))
-        with open(config_path, "r") as file:
-            text_models = json.load(file)
-            if not model_id:
-                return dict(models=text_models)
-            config = text_models[model_id]
-            message_format = config["messageFormat"]
-            model_name = config["name"]
-            tags = config.get("tags")
-            repoId = config.get("repoId", "")
-            description = config.get("description", "")
-            return dict(
-                message_format=message_format,
-                description=description,
-                id=repoId,
-                model_name=model_name,
-                models=text_models,
-                tags=tags,
-            )
-    except Exception as err:
-        raise Exception(f"Error finding models list: {err}")
-
-
-def get_prompt_formats(message_format: str) -> dict:
-    try:
-        # Get the file for the templates
-        prompt_formats_path = common.dep_path(
-            os.path.join("public", "prompt_formats.json")
-        )
-        with open(prompt_formats_path, "r") as file:
-            templates = json.load(file)
-            message_template = templates[message_format]
-            return message_template
-    except Exception as err:
-        raise Exception(f"Error finding prompt format templates: {err}")
 
 
 router = APIRouter()

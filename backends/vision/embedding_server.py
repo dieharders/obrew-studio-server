@@ -186,14 +186,8 @@ class EmbeddingServer:
         # Format based on llama.cpp multimodal embedding API
         # The content must contain image placeholder [img-N] and image_data array with matching id
         content = f"[img-1]{f' {prompt}' if prompt else ''}"
-        payload = {
-            "content": content,
-            "image_data": [
-                {"id": 1, "data": image_base64}
-            ]
-        }
+        payload = {"content": content, "image_data": [{"id": 1, "data": image_base64}]}
 
-        # @TODO Dont call http, send commands directly to the binary process for the server
         async with httpx.AsyncClient() as client:
             try:
                 response = await client.post(
@@ -251,12 +245,3 @@ class EmbeddingServer:
             embeddings.append(embedding)
 
         return embeddings
-
-    async def get_embedding_dim(self) -> int:
-        """
-        Get the embedding dimension from the model.
-        Sends a minimal request to determine dimension.
-        """
-        # This would require a test embedding - for now return 0
-        # The actual dimension depends on the model
-        return 0

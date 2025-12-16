@@ -1013,3 +1013,41 @@ def check_open_port(p: int) -> int:
         return port
     except:
         return 0
+
+
+def get_model_install_config(model_id: str = None) -> dict:
+    """Get model installation config from text_model_configs.json"""
+    try:
+        config_path = dep_path(os.path.join("public", "text_model_configs.json"))
+        with open(config_path, "r") as file:
+            text_models = json.load(file)
+            if not model_id:
+                return dict(models=text_models)
+            config = text_models[model_id]
+            message_format = config["messageFormat"]
+            model_name = config["name"]
+            tags = config.get("tags")
+            repoId = config.get("repoId", "")
+            description = config.get("description", "")
+            return dict(
+                message_format=message_format,
+                description=description,
+                id=repoId,
+                model_name=model_name,
+                models=text_models,
+                tags=tags,
+            )
+    except Exception as err:
+        raise Exception(f"Error finding models list: {err}")
+
+
+def get_prompt_formats(message_format: str) -> dict:
+    """Get prompt format template from prompt_formats.json"""
+    try:
+        prompt_formats_path = dep_path(os.path.join("public", "prompt_formats.json"))
+        with open(prompt_formats_path, "r") as file:
+            templates = json.load(file)
+            message_template = templates[message_format]
+            return message_template
+    except Exception as err:
+        raise Exception(f"Error finding prompt format templates: {err}")
