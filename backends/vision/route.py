@@ -450,15 +450,13 @@ async def embed_image(
             if not collection_name or collection_name[0].isdigit():
                 collection_name = f"images_{collection_name}"
 
-        # Prepare metadata
+        # Prepare metadata (embedding_model and embedding_dim are stored at collection level)
         source_file_name = Path(image_path).name
         metadata = {
             "type": "image",
             "source_file_name": source_file_name,
             "source_file_path": payload.image_path or "base64_upload",
             "created_at": datetime.now().isoformat(),
-            "embedding_model": embedding_model_name,
-            "embedding_dim": embedding_dim,
         }
 
         # Add transcription to metadata if available
@@ -476,9 +474,14 @@ async def embed_image(
         if app.state.db_client:
             try:
                 # Get or create collection
+                # Store embedding_model and embedding_dim at collection level for validation
                 collection = app.state.db_client.get_or_create_collection(
                     name=collection_name,
-                    metadata={"type": "image_embeddings"},
+                    metadata={
+                        "type": "image_embeddings",
+                        "embedding_model": embedding_model_name,
+                        "embedding_dim": embedding_dim,
+                    },
                 )
 
                 # Add to collection
@@ -506,6 +509,7 @@ async def embed_image(
             "data": {
                 "id": doc_id,
                 "collection_name": collection_name,
+                "embedding_model": embedding_model_name,
                 "embedding_dim": embedding_dim,
                 "transcription": transcription,
                 "metadata": metadata,
@@ -805,8 +809,34 @@ async def query_image_collection(
         # Capture model info for response
         query_model_name = embedder.model_name or "unknown"
 
+        # Capture query embedding dimension
+        query_embedding_dim = len(query_embedding)
+
+        # Validate model consistency: the query model should match the collection's embedding model
+        collection_embedding_model = collection.metadata.get("embedding_model")
+        if collection_embedding_model and collection_embedding_model != query_model_name:
+            print(
+                f"{common.PRNT_API} Warning: Model mismatch! Collection was embedded with "
+                f"'{collection_embedding_model}' but querying with '{query_model_name}'. "
+                f"Results may be inaccurate.",
+                flush=True,
+            )
+
+        # Validate embedding dimension consistency
+        collection_embedding_dim = collection.metadata.get("embedding_dim")
+        if collection_embedding_dim and collection_embedding_dim != query_embedding_dim:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Embedding dimension mismatch: collection '{payload.collection_name}' "
+                    f"has dimension {collection_embedding_dim}, but query embedding has "
+                    f"dimension {query_embedding_dim}. Use the same model that created "
+                    f"the collection embeddings."
+                ),
+            )
+
         print(
-            f"{common.PRNT_API} Query embedding dimension: {len(query_embedding)}",
+            f"{common.PRNT_API} Query embedding dimension: {query_embedding_dim}",
             flush=True,
         )
 
@@ -832,12 +862,17 @@ async def query_image_collection(
         )
 
         for i, doc_id in enumerate(ids):
+            # Calculate similarity score from distance
+            # ChromaDB uses L2 (squared Euclidean) distance by default, which is unbounded [0, inf)
+            # Using 1/(1+distance) gives a bounded similarity score in [0, 1]
+            # where 0 distance = 1.0 (identical) and higher distance approaches 0
+            distance = distances[i] if i < len(distances) else None
+            similarity_score = 1.0 / (1.0 + distance) if distance is not None else None
+
             result_item = {
                 "id": doc_id,
-                "distance": distances[i] if i < len(distances) else None,
-                "similarity_score": (
-                    1.0 - distances[i] if i < len(distances) else None
-                ),  # Convert distance to similarity
+                "distance": distance,
+                "similarity_score": similarity_score,
                 "metadata": metadatas[i] if i < len(metadatas) else {},
                 "document": (
                     documents[i] if i < len(documents) else None
@@ -854,14 +889,28 @@ async def query_image_collection(
             flush=True,
         )
 
+        # Build response with optional model mismatch warning
+        model_mismatch = (
+            collection_embedding_model
+            and collection_embedding_model != query_model_name
+        )
+        message = f"Found {len(formatted_results)} matching images"
+        if model_mismatch:
+            message += (
+                f" (Warning: model mismatch - collection uses '{collection_embedding_model}', "
+                f"query uses '{query_model_name}')"
+            )
+
         return {
             "success": True,
-            "message": f"Found {len(formatted_results)} matching images",
+            "message": message,
             "data": {
                 "query": payload.query,
                 "collection_name": payload.collection_name,
                 "query_model": query_model_name,
-                "query_embedding_dim": len(query_embedding),
+                "collection_model": collection_embedding_model,
+                "model_mismatch": model_mismatch,
+                "embedding_dim": query_embedding_dim,
                 "results": formatted_results,
                 "total_in_collection": collection.count(),
             },
