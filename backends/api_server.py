@@ -153,21 +153,39 @@ class ApiServer:
         self._add_routes(app_inst)
         return app_inst
 
+    def _run_async_cleanup(self, coro):
+        """
+        Helper to run async cleanup coroutines from sync context.
+        Creates a new event loop if needed to ensure completion.
+        """
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If loop is running, we need to run in a new thread with its own loop
+                import concurrent.futures
+
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, coro)
+                    future.result(timeout=10.0)  # Wait up to 10s for cleanup
+            else:
+                loop.run_until_complete(coro)
+        except Exception as e:
+            print(
+                f"{common.PRNT_API} Async cleanup error (non-fatal): {e}",
+                flush=True,
+            )
+
     def shutdown(self, *args):
         try:
             print(f"{common.PRNT_API} Server forced to shutdown.", flush=True)
             if self.app.state.llm:
                 self.app.state.llm.unload()
             if self.app.state.vision_llm:
-                self.app.state.vision_llm.unload()
+                # vision_llm.unload() is now async
+                self._run_async_cleanup(self.app.state.vision_llm.unload())
             if self.app.state.vision_embedder:
-                # Note: unload is async but we're in sync context, schedule it
-                # This is done b/c our embedder is running in a binary that spawns a server.
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    asyncio.create_task(self.app.state.vision_embedder.unload())
-                else:
-                    loop.run_until_complete(self.app.state.vision_embedder.unload())
+                # vision_embedder.unload() is async (spawns a server process)
+                self._run_async_cleanup(self.app.state.vision_embedder.unload())
 
             # Gracefully shutdown uvicorn server
             if self.server:

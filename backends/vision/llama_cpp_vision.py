@@ -22,6 +22,15 @@ from inference.classes import (
     DEFAULT_CONTEXT_WINDOW,
 )
 
+# Minimum content length before checking for CLI turn marker (">").
+# This prevents early termination on ">" characters that appear in the model's
+# actual output (e.g., in code snippets, comparisons, or quoted text).
+# Only after this many characters do we consider ">" as a potential end marker.
+MIN_CONTENT_LENGTH_FOR_CLI_MARKER = 100
+
+# Timeout in seconds for waiting on process termination during cleanup
+PROCESS_TERMINATION_TIMEOUT = 5.0
+
 
 # @TODO Wondering if this could be merged or share code with llama_cpp ?
 class LLAMA_CPP_VISION:
@@ -103,7 +112,7 @@ class LLAMA_CPP_VISION:
         }
         self._generate_kwargs = kwargs
 
-    def unload(self):
+    async def unload(self):
         """Shutdown vision inference instance"""
         try:
             if self.task_logging:
@@ -114,6 +123,17 @@ class LLAMA_CPP_VISION:
                     flush=True,
                 )
                 self.process.kill()
+                # Wait for process to fully terminate to avoid zombie processes
+                try:
+                    await asyncio.wait_for(
+                        self.process.wait(), timeout=PROCESS_TERMINATION_TIMEOUT
+                    )
+                except asyncio.TimeoutError:
+                    print(
+                        f"{common.PRNT_LLAMA_LOG} Process did not terminate within "
+                        f"{PROCESS_TERMINATION_TIMEOUT}s timeout",
+                        flush=True,
+                    )
         except ProcessLookupError as e:
             print(f"{common.PRNT_LLAMA_LOG} Could not find process to kill: {e}")
         except Exception as e:
@@ -285,7 +305,9 @@ class LLAMA_CPP_VISION:
 
                 byte_text = decoder.decode(byte)
             except (UnicodeEncodeError, UnicodeDecodeError) as e:
-                print(f"{common.PRNT_LLAMA} Decode error (skipping byte): {e}", flush=True)
+                print(
+                    f"{common.PRNT_LLAMA} Decode error (skipping byte): {e}", flush=True
+                )
                 continue
 
             # Check for end of sequence
@@ -295,7 +317,7 @@ class LLAMA_CPP_VISION:
 
             # Check for CLI turn marker (only after we have some content)
             # This prevents breaking on ">" characters in the model's output
-            if byte_text == ">" and len(content) > 100:
+            if byte_text == ">" and len(content) > MIN_CONTENT_LENGTH_FOR_CLI_MARKER:
                 break_reason = "cli_marker"
                 break
 
@@ -365,5 +387,8 @@ class LLAMA_CPP_VISION:
             # Process already terminated, this is fine
             self.process = None
         except Exception as cleanup_err:
-            print(f"{common.PRNT_LLAMA} Cleanup error (non-fatal): {cleanup_err}", flush=True)
+            print(
+                f"{common.PRNT_LLAMA} Cleanup error (non-fatal): {cleanup_err}",
+                flush=True,
+            )
             self.process = None

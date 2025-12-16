@@ -248,6 +248,7 @@ class ImageEmbedder:
         self,
         image_paths: List[str],
         prompts: Optional[List[str]] = None,
+        auto_unload: bool = True,
     ) -> List[List[float]]:
         """
         Create embeddings for one or more images.
@@ -255,6 +256,9 @@ class ImageEmbedder:
         Args:
             image_paths: List of image file paths (can be single item)
             prompts: Optional list of prompts (one per image)
+            auto_unload: Whether to unload the model after embedding (default True).
+                         Set to False when embedding multiple batches sequentially
+                         to avoid the overhead of reloading the model each time.
 
         Returns:
             List of embedding vectors
@@ -274,8 +278,8 @@ class ImageEmbedder:
 
             return await self.server.embed_images_batch(images_base64, prompts)
         finally:
-            # Always unload model after embedding operation
-            await self.unload()
+            if auto_unload:
+                await self.unload()
 
     def get_model_info(self) -> dict:
         """Get information about the currently loaded model."""

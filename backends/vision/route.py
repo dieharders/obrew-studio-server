@@ -23,7 +23,11 @@ from inference.classes import (
     DownloadVisionEmbedModelRequest,
     DeleteVisionEmbedModelRequest,
 )
-from inference.helpers import decode_base64_image, cleanup_temp_images, preprocess_image
+from inference.helpers import (
+    decode_base64_image,
+    cleanup_temp_images,
+    preprocess_image,
+)
 from .image_embedder import VISION_EMBEDDING_MODELS_CACHE_DIR
 from embeddings.vector_storage import Vector_Storage
 
@@ -126,7 +130,7 @@ async def load_vision_model(
         # Unload existing vision model if present
         if hasattr(app.state, "vision_llm") and app.state.vision_llm:
             print(f"{common.PRNT_API} Ejecting current vision model")
-            app.state.vision_llm.unload()
+            await app.state.vision_llm.unload()
             app.state.vision_llm = None
 
         # Get model config
@@ -160,12 +164,12 @@ async def load_vision_model(
 
 # Unload vision (inference) model
 @router.post("/unload")
-def unload_vision_model(request: Request):
+async def unload_vision_model(request: Request):
     """Unload the currently loaded vision model."""
     try:
         app: classes.FastAPIApp = request.app
         if hasattr(app.state, "vision_llm") and app.state.vision_llm:
-            app.state.vision_llm.unload()
+            await app.state.vision_llm.unload()
         app.state.vision_llm = None
         return {
             "success": True,

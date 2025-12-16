@@ -94,24 +94,6 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
                 "urlPath": "/v1/text/delete",
                 "method": "POST",
             },
-            # llama.cpp offers native embedding too
-            # {
-            #     "name": "embedding",
-            #     "urlPath": "/v1/text/embedding",
-            #     "method": "POST",
-            # },
-            # Structured Data Extraction
-            # {
-            #     "name": "extraction",
-            #     "urlPath": "/v1/text/extraction",
-            #     "method": "POST",
-            # },
-            # Code completion via Copilot
-            # {
-            #     "name": "copilot",
-            #     "urlPath": "/v1/text/copilot",
-            #     "method": "POST",
-            # },
         ],
     }
     data.append(text_inference_api)
