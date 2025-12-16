@@ -312,14 +312,6 @@ class LoadVisionInferenceRequest(BaseModel):
     call: LoadTextInferenceCall
 
 
-class DownloadMmprojRequest(BaseModel):
-    """Request to download mmproj file for vision model."""
-
-    repo_id: str  # HuggingFace repo containing mmproj
-    filename: str  # mmproj filename
-    model_repo_id: str  # Parent model repo ID to link mmproj to
-
-
 # Image Embedding classes
 class VisionEmbedRequest(BaseModel):
     """Request to create embedding for an image and store in ChromaDB."""

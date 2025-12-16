@@ -17,7 +17,6 @@ from inference.classes import (
     SSEResponse,
     VisionInferenceRequest,
     LoadVisionInferenceRequest,
-    DownloadMmprojRequest,
     VisionEmbedRequest,
     VisionEmbedLoadRequest,
     DownloadVisionEmbedModelRequest,
@@ -37,48 +36,6 @@ router = APIRouter()
 # ============================================================================
 # Image/Multi-Modal Inference Endpoints
 # ============================================================================
-
-
-# Download mmproj file for vision model
-@router.post("/download/mmproj")
-def download_mmproj(payload: DownloadMmprojRequest):
-    """Download mmproj (multimodal projector) file for vision model."""
-    try:
-        repo_id = payload.repo_id
-        filename = payload.filename
-        model_repo_id = payload.model_repo_id
-        cache_dir = common.app_path(common.TEXT_MODELS_CACHE_DIR)
-
-        # Download mmproj file
-        hf_hub_download(
-            repo_id=repo_id,
-            filename=filename,
-            cache_dir=cache_dir,
-            resume_download=False,
-        )
-
-        # Get actual file path from cache
-        [model_cache_info, repo_revisions] = common.scan_cached_repo(
-            cache_dir=cache_dir, repo_id=repo_id
-        )
-        file_path = common.get_cached_blob_path(
-            repo_revisions=repo_revisions, filename=filename
-        )
-
-        if not isinstance(file_path, str):
-            raise Exception("mmproj path is not a string.")
-
-        # Save mmproj path to model metadata
-        common.save_mmproj_path(model_repo_id=model_repo_id, mmproj_path=file_path)
-
-        return {
-            "success": True,
-            "message": f"Downloaded mmproj to {file_path}",
-            "data": {"mmprojPath": file_path},
-        }
-    except Exception as err:
-        print(f"{common.PRNT_API} Error downloading mmproj: {err}", flush=True)
-        raise HTTPException(status_code=400, detail=f"Failed to download mmproj: {err}")
 
 
 # Load vision (inference) model with mmproj

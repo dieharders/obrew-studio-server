@@ -128,12 +128,6 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
                 "urlPath": "/v1/vision/model",
                 "method": "GET",
             },
-            # Download mmproj file for vision model
-            {
-                "name": "downloadMmproj",
-                "urlPath": "/v1/vision/download/mmproj",
-                "method": "POST",
-            },
             # Load a vision embedding model
             {
                 "name": "loadEmbedModel",
