@@ -388,3 +388,25 @@ class DeleteVisionEmbedModelRequest(BaseModel):
     """Request to delete a vision embedding model."""
 
     repo_id: str  # HuggingFace repo ID
+
+
+class VisionEmbedQueryRequest(BaseModel):
+    """Request to query/search an image collection using text."""
+
+    query: str  # Text query to search for
+    collection_name: str  # ChromaDB collection to search
+    top_k: Optional[int] = 5  # Number of results to return
+    include_embeddings: Optional[bool] = False  # Include embedding vectors in response
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "query": "a red sports car on a mountain road",
+                    "collection_name": "my_images",
+                    "top_k": 5,
+                    "include_embeddings": False,
+                }
+            ]
+        }
+    }

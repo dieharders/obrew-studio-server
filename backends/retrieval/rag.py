@@ -1,6 +1,7 @@
 import os
 import json
-from typing import Awaitable, List, Callable
+import asyncio
+from typing import Awaitable, List, Callable, Union
 from chromadb import Collection
 from inference.classes import AgentOutput
 from inference.helpers import apply_query_template
@@ -11,7 +12,9 @@ class RAG:
     def __init__(
         self,
         collection: Collection,
-        embed_fn: Callable[[str], List[float]],
+        embed_fn: Union[
+            Callable[[str], List[float]], Callable[[str], Awaitable[List[float]]]
+        ],
         llm_fn: Awaitable[AgentOutput],
     ):
         self.embed_fn = embed_fn
@@ -28,6 +31,14 @@ class RAG:
         except Exception as err:
             raise Exception(f"Error finding prompt format templates: {err}")
 
+    async def _get_embedding(self, text: str) -> List[float]:
+        """Get embedding, handling both sync and async embed_fn."""
+        result = self.embed_fn(text)
+        # If embed_fn returned a coroutine, await it
+        if asyncio.iscoroutine(result):
+            return await result
+        return result
+
     async def query(self) -> AgentOutput:
         return {"text": ""}
 
@@ -43,7 +54,8 @@ class SimpleRAG(RAG):
         template: str = None,
         top_k: int = 5,
     ) -> AgentOutput:
-        query_embedding = self.embed_fn(question)
+        # Use _get_embedding to handle both sync and async embed functions
+        query_embedding = await self._get_embedding(question)
         results = self.collection.query(
             query_embeddings=[query_embedding], n_results=top_k
         )

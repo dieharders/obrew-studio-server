@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Callable, Union, Awaitable
 from chromadb import Collection
 from pydantic import BaseModel, Field
 from core import common
@@ -11,6 +11,22 @@ from embeddings.rag_response_synthesis import (
     RESPONSE_SYNTHESIS_DESCRIPTIONS,
 )
 from inference.helpers import read_event_data
+from vision.image_embedder import ImageEmbedder
+
+# Type alias for embed functions (sync or async)
+EmbedFnType = Union[Callable[[str], List[float]], Callable[[str], Awaitable[List[float]]]]
+
+
+def _create_vision_embed_fn(vision_embedder: ImageEmbedder) -> EmbedFnType:
+    """
+    Create an async embed function for the vision embedder.
+    Defined outside loop to avoid closure issues with loop variables.
+    """
+
+    async def vision_embed_fn(text: str) -> List[float]:
+        return await vision_embedder.embed_query_text(text, auto_unload=False)
+
+    return vision_embed_fn
 
 
 # Client uses `options_source` to fetch the available options to select from.
@@ -136,34 +152,60 @@ async def main(**kwargs: Params) -> str:
 
     # Loop thru each collection and return results
     cumulative_answer = ""
-    for selected_collection in collections:
-        # Pass in the embed model based on the one used by the target collection
-        embed_model_name = selected_collection.metadata.get("embedding_model")
-        embedder = Embedder(app=app, embed_model=embed_model_name)
+    vision_embedder: ImageEmbedder | None = None  # Lazy-init vision embedder if needed
 
-        # Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
-        # @TODO Perform the different "strategies" done by llama-index (tree-summarize, etc)
-        match strategy:
-            case RESPONSE_SYNTHESIS_MODES.CONTEXT_ONLY.value:
-                retriever = SimpleRAG(
-                    collection=selected_collection,
-                    embed_fn=embedder.embed_text,
-                    llm_fn=llm_func,
-                )
-            case _:
-                retriever = SimpleRAG(
-                    collection=selected_collection,
-                    embed_fn=embedder.embed_text,
-                    llm_fn=llm_func,
-                )
+    try:
+        for selected_collection in collections:
+            # Detect collection type and use appropriate embedder
+            collection_type = selected_collection.metadata.get("type", "")
+            embed_model_name = selected_collection.metadata.get("embedding_model")
+            embed_fn: EmbedFnType
 
-        # Query
-        result = await retriever.query(
-            question=query or "",
-            # system_message=system_message, # overridden internally
-            # template=template, # overridden internally
-            top_k=similarity_top_k or 5,
-        )
-        answer = result.get("text")
-        cumulative_answer += f"\n\n{answer}"
-    return cumulative_answer.strip()
+            if collection_type == "image_embeddings":
+                # Use vision embedder for image collections
+                print(
+                    f"{common.PRNT_RAG} Detected image collection, using vision embedder",
+                    flush=True,
+                )
+                if vision_embedder is None:
+                    vision_embedder = ImageEmbedder(app)
+
+                # Use factory function to avoid closure issues in loop
+                embed_fn = _create_vision_embed_fn(vision_embedder)
+            else:
+                # Use text embedder for text collections
+                embedder = Embedder(app=app, embed_model=embed_model_name)
+                embed_fn = embedder.embed_text
+
+            # Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
+            # @TODO Perform the different "strategies" done by llama-index (tree-summarize, etc)
+            match strategy:
+                case RESPONSE_SYNTHESIS_MODES.CONTEXT_ONLY.value:
+                    retriever = SimpleRAG(
+                        collection=selected_collection,
+                        embed_fn=embed_fn,
+                        llm_fn=llm_func,
+                    )
+                case _:
+                    retriever = SimpleRAG(
+                        collection=selected_collection,
+                        embed_fn=embed_fn,
+                        llm_fn=llm_func,
+                    )
+
+            # Query
+            result = await retriever.query(
+                question=query or "",
+                # system_message=system_message, # overridden internally
+                # template=template, # overridden internally
+                top_k=similarity_top_k or 5,
+            )
+            answer = result.get("text")
+            cumulative_answer += f"\n\n{answer}"
+
+        return cumulative_answer.strip()
+
+    finally:
+        # Cleanup: always unload vision embedder if it was used, even on exception
+        if vision_embedder is not None:
+            await vision_embedder.unload()

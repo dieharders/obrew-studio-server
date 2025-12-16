@@ -285,6 +285,42 @@ class ImageEmbedder:
             if auto_unload:
                 await self.unload()
 
+    async def embed_query_text(
+        self,
+        text: str,
+        auto_unload: bool = False,
+    ) -> List[float]:
+        """
+        Create embedding for a text query using the vision embedding model.
+
+        This is used for querying image collections - the same model that created
+        the image embeddings must be used to ensure embeddings are compatible.
+
+        Args:
+            text: Text string to embed (e.g., search query)
+            auto_unload: Whether to unload the model after embedding (default False).
+                         For query operations, False is preferred since multiple
+                         queries may be performed in sequence.
+
+        Returns:
+            List of floats representing the text embedding vector
+        """
+        try:
+            # Auto-load model if not loaded
+            await self._ensure_model_loaded()
+
+            print(
+                f"{LOG_PREFIX} Creating text embedding for query: {text[:100]}...",
+                flush=True,
+            )
+
+            embedding = await self.server.embed_query_text(text)
+            return embedding
+
+        finally:
+            if auto_unload:
+                await self.unload()
+
     def get_model_info(self) -> dict:
         """Get information about the currently loaded model."""
         if not self.is_loaded:

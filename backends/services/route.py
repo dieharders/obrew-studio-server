@@ -152,6 +152,12 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
                 "urlPath": "/v1/vision/embed",
                 "method": "POST",
             },
+            # Query an image collection using text similarity search
+            {
+                "name": "queryImages",
+                "urlPath": "/v1/vision/embed/query",
+                "method": "POST",
+            },
             # Download a vision embedding model from HuggingFace
             {
                 "name": "downloadEmbedModel",
