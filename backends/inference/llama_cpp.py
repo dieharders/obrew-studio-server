@@ -748,7 +748,12 @@ class LLAMA_CPP:
                     self.process.terminate()
                 self.process = None
         except ProcessLookupError:
-            # Process already terminated, this is fine
+            # Process already terminated - expected after clean completion
+            if self.debug:
+                print(
+                    f"{common.PRNT_LLAMA} Process already terminated (clean exit)",
+                    flush=True,
+                )
             self.process = None
         except Exception as cleanup_err:
             print(

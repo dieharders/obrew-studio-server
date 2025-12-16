@@ -155,17 +155,14 @@ class ApiServer:
     def _run_async_cleanup(self, coro):
         """
         Helper to run async cleanup coroutines from sync context.
-        Creates a new event loop if needed to ensure completion.
+        Uses run_coroutine_threadsafe for proper integration with running loops.
         """
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                # If loop is running, we need to run in a new thread with its own loop
-                import concurrent.futures
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, coro)
-                    future.result(timeout=10.0)  # Wait up to 10s for cleanup
+                # Schedule coroutine on the running loop from this sync context
+                future = asyncio.run_coroutine_threadsafe(coro, loop)
+                future.result(timeout=10.0)  # Wait up to 10s for cleanup
             else:
                 loop.run_until_complete(coro)
         except Exception as e:

@@ -268,6 +268,10 @@ class ImageEmbedder:
             await self._ensure_model_loaded()
 
             # Encode all images
+            # NOTE: This uses blocking file I/O which can block the event loop for large
+            # images. For high-throughput scenarios, consider using aiofiles or
+            # asyncio.to_thread() to avoid blocking. Currently acceptable for typical
+            # single-image embedding requests.
             images_base64 = []
             for path in image_paths:
                 if not os.path.exists(path):

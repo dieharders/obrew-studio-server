@@ -149,6 +149,10 @@ async def generate_vision(
                 "Use /vision/load to load a model with mmproj."
             )
 
+        # Validate images array is not empty
+        if not payload.images:
+            raise HTTPException(status_code=400, detail="No images provided")
+
         # Build override args from vision request (don't use generate_kwargs setter
         # since VisionInferenceRequest has different fields than InferenceRequest)
         override_args = {
