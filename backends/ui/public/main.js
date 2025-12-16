@@ -2,6 +2,17 @@
 let serverStartTime = null
 let uptimeInterval = null
 
+// ==================== CONNECTION OPTIONS TOGGLE ====================
+function toggleConnectionOptions() {
+  const content = document.getElementById('connectionOptionsContent')
+  const chevron = document.getElementById('connectionChevron')
+
+  if (content && chevron) {
+    content.classList.toggle('expanded')
+    chevron.classList.toggle('rotate')
+  }
+}
+
 // ==================== MODAL FUNCTIONS ====================
 // Store the element that triggered the modal for focus restoration
 let previousActiveElement = null

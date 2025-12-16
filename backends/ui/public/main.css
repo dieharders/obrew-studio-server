@@ -469,9 +469,7 @@
   width: 120px;
   height: 120px;
   cursor: pointer;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   border-radius: 0.375rem;
   border: 1px solid transparent;
 }
@@ -532,11 +530,63 @@
 
 .chevron {
   transition: transform 0.3s ease;
-  margin-left: 0.5rem;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .chevron.rotate {
   transform: rotate(180deg);
+}
+
+.form-header.form-header-collapsible {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s ease;
+  border-radius: 0.75rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+}
+
+.form-header-collapsible:hover {
+  background-color: #f8f9fa;
+}
+
+.form-header-collapsible .chevron {
+  margin: 0;
+}
+
+.form-header-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 100%;
+}
+
+.form-content.collapsible {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease, padding 0.3s ease, border-color 0.3s ease;
+  padding: 0;
+  border-top: 1px solid transparent;
+  margin: 0 1rem;
+}
+
+.form-content.collapsible .form-grid {
+  padding: 0 1.5rem;
+  opacity: 0;
+  transition: opacity 0.2s ease, padding 0.3s ease;
+}
+
+.form-content.collapsible.expanded {
+  max-height: 200px;
+  border-top-color: #e5e7eb;
+}
+
+.form-content.collapsible.expanded .form-grid {
+  padding: 1.5rem;
+  opacity: 1;
 }
 
 .advanced-options-container {
