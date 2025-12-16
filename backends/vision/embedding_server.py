@@ -14,6 +14,57 @@ from core import common
 LOG_PREFIX = f"{common.bcolors.OKCYAN}[IMAGE-EMBED-SERVER]{common.bcolors.ENDC}"
 
 
+def _normalize_embedding(embedding: List) -> List[float]:
+    """
+    Normalize embeddings that may be nested (e.g., per-token embeddings from VLMs).
+
+    For vision-language models like Qwen2-VL, the embedding endpoint may return
+    embeddings for each image patch/token. This function averages them into a
+    single vector suitable for vector database storage.
+
+    Args:
+        embedding: May be a flat list of floats, or nested list of lists
+
+    Returns:
+        A flat list of floats representing the embedding vector
+    """
+    if not embedding:
+        return embedding
+
+    # Check if it's already flat (list of numbers)
+    if isinstance(embedding[0], (int, float)):
+        return embedding
+
+    # It's nested - could be [[...]] or [[[...]]] etc.
+    # Unwrap until we get to the actual vectors
+    vectors = embedding
+    while vectors and isinstance(vectors[0], list) and len(vectors[0]) > 0:
+        if isinstance(vectors[0][0], (int, float)):
+            # vectors is now a list of embedding vectors
+            break
+        vectors = vectors[0]
+
+    # Now vectors should be a list of embedding vectors
+    if not vectors or not isinstance(vectors[0], list):
+        # Couldn't parse, return as-is
+        print(f"{LOG_PREFIX} Warning: Could not normalize embedding structure", flush=True)
+        return embedding
+
+    # Average pool all vectors into a single embedding
+    num_vectors = len(vectors)
+    vector_dim = len(vectors[0])
+
+    print(f"{LOG_PREFIX} Averaging {num_vectors} token embeddings of dimension {vector_dim}", flush=True)
+
+    averaged = [0.0] * vector_dim
+    for vec in vectors:
+        for i, val in enumerate(vec):
+            averaged[i] += val
+
+    averaged = [val / num_vectors for val in averaged]
+    return averaged
+
+
 # This is a stop-gap to support vision based embeddings for RAG.
 # Since there is no dedicated binary for this, we must use the llmaa-server binary.
 class EmbeddingServer:
@@ -199,15 +250,42 @@ class EmbeddingServer:
 
                 data = response.json()
 
-                # Handle different response formats
+                # Debug: Log the raw response structure
+                print(f"{LOG_PREFIX} Raw response type: {type(data)}", flush=True)
+                print(f"{LOG_PREFIX} Raw response keys: {data.keys() if isinstance(data, dict) else 'N/A (list)'}", flush=True)
+                if isinstance(data, dict):
+                    for key, val in data.items():
+                        val_preview = str(val)[:100] if not isinstance(val, list) else f"list[{len(val)}]"
+                        print(f"{LOG_PREFIX}   {key}: {val_preview}", flush=True)
+
+                # Handle different response formats and normalize nested embeddings
+                raw_embedding = None
+                source = None
+
                 if "embedding" in data:
-                    return data["embedding"]
+                    raw_embedding = data["embedding"]
+                    source = "'embedding' key"
                 elif isinstance(data, list) and len(data) > 0:
                     # Some versions return array of embeddings
                     if isinstance(data[0], dict) and "embedding" in data[0]:
-                        return data[0]["embedding"]
+                        raw_embedding = data[0]["embedding"]
+                        source = "data[0]['embedding']"
                     elif isinstance(data[0], list):
-                        return data[0]
+                        raw_embedding = data[0]
+                        source = "data[0] (list)"
+                # Check for nested 'data' array (OpenAI-compatible format)
+                elif isinstance(data, dict) and "data" in data:
+                    if isinstance(data["data"], list) and len(data["data"]) > 0:
+                        if isinstance(data["data"][0], dict) and "embedding" in data["data"][0]:
+                            raw_embedding = data["data"][0]["embedding"]
+                            source = "data['data'][0]['embedding']"
+
+                if raw_embedding is not None:
+                    print(f"{LOG_PREFIX} Raw embedding from {source}, type: {type(raw_embedding)}, len: {len(raw_embedding) if hasattr(raw_embedding, '__len__') else 'N/A'}", flush=True)
+                    # Normalize nested embeddings (e.g., per-token embeddings from VLMs)
+                    result = _normalize_embedding(raw_embedding)
+                    print(f"{LOG_PREFIX} Normalized embedding dimension: {len(result)}", flush=True)
+                    return result
 
                 raise ValueError(f"Unexpected response format: {data}")
 

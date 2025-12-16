@@ -465,13 +465,16 @@ async def embed_image(
             temp_processed_path = processed_path
         image_path = processed_path
 
-        # Get embedding
+        # Get embedding (auto_unload=False so we can capture model_name before unloading)
         print(
             f"{common.PRNT_API} Creating embedding for image: {image_path}", flush=True
         )
-        embeddings = await embedder.embed_images([image_path])
+        embeddings = await embedder.embed_images([image_path], auto_unload=False)
         embedding = embeddings[0]
         embedding_dim = len(embedding)
+        # Capture model name before unloading
+        embedding_model_name = embedder.model_name or "unknown"
+        await embedder.unload()
 
         # Determine collection name
         collection_name = payload.collection_name
@@ -492,7 +495,7 @@ async def embed_image(
             "source_file_name": source_file_name,
             "source_file_path": payload.image_path or "base64_upload",
             "created_at": datetime.now().isoformat(),
-            "embedding_model": embedder.model_name,
+            "embedding_model": embedding_model_name,
             "embedding_dim": embedding_dim,
         }
 
