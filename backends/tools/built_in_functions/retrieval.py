@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Callable, Union, Awaitable
 from chromadb import Collection
 from pydantic import BaseModel, Field
 from core import common
@@ -11,6 +11,7 @@ from embeddings.rag_response_synthesis import (
     RESPONSE_SYNTHESIS_DESCRIPTIONS,
 )
 from inference.helpers import read_event_data
+from vision.image_embedder import ImageEmbedder
 
 
 # Client uses `options_source` to fetch the available options to select from.
@@ -136,10 +137,31 @@ async def main(**kwargs: Params) -> str:
 
     # Loop thru each collection and return results
     cumulative_answer = ""
+    vision_embedder = None  # Lazy-init vision embedder if needed
+
     for selected_collection in collections:
-        # Pass in the embed model based on the one used by the target collection
+        # Detect collection type and use appropriate embedder
+        collection_type = selected_collection.metadata.get("type", "")
         embed_model_name = selected_collection.metadata.get("embedding_model")
-        embedder = Embedder(app=app, embed_model=embed_model_name)
+
+        if collection_type == "image_embeddings":
+            # Use vision embedder for image collections
+            print(
+                f"{common.PRNT_RAG} Detected image collection, using vision embedder",
+                flush=True,
+            )
+            if vision_embedder is None:
+                vision_embedder = ImageEmbedder(app)
+
+            # Create async embed function for vision model
+            async def vision_embed_fn(text: str) -> List[float]:
+                return await vision_embedder.embed_query_text(text, auto_unload=False)
+
+            embed_fn = vision_embed_fn
+        else:
+            # Use text embedder for text collections
+            embedder = Embedder(app=app, embed_model=embed_model_name)
+            embed_fn = embedder.embed_text
 
         # Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
         # @TODO Perform the different "strategies" done by llama-index (tree-summarize, etc)
@@ -147,13 +169,13 @@ async def main(**kwargs: Params) -> str:
             case RESPONSE_SYNTHESIS_MODES.CONTEXT_ONLY.value:
                 retriever = SimpleRAG(
                     collection=selected_collection,
-                    embed_fn=embedder.embed_text,
+                    embed_fn=embed_fn,
                     llm_fn=llm_func,
                 )
             case _:
                 retriever = SimpleRAG(
                     collection=selected_collection,
-                    embed_fn=embedder.embed_text,
+                    embed_fn=embed_fn,
                     llm_fn=llm_func,
                 )
 
@@ -166,4 +188,9 @@ async def main(**kwargs: Params) -> str:
         )
         answer = result.get("text")
         cumulative_answer += f"\n\n{answer}"
+
+    # Cleanup: unload vision embedder if it was used
+    if vision_embedder is not None:
+        await vision_embedder.unload()
+
     return cumulative_answer.strip()

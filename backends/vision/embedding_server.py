@@ -323,3 +323,92 @@ class EmbeddingServer:
             embeddings.append(embedding)
 
         return embeddings
+
+    async def embed_query_text(self, text: str) -> List[float]:
+        """
+        Send text to embedding endpoint and return embedding vector.
+
+        This is used for query embeddings when searching image collections.
+        The same vision model that created the image embeddings must be used
+        to ensure embeddings are in the same vector space.
+
+        Args:
+            text: Text string to embed (e.g., search query)
+
+        Returns:
+            List of floats representing the embedding vector
+        """
+        if not self.is_ready:
+            raise RuntimeError("Embedding server is not ready")
+
+        url = f"{self.base_url}/embeddings"
+
+        # Build request payload for text-only embedding
+        # llama-server accepts {"content": "text"} for text embeddings
+        payload = {"content": text}
+
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(
+                    url,
+                    json=payload,
+                    timeout=60.0,
+                )
+                response.raise_for_status()
+
+                data = response.json()
+
+                # Debug logging
+                print(f"{LOG_PREFIX} Text embed response type: {type(data)}", flush=True)
+                print(
+                    f"{LOG_PREFIX} Text embed response keys: {data.keys() if isinstance(data, dict) else 'N/A (list)'}",
+                    flush=True,
+                )
+
+                # Handle response format (same parsing as embed_image)
+                raw_embedding = None
+                source = None
+
+                if "embedding" in data:
+                    raw_embedding = data["embedding"]
+                    source = "'embedding' key"
+                elif isinstance(data, list) and len(data) > 0:
+                    if isinstance(data[0], dict) and "embedding" in data[0]:
+                        raw_embedding = data[0]["embedding"]
+                        source = "data[0]['embedding']"
+                    elif isinstance(data[0], list):
+                        raw_embedding = data[0]
+                        source = "data[0] (list)"
+                elif isinstance(data, dict) and "data" in data:
+                    if isinstance(data["data"], list) and len(data["data"]) > 0:
+                        if (
+                            isinstance(data["data"][0], dict)
+                            and "embedding" in data["data"][0]
+                        ):
+                            raw_embedding = data["data"][0]["embedding"]
+                            source = "data['data'][0]['embedding']"
+
+                if raw_embedding is not None:
+                    print(
+                        f"{LOG_PREFIX} Text embedding from {source}, len: {len(raw_embedding) if hasattr(raw_embedding, '__len__') else 'N/A'}",
+                        flush=True,
+                    )
+                    # Normalize nested embeddings (vision models may return per-token embeddings)
+                    result = _normalize_embedding(raw_embedding)
+                    print(
+                        f"{LOG_PREFIX} Normalized text embedding dimension: {len(result)}",
+                        flush=True,
+                    )
+                    return result
+
+                raise ValueError(f"Unexpected response format: {data}")
+
+            except httpx.HTTPStatusError as e:
+                print(
+                    f"{LOG_PREFIX} HTTP error: {e.response.status_code} - {e.response.text}",
+                    flush=True,
+                )
+                raise
+            except Exception as e:
+                print(f"{LOG_PREFIX} Error embedding text: {e}", flush=True)
+                raise

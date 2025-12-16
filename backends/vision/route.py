@@ -21,6 +21,7 @@ from inference.classes import (
     VisionEmbedLoadRequest,
     DownloadVisionEmbedModelRequest,
     DeleteVisionEmbedModelRequest,
+    VisionEmbedQueryRequest,
 )
 from inference.helpers import (
     decode_base64_image,
@@ -722,4 +723,154 @@ def delete_vision_embedding_model(payload: DeleteVisionEmbedModelRequest):
         raise HTTPException(
             status_code=400,
             detail=f"Failed to delete vision embedding model: {err}",
+        )
+
+
+@router.post("/embed/query")
+async def query_image_collection(
+    request: Request,
+    payload: VisionEmbedQueryRequest,
+):
+    """
+    Query an image collection using text similarity search.
+
+    This endpoint:
+    1. Loads the vision embedding model (auto-loads from cache if needed)
+    2. Creates a text embedding for the query using the SAME model
+       that created the image embeddings
+    3. Performs ChromaDB similarity search on the specified collection
+    4. Returns matching images with similarity scores and metadata
+
+    IMPORTANT: The query embedding must be created with the same model
+    that was used to create the image embeddings, otherwise the embeddings
+    will not be in the same vector space and results will be meaningless.
+    """
+    app: classes.FastAPIApp = request.app
+
+    try:
+        # Validate collection exists and is an image collection
+        if not hasattr(app.state, "db_client") or not app.state.db_client:
+            Vector_Storage(app=app)  # Initialize db_client
+
+        if not app.state.db_client:
+            raise HTTPException(
+                status_code=500, detail="Vector database not available"
+            )
+
+        # Get collection
+        try:
+            collection = app.state.db_client.get_collection(name=payload.collection_name)
+        except Exception as e:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Collection '{payload.collection_name}' not found: {e}",
+            )
+
+        # Verify this is an image collection
+        collection_type = collection.metadata.get("type", "")
+        if collection_type != "image_embeddings":
+            print(
+                f"{common.PRNT_API} Warning: Collection '{payload.collection_name}' "
+                f"has type '{collection_type}', expected 'image_embeddings'",
+                flush=True,
+            )
+
+        # Check collection is not empty
+        if collection.count() == 0:
+            return {
+                "success": True,
+                "message": f"Collection '{payload.collection_name}' is empty",
+                "data": {
+                    "query": payload.query,
+                    "collection_name": payload.collection_name,
+                    "results": [],
+                    "total_in_collection": 0,
+                },
+            }
+
+        # Get the vision embedder and create query embedding
+        embedder = _get_vision_embedder(app)
+
+        print(
+            f"{common.PRNT_API} Creating query embedding for: {payload.query[:100]}...",
+            flush=True,
+        )
+
+        # Generate query embedding using vision model (auto-loads if needed)
+        query_embedding = await embedder.embed_query_text(
+            text=payload.query,
+            auto_unload=False,  # Keep loaded for potential subsequent queries
+        )
+
+        # Capture model info for response
+        query_model_name = embedder.model_name or "unknown"
+
+        print(
+            f"{common.PRNT_API} Query embedding dimension: {len(query_embedding)}",
+            flush=True,
+        )
+
+        # Perform ChromaDB similarity search
+        include_fields = ["metadatas", "documents", "distances"]
+        if payload.include_embeddings:
+            include_fields.append("embeddings")
+
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=payload.top_k,
+            include=include_fields,
+        )
+
+        # Format results
+        formatted_results = []
+        ids = results.get("ids", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
+        documents = results.get("documents", [[]])[0]
+        embeddings = (
+            results.get("embeddings", [[]])[0] if payload.include_embeddings else []
+        )
+
+        for i, doc_id in enumerate(ids):
+            result_item = {
+                "id": doc_id,
+                "distance": distances[i] if i < len(distances) else None,
+                "similarity_score": (
+                    1.0 - distances[i] if i < len(distances) else None
+                ),  # Convert distance to similarity
+                "metadata": metadatas[i] if i < len(metadatas) else {},
+                "document": (
+                    documents[i] if i < len(documents) else None
+                ),  # Contains transcription if available
+            }
+
+            if payload.include_embeddings and i < len(embeddings):
+                result_item["embedding"] = embeddings[i]
+
+            formatted_results.append(result_item)
+
+        print(
+            f"{common.PRNT_API} Found {len(formatted_results)} results in collection '{payload.collection_name}'",
+            flush=True,
+        )
+
+        return {
+            "success": True,
+            "message": f"Found {len(formatted_results)} matching images",
+            "data": {
+                "query": payload.query,
+                "collection_name": payload.collection_name,
+                "query_model": query_model_name,
+                "query_embedding_dim": len(query_embedding),
+                "results": formatted_results,
+                "total_in_collection": collection.count(),
+            },
+        }
+
+    except HTTPException:
+        raise
+    except Exception as err:
+        print(f"{common.PRNT_API} Error querying image collection: {err}", flush=True)
+        raise HTTPException(
+            status_code=500, detail=f"Failed to query image collection: {err}"
         )
