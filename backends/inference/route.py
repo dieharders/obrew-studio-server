@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, HTTPException, Depends
 from inference.agent import Agent
 from .llama_cpp import LLAMA_CPP
 from core import classes, common
+from core.common import get_model_install_config, get_prompt_formats
 from huggingface_hub import (
     hf_hub_download,
     get_hf_file_metadata,
@@ -20,46 +21,6 @@ from inference.classes import (
     SSEResponse,
 )
 from updater import get_gpu_details
-
-
-def get_model_install_config(model_id: str = None) -> dict:
-    try:
-        # Get the config for the model
-        config_path = common.dep_path(os.path.join("public", "text_model_configs.json"))
-        with open(config_path, "r") as file:
-            text_models = json.load(file)
-            if not model_id:
-                return dict(models=text_models)
-            config = text_models[model_id]
-            message_format = config["messageFormat"]
-            model_name = config["name"]
-            tags = config.get("tags")
-            repoId = config.get("repoId", "")
-            description = config.get("description", "")
-            return dict(
-                message_format=message_format,
-                description=description,
-                id=repoId,
-                model_name=model_name,
-                models=text_models,
-                tags=tags,
-            )
-    except Exception as err:
-        raise Exception(f"Error finding models list: {err}")
-
-
-def get_prompt_formats(message_format: str) -> dict:
-    try:
-        # Get the file for the templates
-        prompt_formats_path = common.dep_path(
-            os.path.join("public", "prompt_formats.json")
-        )
-        with open(prompt_formats_path, "r") as file:
-            templates = json.load(file)
-            message_template = templates[message_format]
-            return message_template
-    except Exception as err:
-        raise Exception(f"Error finding prompt format templates: {err}")
 
 
 router = APIRouter()
@@ -154,12 +115,11 @@ def get_model_list():
 
 # Eject the currently loaded Text Inference model
 @router.post("/unload")
-def unload_text_inference(request: Request):
+async def unload_text_inference(request: Request):
     try:
         app: classes.FastAPIApp = request.app
         if app.state.llm:
-            app.state.llm.unload()
-        del app.state.llm
+            await app.state.llm.unload()
         app.state.llm = None
         return {
             "success": True,
@@ -185,13 +145,18 @@ async def load_text_inference(
 
     try:
         model_id = data.modelId
-        modelPath = data.modelPath
+
+        # Look up model path from model_id if not provided
+        model_path = data.modelPath or common.get_model_file_path(model_id)
+        if not model_path:
+            raise Exception(f"Model path not found for {model_id}. Provide modelPath or install the model first.")
+        if not os.path.exists(model_path):
+            raise Exception(f"Model file not found: {model_path}")
+
         # Unload the model if it exists
         if app.state.llm:
-            print(
-                f"{common.PRNT_API} Ejecting current model {model_id} from: {modelPath}"
-            )
-            unload_text_inference(request)
+            print(f"{common.PRNT_API} Ejecting current model before loading {model_id}")
+            await unload_text_inference(request)
         # Load the config for the model
         model_config = get_model_install_config(model_id)
         message_format_id = model_config.get("message_format")
@@ -202,7 +167,7 @@ async def load_text_inference(
         # Load the specified Ai model using a specific inference backend
         app.state.llm = LLAMA_CPP(
             model_url=None,
-            model_path=modelPath,
+            model_path=model_path,
             model_name=model_name,
             model_id=model_id,
             tool_schema_type=data.toolSchemaType,
@@ -218,7 +183,7 @@ async def load_text_inference(
             # @TODO webui needs to pass messages list with a system_message as first msg
             await app.state.llm.load_chat(chat_history=data.messages)
         # Return result
-        print(f"{common.PRNT_API} Model {model_id} loaded from: {modelPath}")
+        print(f"{common.PRNT_API} Model {model_id} loaded from: {model_path}")
         return {
             "message": f"AI model [{model_id}] loaded.",
             "success": True,
@@ -386,9 +351,55 @@ def download_text_model(payload: classes.DownloadTextModelRequest):
             }
         )
 
+        # Download mmproj file if explicitly provided (for multimodal/vision models)
+        mmproj_path = None
+        mmproj_repo_id = payload.mmproj_repo_id
+        mmproj_filename = payload.mmproj_filename
+
+        if mmproj_repo_id and mmproj_filename:
+            try:
+                print(
+                    f"{common.PRNT_API} Downloading mmproj: {mmproj_filename} from {mmproj_repo_id}",
+                    flush=True,
+                )
+
+                # Download mmproj file
+                hf_hub_download(
+                    repo_id=mmproj_repo_id,
+                    filename=mmproj_filename,
+                    cache_dir=cache_dir,
+                    resume_download=False,
+                )
+
+                # Get mmproj file path from cache
+                [mmproj_cache_info, mmproj_revisions] = common.scan_cached_repo(
+                    cache_dir=cache_dir, repo_id=mmproj_repo_id
+                )
+                mmproj_path = common.get_cached_blob_path(
+                    repo_revisions=mmproj_revisions, filename=mmproj_filename
+                )
+
+                # Save mmproj path to model metadata
+                if mmproj_path:
+                    common.save_mmproj_path(repo_id, mmproj_path)
+                    print(
+                        f"{common.PRNT_API} Saved mmproj to {mmproj_path}",
+                        flush=True,
+                    )
+            except Exception as mmproj_err:
+                # Don't fail the whole download if mmproj fails, just log it
+                print(
+                    f"{common.PRNT_API} Warning: Could not download mmproj: {mmproj_err}",
+                    flush=True,
+                )
+
+        message = f"Saved model file to {file_path}."
+        if mmproj_path:
+            message += f" Also downloaded mmproj to {mmproj_path}."
+
         return {
             "success": True,
-            "message": f"Saved model file to {file_path}.",
+            "message": message,
             "data": None,
         }
     except (KeyError, Exception, EnvironmentError, OSError, ValueError) as err:
@@ -413,6 +424,9 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
             cache_dir=cache_dir, repo_id=repo_id, filename=filename
         )
 
+        # Check if this model has an associated mmproj file to delete
+        mmproj_path = common.get_mmproj_path(repo_id)
+
         # Find model hash
         [model_cache_info, repo_revisions] = common.scan_cached_repo(
             cache_dir=cache_dir, repo_id=repo_id
@@ -430,6 +444,70 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
         # Delete install record from json file
         if freed_size != "0.0":
             common.delete_text_model_revisions(repo_id=repo_id)
+
+        # Also delete the mmproj file if it exists
+        # The mmproj may be in a different repo, so we need to delete it separately
+        if mmproj_path:
+            try:
+                # Try to extract repo info from the mmproj path and delete via HF cache
+                # Path format: .../models--org--repo/snapshots/hash/filename
+                if os.path.exists(mmproj_path):
+                    # Get the repo folder from the path
+                    path_parts = mmproj_path.split(os.sep)
+                    models_idx = next(
+                        (
+                            i
+                            for i, p in enumerate(path_parts)
+                            if p.startswith("models--")
+                        ),
+                        None,
+                    )
+                    if models_idx is not None:
+                        repo_folder = path_parts[
+                            models_idx
+                        ]  # e.g., "models--org--repo"
+                        mmproj_repo = repo_folder.replace("models--", "").replace(
+                            "--", "/", 1
+                        )
+                        try:
+                            [mmproj_cache_info, mmproj_revisions] = (
+                                common.scan_cached_repo(
+                                    cache_dir=cache_dir, repo_id=mmproj_repo
+                                )
+                            )
+                            mmproj_commit_hashes = [
+                                r.commit_hash for r in mmproj_revisions
+                            ]
+                            if mmproj_commit_hashes:
+                                mmproj_delete_strategy = (
+                                    mmproj_cache_info.delete_revisions(
+                                        *mmproj_commit_hashes
+                                    )
+                                )
+                                mmproj_delete_strategy.execute()
+                                print(
+                                    f"{common.PRNT_API} Deleted mmproj repo: {mmproj_repo}",
+                                    flush=True,
+                                )
+                        except Exception:
+                            # If HF cache deletion fails, try simple file removal
+                            os.remove(mmproj_path)
+                            print(
+                                f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}",
+                                flush=True,
+                            )
+                    else:
+                        # Fallback to simple file removal
+                        os.remove(mmproj_path)
+                        print(
+                            f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}",
+                            flush=True,
+                        )
+            except Exception as mmproj_err:
+                print(
+                    f"{common.PRNT_API} Warning: Could not delete mmproj: {mmproj_err}",
+                    flush=True,
+                )
 
         return {
             "success": True,

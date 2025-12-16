@@ -18,6 +18,7 @@ from core import common, classes
 from services.route import router as services
 from embeddings.route import router as embeddings
 from inference.route import router as text_inference
+from vision.route import router as vision_inference
 from storage.route import router as storage
 
 
@@ -118,7 +119,10 @@ class ApiServer:
             app.state.api = self
             app.state.request_queue = asyncio.Queue()
             app.state.db_client = None
-            app.state.llm = None  # Set each time user loads a model
+            app.state.llm = None  # Set each time user loads a model (text or vision)
+            app.state.vision_embedder = (
+                None  # Set each time user loads a vision embedding model
+            )
             # https://www.python-httpx.org/quickstart/
             app.state.requests_client = httpx.Client()
 
@@ -148,11 +152,34 @@ class ApiServer:
         self._add_routes(app_inst)
         return app_inst
 
+    def _run_async_cleanup(self, coro):
+        """
+        Helper to run async cleanup coroutines from sync context.
+        Uses run_coroutine_threadsafe for proper integration with running loops.
+        """
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Schedule coroutine on the running loop from this sync context
+                future = asyncio.run_coroutine_threadsafe(coro, loop)
+                future.result(timeout=10.0)  # Wait up to 10s for cleanup
+            else:
+                loop.run_until_complete(coro)
+        except Exception as e:
+            print(
+                f"{common.PRNT_API} Async cleanup error (non-fatal): {e}",
+                flush=True,
+            )
+
     def shutdown(self, *args):
         try:
             print(f"{common.PRNT_API} Server forced to shutdown.", flush=True)
             if self.app.state.llm:
-                self.app.state.llm.unload()
+                # llm.unload() is now async
+                self._run_async_cleanup(self.app.state.llm.unload())
+            if self.app.state.vision_embedder:
+                # vision_embedder.unload() is async (spawns a server process)
+                self._run_async_cleanup(self.app.state.vision_embedder.unload())
 
             # Gracefully shutdown uvicorn server
             if self.server:
@@ -251,6 +278,9 @@ class ApiServer:
         endpoint_router.include_router(storage, prefix="/v1/persist", tags=["storage"])
         endpoint_router.include_router(
             text_inference, prefix="/v1/text", tags=["text inference"]
+        )
+        endpoint_router.include_router(
+            vision_inference, prefix="/v1/vision", tags=["vision inference"]
         )
         app.include_router(endpoint_router)
 

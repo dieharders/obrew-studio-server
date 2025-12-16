@@ -238,3 +238,177 @@ def read_event_data(data_events: List[dict]) -> AgentOutput:
     if not data:
         raise Exception("No data returned.")
     return data
+
+
+# Vision/Multi-modal utilities
+import base64
+import os
+
+# Security limits for image processing
+MAX_BASE64_SIZE_MB = 50  # Maximum base64 string size in MB
+MAX_IMAGE_DIMENSION = 8192  # Maximum width/height in pixels (8K resolution)
+
+
+def decode_base64_image(
+    base64_string: str,
+    temp_dir: str,
+    max_size_mb: float = MAX_BASE64_SIZE_MB,
+) -> str:
+    """
+    Decode a base64 encoded image and save to a temporary file.
+    Returns the path to the temporary file.
+
+    Args:
+        base64_string: Base64 encoded image data (optionally with data URL prefix)
+        temp_dir: Directory to save the temporary file
+        max_size_mb: Maximum allowed size of base64 string in MB (default 50MB)
+
+    Returns:
+        Path to the temporary file
+
+    Raises:
+        ValueError: If the base64 string exceeds size limits
+        Exception: If decoding fails
+    """
+    try:
+        # Remove data URL prefix if present (e.g., "data:image/png;base64,")
+        if "," in base64_string:
+            base64_string = base64_string.split(",", 1)[1]
+
+        # Security: Check base64 string size before decoding
+        max_size_bytes = int(max_size_mb * 1024 * 1024)
+        if len(base64_string) > max_size_bytes:
+            raise ValueError(
+                f"Base64 image data exceeds maximum size of {max_size_mb}MB "
+                f"(got {len(base64_string) / (1024 * 1024):.1f}MB)"
+            )
+
+        image_data = base64.b64decode(base64_string)
+
+        # Detect image format from magic bytes
+        if image_data[:8] == b"\x89PNG\r\n\x1a\n":
+            ext = ".png"
+        elif image_data[:2] == b"\xff\xd8":
+            ext = ".jpg"
+        elif image_data[:4] == b"GIF8":
+            ext = ".gif"
+        elif image_data[:4] == b"RIFF" and image_data[8:12] == b"WEBP":
+            ext = ".webp"
+        else:
+            ext = ".png"  # Default to PNG
+
+        # Generate unique filename
+        unique_id = os.urandom(8).hex()
+        temp_path = os.path.join(temp_dir, f"vision_input_{unique_id}{ext}")
+
+        # Write image to file
+        with open(temp_path, "wb") as f:
+            f.write(image_data)
+
+        return temp_path
+    except ValueError:
+        # Re-raise validation errors
+        raise
+    except Exception as e:
+        print(f"{common.PRNT_LLAMA} Error decoding base64 image: {e}")
+        raise Exception(f"Failed to decode base64 image: {e}")
+
+
+def preprocess_image(
+    input_path: str,
+    temp_dir: str,
+    max_resolution: int = 1024,
+    max_dimension: int = MAX_IMAGE_DIMENSION,
+) -> str:
+    """
+    Preprocess image for llama.cpp vision compatibility.
+
+    This function addresses several issues:
+    1. Re-encodes images to fix stb_image compatibility issues with macOS screenshots
+       (stb_image has known issues with PNG files saved on macOS)
+    2. Resizes large images to reduce memory usage and improve processing speed
+    3. Converts to RGB color space (removes alpha channel)
+    4. Supports additional formats like WebP that stb_image doesn't support
+    5. Validates image dimensions for security
+
+    Args:
+        input_path: Path to the input image file
+        temp_dir: Directory to save the preprocessed image
+        max_resolution: Maximum width/height for output (maintains aspect ratio)
+        max_dimension: Maximum allowed input dimension (security limit)
+
+    Returns:
+        Path to the preprocessed image file
+
+    Raises:
+        ValueError: If image dimensions exceed security limits
+    """
+    try:
+        from PIL import Image
+
+        with Image.open(input_path) as img:
+            # Security: Validate image dimensions before processing
+            if img.width > max_dimension or img.height > max_dimension:
+                raise ValueError(
+                    f"Image dimensions ({img.width}x{img.height}) exceed maximum "
+                    f"allowed dimension of {max_dimension}px. Please resize the image."
+                )
+            # Convert to RGB (handles RGBA, P, L, LA modes)
+            if img.mode in ("RGBA", "LA"):
+                # Create white background and paste image with alpha
+                background = Image.new("RGB", img.size, (255, 255, 255))
+                background.paste(img, mask=img.split()[-1])
+                img = background
+            elif img.mode == "P":
+                # Palette mode - convert to RGBA first to handle transparency
+                img = img.convert("RGBA")
+                background = Image.new("RGB", img.size, (255, 255, 255))
+                background.paste(img, mask=img.split()[-1])
+                img = background
+            elif img.mode != "RGB":
+                img = img.convert("RGB")
+
+            # Resize if too large (maintains aspect ratio)
+            if img.width > max_resolution or img.height > max_resolution:
+                img.thumbnail(
+                    (max_resolution, max_resolution), Image.Resampling.LANCZOS
+                )
+                print(
+                    f"{common.PRNT_LLAMA} Resized image to {img.width}x{img.height}",
+                    flush=True,
+                )
+
+            # Save as PNG (lossless, no compression artifacts)
+            unique_id = os.urandom(8).hex()
+            output_path = os.path.join(temp_dir, f"vision_processed_{unique_id}.png")
+            img.save(output_path, "PNG")
+
+            return output_path
+
+    except ValueError:
+        # Re-raise security/validation errors - don't fall back
+        raise
+    except Exception as e:
+        print(f"{common.PRNT_LLAMA} Error preprocessing image: {e}", flush=True)
+        # Fallback: return original path if preprocessing fails (non-security errors)
+        print(
+            f"{common.PRNT_LLAMA} Falling back to original image: {input_path}",
+            flush=True,
+        )
+        return input_path
+
+
+def cleanup_temp_images(image_paths: List[str]):
+    """
+    Remove temporary image files created during vision inference.
+    Only removes files that match the vision_input_ or vision_processed_ pattern.
+    """
+    for path in image_paths:
+        try:
+            if os.path.exists(path) and (
+                "vision_input_" in path or "vision_processed_" in path
+            ):
+                os.remove(path)
+                print(f"{common.PRNT_LLAMA} Cleaned up temp image: {path}")
+        except Exception as e:
+            print(f"{common.PRNT_LLAMA} Error cleaning up temp image {path}: {e}")

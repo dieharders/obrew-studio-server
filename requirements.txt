@@ -48,5 +48,7 @@ python-multipart==0.0.18
 # GPU Profiling
 WMI==1.5.1; sys_platform == 'win32'  # Windows only
 GPUtil==1.4.0
+# Image processing (vision preprocessing for llama.cpp compatibility)
+Pillow>=10.0.0
 # macOS Platform Support
 pyobjc-framework-Cocoa==10.3.1; sys_platform == 'darwin'  # macOS only - for AppKit screen resolution

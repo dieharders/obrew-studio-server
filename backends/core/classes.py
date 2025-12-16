@@ -12,6 +12,7 @@ from collections.abc import Callable
 
 if TYPE_CHECKING:
     from inference.llama_cpp import LLAMA_CPP
+    from backends.vision.image_embedder import ImageEmbedder
 
 
 class ApiServerClass(dict):
@@ -41,7 +42,8 @@ class AppState(dict):
     request_queue: Type[asyncio.Queue] | None
     db_client: Type[ClientAPI] | None
     api: Type[ApiServerClass] | None
-    llm: "LLAMA_CPP"
+    llm: "LLAMA_CPP"  # Unified model for text and vision (when mmproj is loaded)
+    vision_embedder: "ImageEmbedder"
 
 
 class FastAPIApp(FastAPI):
@@ -128,6 +130,9 @@ class GetModelInfoRequest(BaseModel):
 class DownloadTextModelRequest(BaseModel):
     repo_id: str
     filename: str
+    # Optional mmproj parameters for multimodal/vision-capable models
+    mmproj_repo_id: Optional[str] = None
+    mmproj_filename: Optional[str] = None
 
 
 class DeleteTextModelRequest(BaseModel):

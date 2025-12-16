@@ -94,33 +94,85 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
                 "urlPath": "/v1/text/delete",
                 "method": "POST",
             },
-            # llama.cpp offers native embedding too
-            # {
-            #     "name": "embedding",
-            #     "urlPath": "/v1/text/embedding",
-            #     "method": "POST",
-            # },
-            # Structured Data Extraction
-            # {
-            #     "name": "extraction",
-            #     "urlPath": "/v1/text/extraction",
-            #     "method": "POST",
-            # },
-            # Vision to Text (llama.cpp uses LLaVa but BakLLaVa is another option)
-            # {
-            #     "name": "vision",
-            #     "urlPath": "/v1/text/vision",
-            #     "method": "POST",
-            # },
-            # Code completion via Copilot
-            # {
-            #     "name": "copilot",
-            #     "urlPath": "/v1/text/copilot",
-            #     "method": "POST",
-            # },
         ],
     }
     data.append(text_inference_api)
+
+    # Return vision inference services
+    vision_inference_api = {
+        "name": "vision",
+        "port": app.state.api.SERVER_PORT,
+        "endpoints": [
+            # Vision to Text (New: mmproj) (Legacy: LLaVa or BakLLaVa)
+            # This assumes the base textInference GGUF is loaded already
+            {
+                "name": "generate",
+                "urlPath": "/v1/vision/generate",
+                "method": "POST",
+            },
+            # Load vision inference model with mmproj
+            {
+                "name": "load",
+                "urlPath": "/v1/vision/load",
+                "method": "POST",
+            },
+            # Unload vision inference model
+            {
+                "name": "unload",
+                "urlPath": "/v1/vision/unload",
+                "method": "POST",
+            },
+            # Get currently loaded vision model info
+            {
+                "name": "model",
+                "urlPath": "/v1/vision/model",
+                "method": "GET",
+            },
+            # Load a vision embedding model
+            {
+                "name": "loadEmbedModel",
+                "urlPath": "/v1/vision/embed/load",
+                "method": "POST",
+            },
+            # Unload vision embedding model
+            {
+                "name": "unloadEmbedModel",
+                "urlPath": "/v1/vision/embed/unload",
+                "method": "POST",
+            },
+            # Get currently loaded vision embedding model info
+            {
+                "name": "getEmbedModel",
+                "urlPath": "/v1/vision/embed/model",
+                "method": "GET",
+            },
+            # Create embedding for an image
+            {
+                "name": "embed",
+                "urlPath": "/v1/vision/embed",
+                "method": "POST",
+            },
+            # Download a vision embedding model from HuggingFace
+            {
+                "name": "downloadEmbedModel",
+                "urlPath": "/v1/vision/embed/download",
+                "method": "POST",
+            },
+            # Delete a vision embedding model from local storage
+            {
+                "name": "deleteEmbedModel",
+                "urlPath": "/v1/vision/embed/delete",
+                "method": "POST",
+            },
+            # Get list of installed vision embedding models
+            {
+                "name": "installedEmbedModels",
+                "urlPath": "/v1/vision/embed/installed",
+                "method": "GET",
+            },
+        ],
+    }
+    data.append(vision_inference_api)
 
     # Return persistent file storage services
     storage_api = {

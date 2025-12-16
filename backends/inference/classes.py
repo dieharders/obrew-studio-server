@@ -128,8 +128,8 @@ class LoadTextInferenceInit(BaseModel):
 
 # Load in the ai model to be used for inference
 class LoadInferenceRequest(BaseModel):
-    modelPath: str
     modelId: str
+    modelPath: Optional[str] = None  # If not provided, looked up from modelId
     raw_input: Optional[bool] = False  # user can send manually formatted messages
     responseMode: Optional[str] = DEFAULT_CHAT_MODE
     toolUseMode: Optional[str] = DEFAULT_TOOL_USE_MODE
@@ -268,3 +268,123 @@ class InferenceResponse(BaseModel):
             ]
         }
     }
+
+
+# Vision/Multi-modal classes
+class VisionInferenceRequest(BaseModel):
+    """Request for vision inference with image input."""
+
+    prompt: str
+    images: List[str]  # Base64 encoded images or file paths
+    image_type: Optional[str] = "base64"  # "base64" or "path"
+    stream: Optional[bool] = False
+    temperature: Optional[float] = 0.7
+    max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
+    systemMessage: Optional[str] = None
+    top_k: Optional[int] = 40
+    top_p: Optional[float] = 0.95
+    min_p: Optional[float] = 0.05
+    repeat_penalty: Optional[float] = 1.1
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "prompt": "What objects are in this image?",
+                    "images": ["<base64_encoded_image>"],
+                    "image_type": "base64",
+                    "stream": False,
+                    "temperature": 0.7,
+                    "max_tokens": 1024,
+                }
+            ]
+        }
+    }
+
+
+class LoadVisionInferenceRequest(BaseModel):
+    """Load a vision model with mmproj file."""
+
+    modelId: str
+    modelPath: Optional[str] = None  # If not provided, looked up from modelId
+    mmprojPath: Optional[str] = None  # If not provided, looked up from modelId
+    init: LoadTextInferenceInit
+    call: LoadTextInferenceCall
+
+
+# Image Embedding classes
+class VisionEmbedRequest(BaseModel):
+    """Request to create embedding for an image and store in ChromaDB."""
+
+    image_path: Optional[str] = None  # Path to image file
+    image_base64: Optional[str] = None  # Base64 encoded image
+    image_type: Optional[str] = "path"  # "path" or "base64"
+    collection_name: Optional[str] = (
+        None  # ChromaDB collection (auto-create from filename if not provided)
+    )
+    transcription_text: Optional[str] = None
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "image_path": "/path/to/image.jpg",
+                    "image_type": "path",
+                    "collection_name": "my_images",
+                    "transcription_text": "Description of the image.",
+                }
+            ]
+        }
+    }
+
+
+class VisionEmbedLoadRequest(BaseModel):
+    """Request to load a multimodal embedding model."""
+
+    model_path: str  # Path to GGUF model file
+    mmproj_path: str  # Path to mmproj file
+    model_name: Optional[str] = None  # Friendly name
+    model_id: Optional[str] = None  # Model identifier
+    port: Optional[int] = 8081  # Port for embedding server
+    n_gpu_layers: Optional[int] = 99  # GPU layers to offload
+    n_threads: Optional[int] = 4  # CPU threads
+    n_ctx: Optional[int] = 2048  # Context window
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "model_path": "/path/to/model.gguf",
+                    "mmproj_path": "/path/to/mmproj.gguf",
+                    "model_name": "jina-embeddings-v4",
+                    "n_gpu_layers": 99,
+                }
+            ]
+        }
+    }
+
+
+class DownloadVisionEmbedModelRequest(BaseModel):
+    """Request to download a vision embedding model from HuggingFace."""
+
+    repo_id: str  # HuggingFace repo ID
+    filename: str  # Model GGUF filename
+    mmproj_filename: str  # mmproj GGUF filename
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "repo_id": "mradermacher/GME-VARCO-VISION-Embedding-GGUF",
+                    "filename": "GME-VARCO-VISION-Embedding.Q4_K_M.gguf",
+                    "mmproj_filename": "GME-VARCO-VISION-Embedding.mmproj-Q8_0.gguf",
+                }
+            ]
+        }
+    }
+
+
+class DeleteVisionEmbedModelRequest(BaseModel):
+    """Request to delete a vision embedding model."""
+
+    repo_id: str  # HuggingFace repo ID
