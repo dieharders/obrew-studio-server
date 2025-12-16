@@ -196,7 +196,7 @@ async def generate_vision(
     temp_image_paths = []
 
     try:
-        # Auto-load vision model if text model is vision-capable
+        # Auto-load vision projector if text model is vision-capable
         if not hasattr(app.state, "vision_llm") or not app.state.vision_llm:
             # Check if text model is loaded and has vision capability
             if hasattr(app.state, "llm") and app.state.llm:
@@ -284,6 +284,7 @@ async def generate_vision(
         vision_llm = app.state.vision_llm
 
         # Update generation settings
+        # @TODO Make sure to pass these from front-end, and add more generation args.
         vision_llm.generate_kwargs = payload
 
         # Process images
