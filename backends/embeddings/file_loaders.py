@@ -309,16 +309,20 @@ async def vision_image_loader(
     """
     document_results: List[Document] = []
 
-    # Check if vision model is loaded
-    if not hasattr(app.state, "vision_llm") or not app.state.vision_llm:
+    # Check if model with vision capability is loaded
+    if (
+        not hasattr(app.state, "llm")
+        or not app.state.llm
+        or not app.state.llm.mmproj_path
+    ):
         print(
-            f"{common.PRNT_EMBED} No vision model loaded. "
+            f"{common.PRNT_EMBED} No model with vision capability loaded. "
             "Falling back to placeholder text.",
             flush=True,
         )
         return simple_image_loader(sources, source_id, source_metadata)
 
-    vision_llm = app.state.vision_llm
+    llm = app.state.llm
 
     for path in sources:
         filename = os.path.basename(path)
@@ -335,7 +339,7 @@ async def vision_image_loader(
                 "If there is text in the image, transcribe it exactly."
             )
 
-            response_gen = await vision_llm.vision_completion(
+            response_gen = await llm.vision_completion(
                 prompt=prompt,
                 image_paths=[path],
                 request=None,  # No request context needed for embedding

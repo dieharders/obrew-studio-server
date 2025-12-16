@@ -12,7 +12,6 @@ from collections.abc import Callable
 
 if TYPE_CHECKING:
     from inference.llama_cpp import LLAMA_CPP
-    from backends.vision.llama_cpp_vision import LLAMA_CPP_VISION
     from backends.vision.image_embedder import ImageEmbedder
 
 
@@ -43,8 +42,7 @@ class AppState(dict):
     request_queue: Type[asyncio.Queue] | None
     db_client: Type[ClientAPI] | None
     api: Type[ApiServerClass] | None
-    llm: "LLAMA_CPP"
-    vision_llm: "LLAMA_CPP_VISION"
+    llm: "LLAMA_CPP"  # Unified model for text and vision (when mmproj is loaded)
     vision_embedder: "ImageEmbedder"
 
 

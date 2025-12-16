@@ -128,8 +128,8 @@ class LoadTextInferenceInit(BaseModel):
 
 # Load in the ai model to be used for inference
 class LoadInferenceRequest(BaseModel):
-    modelPath: str
     modelId: str
+    modelPath: Optional[str] = None  # If not provided, looked up from modelId
     raw_input: Optional[bool] = False  # user can send manually formatted messages
     responseMode: Optional[str] = DEFAULT_CHAT_MODE
     toolUseMode: Optional[str] = DEFAULT_TOOL_USE_MODE
@@ -305,9 +305,9 @@ class VisionInferenceRequest(BaseModel):
 class LoadVisionInferenceRequest(BaseModel):
     """Load a vision model with mmproj file."""
 
-    modelPath: str
-    mmprojPath: str  # Required for vision models
     modelId: str
+    modelPath: Optional[str] = None  # If not provided, looked up from modelId
+    mmprojPath: Optional[str] = None  # If not provided, looked up from modelId
     init: LoadTextInferenceInit
     call: LoadTextInferenceCall
 

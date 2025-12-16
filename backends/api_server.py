@@ -119,8 +119,7 @@ class ApiServer:
             app.state.api = self
             app.state.request_queue = asyncio.Queue()
             app.state.db_client = None
-            app.state.llm = None  # Set each time user loads a model
-            app.state.vision_llm = None  # Set each time user loads a vision model
+            app.state.llm = None  # Set each time user loads a model (text or vision)
             app.state.vision_embedder = (
                 None  # Set each time user loads a vision embedding model
             )
@@ -179,10 +178,8 @@ class ApiServer:
         try:
             print(f"{common.PRNT_API} Server forced to shutdown.", flush=True)
             if self.app.state.llm:
-                self.app.state.llm.unload()
-            if self.app.state.vision_llm:
-                # vision_llm.unload() is now async
-                self._run_async_cleanup(self.app.state.vision_llm.unload())
+                # llm.unload() is now async
+                self._run_async_cleanup(self.app.state.llm.unload())
             if self.app.state.vision_embedder:
                 # vision_embedder.unload() is async (spawns a server process)
                 self._run_async_cleanup(self.app.state.vision_embedder.unload())

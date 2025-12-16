@@ -5,15 +5,14 @@ import tempfile
 from pathlib import Path
 from datetime import datetime
 from fastapi import APIRouter, Request, HTTPException
-from .llama_cpp_vision import LLAMA_CPP_VISION
 from .image_embedder import ImageEmbedder
 from core import classes, common
 from huggingface_hub import hf_hub_download
+from inference.llama_cpp import LLAMA_CPP
 from inference.classes import (
+    CHAT_MODES,
     AgentOutput,
     LoadInferenceResponse,
-    LoadTextInferenceInit,
-    LoadTextInferenceCall,
     SSEResponse,
     VisionInferenceRequest,
     LoadVisionInferenceRequest,
@@ -113,36 +112,45 @@ async def load_vision_model(
     request: Request,
     data: LoadVisionInferenceRequest,
 ) -> LoadInferenceResponse:
-    """Load a vision model with its mmproj file."""
+    """Load a vision model with its mmproj file. Stores in app.state.llm object."""
     app: classes.FastAPIApp = request.app
 
     try:
         model_id = data.modelId
-        model_path = data.modelPath
-        mmproj_path = data.mmprojPath
 
-        # Validate paths
+        # Look up paths from model_id if not provided
+        model_path = data.modelPath or common.get_model_file_path(model_id)
+        mmproj_path = data.mmprojPath or common.get_mmproj_path(model_id)
+
+        # Validate paths exist
+        if not model_path:
+            raise Exception(f"Model path not found for {model_id}. Provide modelPath or install the model first.")
+        if not mmproj_path:
+            raise Exception(f"mmproj path not found for {model_id}. Provide mmprojPath or download the mmproj first.")
         if not os.path.exists(model_path):
             raise Exception(f"Model file not found: {model_path}")
         if not os.path.exists(mmproj_path):
             raise Exception(f"mmproj file not found: {mmproj_path}")
 
-        # Unload existing vision model if present
-        if hasattr(app.state, "vision_llm") and app.state.vision_llm:
-            print(f"{common.PRNT_API} Ejecting current vision model")
-            await app.state.vision_llm.unload()
-            app.state.vision_llm = None
+        # Unload existing model if present (unified state)
+        if hasattr(app.state, "llm") and app.state.llm:
+            print(
+                f"{common.PRNT_API} Ejecting current model before loading vision model"
+            )
+            await app.state.llm.unload()
+            app.state.llm = None
 
         # Get model config
         model_config = get_model_install_config(model_id)
         model_name = model_config.get("model_name")
 
-        # Create vision model instance
-        app.state.vision_llm = LLAMA_CPP_VISION(
+        # Create unified model instance with mmproj for vision capability
+        app.state.llm = LLAMA_CPP(
             model_path=model_path,
             mmproj_path=mmproj_path,
             model_name=model_name,
             model_id=model_id,
+            response_mode=CHAT_MODES.INSTRUCT,  # @TODO Should be passed in or set as default val
             model_init_kwargs=data.init,
             generate_kwargs=data.call,
         )
@@ -165,12 +173,12 @@ async def load_vision_model(
 # Unload vision (inference) model
 @router.post("/unload")
 async def unload_vision_model(request: Request):
-    """Unload the currently loaded vision model."""
+    """Unload the currently loaded model (unified state)."""
     try:
         app: classes.FastAPIApp = request.app
-        if hasattr(app.state, "vision_llm") and app.state.vision_llm:
-            await app.state.vision_llm.unload()
-        app.state.vision_llm = None
+        if hasattr(app.state, "llm") and app.state.llm:
+            await app.state.llm.unload()
+        app.state.llm = None
         return {
             "success": True,
             "message": "Vision model was unloaded",
@@ -196,96 +204,29 @@ async def generate_vision(
     temp_image_paths = []
 
     try:
-        # Auto-load vision projector if text model is vision-capable
-        if not hasattr(app.state, "vision_llm") or not app.state.vision_llm:
-            # Check if text model is loaded and has vision capability
-            if hasattr(app.state, "llm") and app.state.llm:
-                text_llm = app.state.llm
-                model_id = text_llm.model_id
+        # Check if model with vision capability is loaded
+        if not hasattr(app.state, "llm") or not app.state.llm:
+            raise Exception("No model loaded. Call /vision/load first.")
 
-                # Check if this model has an mmproj file
-                mmproj_path = common.get_mmproj_path(model_id)
-                model_path = common.get_model_file_path(model_id)
+        llm = app.state.llm
 
-                if mmproj_path and model_path and os.path.exists(mmproj_path):
-                    print(
-                        f"{common.PRNT_API} Auto-loading vision model for {model_id}",
-                        flush=True,
-                    )
-                    print(
-                        f"{common.PRNT_API} Model path: {model_path}",
-                        flush=True,
-                    )
-                    print(
-                        f"{common.PRNT_API} mmproj path: {mmproj_path}",
-                        flush=True,
-                    )
+        # Check if model has mmproj (vision capability)
+        if not llm.mmproj_path:
+            raise Exception(
+                "Model not loaded with vision capability. "
+                "Use /vision/load to load a model with mmproj."
+            )
 
-                    # Get GPU layers from text model, use conservative value for vision
-                    text_gpu_layers = text_llm.model_init_kwargs.get(
-                        "--n-gpu-layers", 0
-                    )
-                    # Use fewer GPU layers for vision model to avoid memory issues
-                    # Vision model runs alongside text model, so be conservative
-                    vision_gpu_layers = (
-                        min(text_gpu_layers, 20) if text_gpu_layers > 0 else 0
-                    )
-
-                    print(
-                        f"{common.PRNT_API} Using {vision_gpu_layers} GPU layers for vision "
-                        f"(text model has {text_gpu_layers})",
-                        flush=True,
-                    )
-
-                    # Create init kwargs from text model's settings
-                    init_kwargs = LoadTextInferenceInit(
-                        n_gpu_layers=vision_gpu_layers,
-                        n_ctx=text_llm.model_init_kwargs.get("--ctx-size", 4096),
-                        n_batch=text_llm.model_init_kwargs.get("--batch-size", 2048),
-                    )
-
-                    # Auto-load vision model using text model's settings
-                    app.state.vision_llm = LLAMA_CPP_VISION(
-                        model_path=model_path,
-                        mmproj_path=mmproj_path,
-                        model_name=text_llm.model_name,
-                        model_id=model_id,
-                        verbose=True,  # Enable verbose mode for debugging
-                        debug=True,  # Enable debug mode to capture stderr
-                        model_init_kwargs=init_kwargs,
-                        generate_kwargs=LoadTextInferenceCall(),
-                    )
-                    print(
-                        f"{common.PRNT_API} Vision model auto-loaded successfully",
-                        flush=True,
-                    )
-                else:
-                    # Provide more detailed error message
-                    error_details = []
-                    if not mmproj_path:
-                        error_details.append("mmproj path not found in model metadata")
-                    elif not os.path.exists(mmproj_path):
-                        error_details.append(f"mmproj file not found at: {mmproj_path}")
-                    if not model_path:
-                        error_details.append("model file path not found in metadata")
-                    elif not os.path.exists(model_path):
-                        error_details.append(f"model file not found at: {model_path}")
-
-                    detail_str = (
-                        "; ".join(error_details) if error_details else "unknown reason"
-                    )
-                    raise Exception(
-                        f"No vision model loaded and text model doesn't have vision capability ({detail_str}). "
-                        "Make sure the model has an mmproj file downloaded."
-                    )
-            else:
-                raise Exception("No vision model loaded. Call /vision/load first.")
-
-        vision_llm = app.state.vision_llm
-
-        # Update generation settings
-        # @TODO Make sure to pass these from front-end, and add more generation args.
-        vision_llm.generate_kwargs = payload
+        # Build override args from vision request (don't use generate_kwargs setter
+        # since VisionInferenceRequest has different fields than InferenceRequest)
+        override_args = {
+            "--temp": payload.temperature,
+            "--n-predict": payload.max_tokens,
+            "--top-k": payload.top_k,
+            "--top-p": payload.top_p,
+            "--min-p": payload.min_p,
+            "--repeat-penalty": payload.repeat_penalty,
+        }
 
         # Process images
         temp_dir = tempfile.gettempdir()
@@ -313,12 +254,13 @@ async def generate_vision(
             raise Exception("No valid images provided.")
 
         # Run vision inference
-        response_gen = await vision_llm.vision_completion(
+        response_gen = await llm.vision_completion(
             prompt=payload.prompt,
             image_paths=image_paths,
             request=request,
             system_message=payload.systemMessage,
             stream=payload.stream,
+            override_args=override_args,
         )
 
         # Handle streaming vs non-streaming response
@@ -368,22 +310,23 @@ def get_vision_model(request: Request):
     app: classes.FastAPIApp = request.app
 
     try:
-        if hasattr(app.state, "vision_llm") and app.state.vision_llm:
-            vision_llm = app.state.vision_llm
+        # Check if model with vision capability is loaded
+        if hasattr(app.state, "llm") and app.state.llm and app.state.llm.mmproj_path:
+            llm = app.state.llm
             return {
                 "success": True,
-                "message": f"{vision_llm.model_id} is loaded.",
+                "message": f"{llm.model_id} is loaded with vision capability.",
                 "data": {
-                    "modelId": vision_llm.model_id,
-                    "modelName": vision_llm.model_name,
-                    "modelPath": vision_llm.model_path,
-                    "mmprojPath": vision_llm.mmproj_path,
+                    "modelId": llm.model_id,
+                    "modelName": llm.model_name,
+                    "modelPath": llm.model_path,
+                    "mmprojPath": llm.mmproj_path,
                 },
             }
         else:
             return {
                 "success": False,
-                "message": "No vision model is currently loaded.",
+                "message": "No model with vision capability is currently loaded.",
                 "data": {},
             }
     except Exception as error:

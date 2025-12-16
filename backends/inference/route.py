@@ -154,12 +154,11 @@ def get_model_list():
 
 # Eject the currently loaded Text Inference model
 @router.post("/unload")
-def unload_text_inference(request: Request):
+async def unload_text_inference(request: Request):
     try:
         app: classes.FastAPIApp = request.app
         if app.state.llm:
-            app.state.llm.unload()
-        del app.state.llm
+            await app.state.llm.unload()
         app.state.llm = None
         return {
             "success": True,
@@ -185,13 +184,18 @@ async def load_text_inference(
 
     try:
         model_id = data.modelId
-        modelPath = data.modelPath
+
+        # Look up model path from model_id if not provided
+        model_path = data.modelPath or common.get_model_file_path(model_id)
+        if not model_path:
+            raise Exception(f"Model path not found for {model_id}. Provide modelPath or install the model first.")
+        if not os.path.exists(model_path):
+            raise Exception(f"Model file not found: {model_path}")
+
         # Unload the model if it exists
         if app.state.llm:
-            print(
-                f"{common.PRNT_API} Ejecting current model {model_id} from: {modelPath}"
-            )
-            unload_text_inference(request)
+            print(f"{common.PRNT_API} Ejecting current model before loading {model_id}")
+            await unload_text_inference(request)
         # Load the config for the model
         model_config = get_model_install_config(model_id)
         message_format_id = model_config.get("message_format")
@@ -202,7 +206,7 @@ async def load_text_inference(
         # Load the specified Ai model using a specific inference backend
         app.state.llm = LLAMA_CPP(
             model_url=None,
-            model_path=modelPath,
+            model_path=model_path,
             model_name=model_name,
             model_id=model_id,
             tool_schema_type=data.toolSchemaType,
@@ -218,7 +222,7 @@ async def load_text_inference(
             # @TODO webui needs to pass messages list with a system_message as first msg
             await app.state.llm.load_chat(chat_history=data.messages)
         # Return result
-        print(f"{common.PRNT_API} Model {model_id} loaded from: {modelPath}")
+        print(f"{common.PRNT_API} Model {model_id} loaded from: {model_path}")
         return {
             "message": f"AI model [{model_id}] loaded.",
             "success": True,
@@ -489,29 +493,60 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
                 if os.path.exists(mmproj_path):
                     # Get the repo folder from the path
                     path_parts = mmproj_path.split(os.sep)
-                    models_idx = next((i for i, p in enumerate(path_parts) if p.startswith("models--")), None)
+                    models_idx = next(
+                        (
+                            i
+                            for i, p in enumerate(path_parts)
+                            if p.startswith("models--")
+                        ),
+                        None,
+                    )
                     if models_idx is not None:
-                        repo_folder = path_parts[models_idx]  # e.g., "models--org--repo"
-                        mmproj_repo = repo_folder.replace("models--", "").replace("--", "/", 1)
+                        repo_folder = path_parts[
+                            models_idx
+                        ]  # e.g., "models--org--repo"
+                        mmproj_repo = repo_folder.replace("models--", "").replace(
+                            "--", "/", 1
+                        )
                         try:
-                            [mmproj_cache_info, mmproj_revisions] = common.scan_cached_repo(
-                                cache_dir=cache_dir, repo_id=mmproj_repo
+                            [mmproj_cache_info, mmproj_revisions] = (
+                                common.scan_cached_repo(
+                                    cache_dir=cache_dir, repo_id=mmproj_repo
+                                )
                             )
-                            mmproj_commit_hashes = [r.commit_hash for r in mmproj_revisions]
+                            mmproj_commit_hashes = [
+                                r.commit_hash for r in mmproj_revisions
+                            ]
                             if mmproj_commit_hashes:
-                                mmproj_delete_strategy = mmproj_cache_info.delete_revisions(*mmproj_commit_hashes)
+                                mmproj_delete_strategy = (
+                                    mmproj_cache_info.delete_revisions(
+                                        *mmproj_commit_hashes
+                                    )
+                                )
                                 mmproj_delete_strategy.execute()
-                                print(f"{common.PRNT_API} Deleted mmproj repo: {mmproj_repo}", flush=True)
+                                print(
+                                    f"{common.PRNT_API} Deleted mmproj repo: {mmproj_repo}",
+                                    flush=True,
+                                )
                         except Exception:
                             # If HF cache deletion fails, try simple file removal
                             os.remove(mmproj_path)
-                            print(f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}", flush=True)
+                            print(
+                                f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}",
+                                flush=True,
+                            )
                     else:
                         # Fallback to simple file removal
                         os.remove(mmproj_path)
-                        print(f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}", flush=True)
+                        print(
+                            f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}",
+                            flush=True,
+                        )
             except Exception as mmproj_err:
-                print(f"{common.PRNT_API} Warning: Could not delete mmproj: {mmproj_err}", flush=True)
+                print(
+                    f"{common.PRNT_API} Warning: Could not delete mmproj: {mmproj_err}",
+                    flush=True,
+                )
 
         return {
             "success": True,
