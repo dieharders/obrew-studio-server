@@ -23,7 +23,9 @@ router = APIRouter()
 def _get_embedding_dim_from_config(model_name: str) -> int | None:
     """Look up embedding dimension from config file based on model name."""
     try:
-        config_path = common.dep_path(os.path.join("public", "embedding_model_configs.json"))
+        config_path = common.dep_path(
+            os.path.join("public", "embedding_model_configs.json")
+        )
         with open(config_path, "r") as f:
             configs = json.load(f)
         if model_name in configs:
@@ -58,7 +60,8 @@ def create_memory_collection(
             embed_model=form.embeddingModel,
         )
         # Look up dimension from config, fall back to passed value for custom models
-        embedding_dim = _get_embedding_dim_from_config(embedder.embed_model_name) or form.embeddingDim
+        config_dim = _get_embedding_dim_from_config(embedder.embed_model_name)
+        embedding_dim = config_dim or (form.embeddingDim if form.embeddingDim and form.embeddingDim > 0 else None)
         metadata = {
             "icon": form.icon or "",
             "created_at": datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S"),
