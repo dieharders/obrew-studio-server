@@ -362,6 +362,444 @@ class SimpleMarkdownSplitter:
         return nodes
 
 
+class RecursiveCharacterTextSplitter:
+    """
+    Recursively splits text using a hierarchy of separators.
+
+    Falls through separators when chunks are too large, starting with
+    paragraph breaks and progressively using finer separators until
+    chunks meet size requirements.
+
+    Best for: General documents, PDFs, unstructured text.
+    """
+
+    DEFAULT_SEPARATORS = ["\n\n", "\n", ". ", " ", ""]
+
+    def __init__(
+        self,
+        chunk_size: int = 500,
+        chunk_overlap: int = 50,
+        separators: List[str] = None,
+        language: str = "en",
+    ):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.separators = separators or self.DEFAULT_SEPARATORS
+        self.language = language
+
+    def _split_text_recursive(self, text: str, separators: List[str]) -> List[str]:
+        """Recursively split text using hierarchy of separators."""
+        if not text:
+            return []
+
+        # Base case: no more separators, split by characters
+        if not separators:
+            # Character-level splitting as last resort
+            chunks = []
+            for i in range(0, len(text), self.chunk_size - self.chunk_overlap):
+                chunk = text[i : i + self.chunk_size]
+                if chunk:
+                    chunks.append(chunk)
+            return chunks
+
+        separator = separators[0]
+        remaining_separators = separators[1:]
+
+        # Split by current separator
+        if separator:
+            splits = text.split(separator)
+        else:
+            # Empty separator means character split
+            return self._split_text_recursive(text, [])
+
+        chunks = []
+        current_chunk = ""
+
+        for i, split in enumerate(splits):
+            split = split.strip() if separator in ["\n\n", "\n"] else split
+
+            # Calculate what adding this split would look like
+            if current_chunk:
+                potential_chunk = current_chunk + separator + split
+            else:
+                potential_chunk = split
+
+            if len(potential_chunk) <= self.chunk_size:
+                # Fits in current chunk
+                current_chunk = potential_chunk
+            else:
+                # Save current chunk if it exists
+                if current_chunk:
+                    chunks.append(current_chunk)
+
+                # Check if split itself is too large
+                if len(split) > self.chunk_size:
+                    # Recursively split with next separator
+                    sub_chunks = self._split_text_recursive(split, remaining_separators)
+                    chunks.extend(sub_chunks)
+                    current_chunk = ""
+                else:
+                    # Start new chunk with overlap from previous
+                    if chunks and self.chunk_overlap > 0:
+                        # Get overlap text and snap to word boundary
+                        overlap_text = chunks[-1][-self.chunk_overlap :]
+                        # Find first space to avoid cutting mid-word
+                        space_idx = overlap_text.find(" ")
+                        if space_idx != -1 and space_idx < len(overlap_text) - 1:
+                            overlap_text = overlap_text[space_idx + 1 :]
+                        current_chunk = overlap_text + separator + split
+                        # Trim if overlap made it too long
+                        if len(current_chunk) > self.chunk_size:
+                            current_chunk = split
+                    else:
+                        current_chunk = split
+
+        # Don't forget the last chunk
+        if current_chunk:
+            chunks.append(current_chunk)
+
+        return chunks
+
+    def get_nodes_from_documents(
+        self, documents: List[Document], show_progress: bool = False
+    ) -> List[TextNode]:
+        """Split documents into text nodes using recursive character splitting."""
+        nodes = []
+        node_count = 0
+
+        if not documents:
+            return nodes
+
+        for doc in documents:
+            text = doc.text if doc.text else ""
+
+            if not text.strip():
+                continue
+
+            # Recursively split text
+            chunks = self._split_text_recursive(text, self.separators)
+
+            for chunk in chunks:
+                chunk = chunk.strip()
+                if chunk:
+                    nodes.append(
+                        TextNode(
+                            id_=str(node_count),
+                            text=chunk,
+                            metadata=doc.metadata.copy() if doc.metadata else {},
+                        )
+                    )
+                    node_count += 1
+
+        return nodes
+
+
+class SentenceWindowSplitter:
+    """
+    Creates small embedding chunks with surrounding window context in metadata.
+
+    Each chunk is small (1-3 sentences) for precise embedding, but stores
+    surrounding sentences in metadata for context expansion at retrieval time.
+
+    Best for: QA, detailed extraction, precise retrieval.
+
+    Metadata stored:
+    - window_before: preceding sentences
+    - window_after: following sentences
+    - original_text: full expanded text (window_before + chunk + window_after)
+    """
+
+    DEFAULT_WINDOW_SIZE = 3
+
+    def __init__(
+        self,
+        chunk_size: int = 300,
+        chunk_overlap: int = 0,
+        window_size: int = 3,
+        language: str = "en",
+    ):
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        # Validate window_size - must be at least 1, default if invalid
+        self.window_size = (
+            window_size if window_size >= 1 else self.DEFAULT_WINDOW_SIZE
+        )
+        self.language = language
+
+    def get_nodes_from_documents(
+        self, documents: List[Document], show_progress: bool = False
+    ) -> List[TextNode]:
+        """Split documents into sentence-based chunks with window context."""
+        nodes = []
+        node_count = 0
+
+        if not documents:
+            return nodes
+
+        for doc in documents:
+            text = doc.text if doc.text else ""
+
+            if not text.strip():
+                continue
+
+            # Split into sentences
+            sentences = _split_into_sentences(text, self.language)
+            sentences = [s.strip() for s in sentences if s.strip()]
+
+            if not sentences:
+                continue
+
+            # Build chunks from sentences
+            current_chunk_sentences = []
+            current_chunk_start_idx = 0
+            current_length = 0
+
+            for i, sentence in enumerate(sentences):
+                sentence_len = len(sentence)
+
+                # Check if adding this sentence exceeds chunk size
+                if (
+                    current_length + sentence_len + 1 > self.chunk_size
+                    and current_chunk_sentences
+                ):
+                    # Save current chunk with window context
+                    chunk_text = " ".join(current_chunk_sentences)
+                    chunk_end_idx = i - 1
+
+                    # Build window context
+                    window_before_start = max(
+                        0, current_chunk_start_idx - self.window_size
+                    )
+                    window_after_end = min(len(sentences), i + self.window_size)
+
+                    window_before = " ".join(
+                        sentences[window_before_start:current_chunk_start_idx]
+                    )
+                    window_after = " ".join(sentences[i:window_after_end])
+
+                    # Build original text with full context
+                    original_parts = []
+                    if window_before:
+                        original_parts.append(window_before)
+                    original_parts.append(chunk_text)
+                    if window_after:
+                        original_parts.append(window_after)
+                    original_text = " ".join(original_parts)
+
+                    # Create metadata with window info
+                    chunk_metadata = doc.metadata.copy() if doc.metadata else {}
+                    chunk_metadata.update(
+                        {
+                            "window_before": window_before,
+                            "window_after": window_after,
+                            "original_text": original_text,
+                            "window_size": self.window_size,
+                            "sentence_start_idx": current_chunk_start_idx,
+                            "sentence_end_idx": chunk_end_idx,
+                        }
+                    )
+
+                    nodes.append(
+                        TextNode(
+                            id_=str(node_count),
+                            text=chunk_text,
+                            metadata=chunk_metadata,
+                        )
+                    )
+                    node_count += 1
+
+                    # Start new chunk
+                    current_chunk_sentences = [sentence]
+                    current_chunk_start_idx = i
+                    current_length = sentence_len
+                else:
+                    # Add sentence to current chunk
+                    current_chunk_sentences.append(sentence)
+                    current_length += sentence_len + 1  # +1 for space
+
+            # Handle last chunk
+            if current_chunk_sentences:
+                chunk_text = " ".join(current_chunk_sentences)
+                chunk_end_idx = len(sentences) - 1
+
+                window_before_start = max(0, current_chunk_start_idx - self.window_size)
+                window_before = " ".join(
+                    sentences[window_before_start:current_chunk_start_idx]
+                )
+
+                original_parts = []
+                if window_before:
+                    original_parts.append(window_before)
+                original_parts.append(chunk_text)
+                original_text = " ".join(original_parts)
+
+                chunk_metadata = doc.metadata.copy() if doc.metadata else {}
+                chunk_metadata.update(
+                    {
+                        "window_before": window_before,
+                        "window_after": "",
+                        "original_text": original_text,
+                        "window_size": self.window_size,
+                        "sentence_start_idx": current_chunk_start_idx,
+                        "sentence_end_idx": chunk_end_idx,
+                    }
+                )
+
+                nodes.append(
+                    TextNode(
+                        id_=str(node_count),
+                        text=chunk_text,
+                        metadata=chunk_metadata,
+                    )
+                )
+                node_count += 1
+
+        return nodes
+
+
+class TokenTextSplitter:
+    """
+    Splits text based on estimated token count.
+
+    Uses a configurable chars_per_token ratio for estimation.
+    No external tokenizer dependencies required.
+
+    Best for: Ensuring chunks fit model context windows.
+
+    Default ratio of 4.0 chars/token works well for GPT-style models.
+    For Llama-style models, try 3.5 chars/token.
+    """
+
+    DEFAULT_CHARS_PER_TOKEN = 4.0
+
+    def __init__(
+        self,
+        chunk_size: int = 256,
+        chunk_overlap: int = 20,
+        chars_per_token: float = None,
+        language: str = "en",
+    ):
+        self.chunk_size = chunk_size  # in tokens
+        self.chunk_overlap = chunk_overlap  # in tokens
+        self.chars_per_token = chars_per_token or self.DEFAULT_CHARS_PER_TOKEN
+        self.language = language
+
+    def _estimate_tokens(self, text: str) -> int:
+        """Estimate token count from character count."""
+        return int(len(text) / self.chars_per_token)
+
+    def _estimate_chars(self, tokens: int) -> int:
+        """Estimate character count from token count."""
+        return int(tokens * self.chars_per_token)
+
+    def get_nodes_from_documents(
+        self, documents: List[Document], show_progress: bool = False
+    ) -> List[TextNode]:
+        """Split documents into token-based chunks."""
+        nodes = []
+        node_count = 0
+
+        if not documents:
+            return nodes
+
+        # Convert token limits to character estimates
+        max_chunk_chars = self._estimate_chars(self.chunk_size)
+        overlap_chars = self._estimate_chars(self.chunk_overlap)
+
+        for doc in documents:
+            text = doc.text if doc.text else ""
+
+            if not text.strip():
+                continue
+
+            # Split into sentences first for cleaner boundaries
+            sentences = _split_into_sentences(text, self.language)
+            sentences = [s.strip() for s in sentences if s.strip()]
+
+            if not sentences:
+                continue
+
+            current_chunk = ""
+            last_saved_chunk = ""  # Used for overlap context
+
+            for sentence in sentences:
+                # If sentence alone exceeds max, split it by characters
+                if len(sentence) > max_chunk_chars:
+                    # Save current chunk first
+                    if current_chunk.strip():
+                        nodes.append(
+                            TextNode(
+                                id_=str(node_count),
+                                text=current_chunk.strip(),
+                                metadata=doc.metadata.copy() if doc.metadata else {},
+                            )
+                        )
+                        node_count += 1
+
+                    # Split long sentence by character chunks
+                    for i in range(0, len(sentence), max_chunk_chars - overlap_chars):
+                        chunk = sentence[i : i + max_chunk_chars]
+                        if chunk.strip():
+                            nodes.append(
+                                TextNode(
+                                    id_=str(node_count),
+                                    text=chunk.strip(),
+                                    metadata=(
+                                        doc.metadata.copy() if doc.metadata else {}
+                                    ),
+                                )
+                            )
+                            node_count += 1
+
+                    current_chunk = ""
+                    continue
+
+                # Check if adding sentence exceeds limit
+                test_chunk = (
+                    (current_chunk + " " + sentence).strip()
+                    if current_chunk
+                    else sentence
+                )
+
+                if len(test_chunk) > max_chunk_chars:
+                    # Save current chunk
+                    if current_chunk.strip():
+                        nodes.append(
+                            TextNode(
+                                id_=str(node_count),
+                                text=current_chunk.strip(),
+                                metadata=doc.metadata.copy() if doc.metadata else {},
+                            )
+                        )
+                        node_count += 1
+                        last_saved_chunk = current_chunk
+
+                    # Start new chunk with overlap
+                    if overlap_chars > 0 and last_saved_chunk:
+                        overlap_text = last_saved_chunk[-overlap_chars:]
+                        current_chunk = (overlap_text + " " + sentence).strip()
+                        # If overlap made it too long, just use sentence
+                        if len(current_chunk) > max_chunk_chars:
+                            current_chunk = sentence
+                    else:
+                        current_chunk = sentence
+                else:
+                    current_chunk = test_chunk
+
+            # Don't forget last chunk
+            if current_chunk.strip():
+                nodes.append(
+                    TextNode(
+                        id_=str(node_count),
+                        text=current_chunk.strip(),
+                        metadata=doc.metadata.copy() if doc.metadata else {},
+                    )
+                )
+                node_count += 1
+
+        return nodes
+
+
 def split_sentence(file_path: str):
     """Split a file into sentence-based chunks."""
     with open(file_path, "r", encoding="utf-8") as f:
@@ -496,4 +934,45 @@ def markdown_heading_split(chunk_size: int = 500, chunk_overlap: int = 0):
         paragraph_separator="\n## ",
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
+    )
+
+
+def recursive_character_split(
+    chunk_size: int = 500, chunk_overlap: int = 50, language: str = "en"
+):
+    """Recommended for general documents (PDF, DOCX, unstructured text)."""
+    return RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        language=language,
+    )
+
+
+def sentence_window_split(
+    chunk_size: int = 300,
+    chunk_overlap: int = 0,
+    window_size: int = 3,
+    language: str = "en",
+):
+    """Precise retrieval with expanded context. Best for QA and detailed extraction."""
+    return SentenceWindowSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        window_size=window_size,
+        language=language,
+    )
+
+
+def token_split(
+    chunk_size: int = 256,
+    chunk_overlap: int = 20,
+    chars_per_token: float = 4.0,
+    language: str = "en",
+):
+    """Token-based splitting for precise context window management."""
+    return TokenTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        chars_per_token=chars_per_token,
+        language=language,
     )

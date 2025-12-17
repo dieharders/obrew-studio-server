@@ -6,7 +6,13 @@ from core import common
 from core.classes import EmbedDocumentRequest, FastAPIApp
 from core.document import Document
 from .file_parsers import copy_file_to_disk, create_parsed_id, process_documents
-from .text_splitters import markdown_heading_split, markdown_document_split
+from .text_splitters import (
+    markdown_heading_split,
+    markdown_document_split,
+    recursive_character_split,
+    sentence_window_split,
+    token_split,
+)
 from .chunking import chunks_from_documents, create_source_record
 from .file_loaders import documents_from_sources
 from .gguf_embedder import GGUFEmbedder
@@ -26,6 +32,9 @@ EMBEDDING_MODELS_CACHE_DIR = common.app_path(common.EMBEDDING_MODELS_CACHE_DIR)
 CHUNKING_STRATEGIES = {
     "MARKDOWN_HEADING_SPLIT": markdown_heading_split,
     "MARKDOWN_DOCUMENT_SPLIT": markdown_document_split,
+    "RECURSIVE_CHARACTER_SPLIT": recursive_character_split,
+    "SENTENCE_WINDOW_SPLIT": sentence_window_split,
+    "TOKEN_SPLIT": token_split,
 }
 
 
