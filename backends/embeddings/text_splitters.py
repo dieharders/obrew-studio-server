@@ -441,7 +441,12 @@ class RecursiveCharacterTextSplitter:
                 else:
                     # Start new chunk with overlap from previous
                     if chunks and self.chunk_overlap > 0:
+                        # Get overlap text and snap to word boundary
                         overlap_text = chunks[-1][-self.chunk_overlap :]
+                        # Find first space to avoid cutting mid-word
+                        space_idx = overlap_text.find(" ")
+                        if space_idx != -1 and space_idx < len(overlap_text) - 1:
+                            overlap_text = overlap_text[space_idx + 1 :]
                         current_chunk = overlap_text + separator + split
                         # Trim if overlap made it too long
                         if len(current_chunk) > self.chunk_size:
@@ -504,6 +509,8 @@ class SentenceWindowSplitter:
     - original_text: full expanded text (window_before + chunk + window_after)
     """
 
+    DEFAULT_WINDOW_SIZE = 3
+
     def __init__(
         self,
         chunk_size: int = 300,
@@ -513,7 +520,10 @@ class SentenceWindowSplitter:
     ):
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
-        self.window_size = window_size
+        # Validate window_size - must be at least 1, default if invalid
+        self.window_size = (
+            window_size if window_size >= 1 else self.DEFAULT_WINDOW_SIZE
+        )
         self.language = language
 
     def get_nodes_from_documents(
@@ -710,7 +720,7 @@ class TokenTextSplitter:
                 continue
 
             current_chunk = ""
-            previous_chunk = ""
+            last_saved_chunk = ""  # Used for overlap context
 
             for sentence in sentences:
                 # If sentence alone exceeds max, split it by characters
@@ -725,7 +735,6 @@ class TokenTextSplitter:
                             )
                         )
                         node_count += 1
-                        previous_chunk = current_chunk
 
                     # Split long sentence by character chunks
                     for i in range(0, len(sentence), max_chunk_chars - overlap_chars):
@@ -763,11 +772,11 @@ class TokenTextSplitter:
                             )
                         )
                         node_count += 1
-                        previous_chunk = current_chunk
+                        last_saved_chunk = current_chunk
 
                     # Start new chunk with overlap
-                    if overlap_chars > 0 and previous_chunk:
-                        overlap_text = previous_chunk[-overlap_chars:]
+                    if overlap_chars > 0 and last_saved_chunk:
+                        overlap_text = last_saved_chunk[-overlap_chars:]
                         current_chunk = (overlap_text + " " + sentence).strip()
                         # If overlap made it too long, just use sentence
                         if len(current_chunk) > max_chunk_chars:
@@ -928,31 +937,42 @@ def markdown_heading_split(chunk_size: int = 500, chunk_overlap: int = 0):
     )
 
 
-def recursive_character_split(chunk_size: int = 500, chunk_overlap: int = 50):
+def recursive_character_split(
+    chunk_size: int = 500, chunk_overlap: int = 50, language: str = "en"
+):
     """Recommended for general documents (PDF, DOCX, unstructured text)."""
     return RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
+        language=language,
     )
 
 
 def sentence_window_split(
-    chunk_size: int = 300, chunk_overlap: int = 0, window_size: int = 3
+    chunk_size: int = 300,
+    chunk_overlap: int = 0,
+    window_size: int = 3,
+    language: str = "en",
 ):
     """Precise retrieval with expanded context. Best for QA and detailed extraction."""
     return SentenceWindowSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
         window_size=window_size,
+        language=language,
     )
 
 
 def token_split(
-    chunk_size: int = 256, chunk_overlap: int = 20, chars_per_token: float = 4.0
+    chunk_size: int = 256,
+    chunk_overlap: int = 20,
+    chars_per_token: float = 4.0,
+    language: str = "en",
 ):
     """Token-based splitting for precise context window management."""
     return TokenTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
         chars_per_token=chars_per_token,
+        language=language,
     )

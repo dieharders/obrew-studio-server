@@ -69,7 +69,12 @@ class SimpleRAG(RAG):
             for i, doc in enumerate(documents):
                 metadata = metadatas[i] if i < len(metadatas) else {}
                 # Use original_text (with window context) if available
-                expanded_text = metadata.get("original_text", doc)
+                original_text = metadata.get("original_text")
+                if original_text and original_text != doc:
+                    # Include both matched chunk and expanded context
+                    expanded_text = f"[Matched]: {doc}\n[Context]: {original_text}"
+                else:
+                    expanded_text = doc
                 expanded_documents.append(expanded_text)
             documents = expanded_documents
 
