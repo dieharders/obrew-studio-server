@@ -700,8 +700,10 @@ class LLAMA_CPP:
                 if self.process:
                     if self.process.returncode is None:
                         self.process.terminate()
+                        await self.process.wait()
                     self.process = None
-            except Exception:
+            except Exception as e:
+                print(f"{common.PRNT_LLAMA} Cleanup error: {e}")
                 self.process = None
             return
 
