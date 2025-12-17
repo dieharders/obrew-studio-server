@@ -106,6 +106,16 @@ class Vector_Storage:
         embeddings = [self.embed_fn(node.text) for node in nodes]
         metadatas = [node.metadata for node in nodes]
 
+        # Validate embedding dimensions match collection
+        if embeddings:
+            actual_dim = len(embeddings[0])
+            expected_dim = collection.metadata.get("embedding_dim")
+            if expected_dim and expected_dim != actual_dim:
+                raise ValueError(
+                    f"Embedding dimension mismatch: collection expects {expected_dim} "
+                    f"dimensions but got {actual_dim}."
+                )
+
         print(
             f"{common.PRNT_API} Adding {len(nodes)} chunks to collection...", flush=True
         )

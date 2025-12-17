@@ -20,6 +20,19 @@ from huggingface_hub import hf_hub_download, model_info
 router = APIRouter()
 
 
+def _get_embedding_dim_from_config(model_name: str) -> int | None:
+    """Look up embedding dimension from config file based on model name."""
+    try:
+        config_path = common.dep_path(os.path.join("public", "embedding_model_configs.json"))
+        with open(config_path, "r") as f:
+            configs = json.load(f)
+        if model_name in configs:
+            return configs[model_name].get("dimensions")
+    except Exception:
+        pass
+    return None
+
+
 @router.get("/addCollection")
 def create_memory_collection(
     request: Request,
@@ -44,6 +57,8 @@ def create_memory_collection(
             app=app,
             embed_model=form.embeddingModel,
         )
+        # Look up dimension from config, fall back to passed value for custom models
+        embedding_dim = _get_embedding_dim_from_config(embedder.embed_model_name) or form.embeddingDim
         metadata = {
             "icon": form.icon or "",
             "created_at": datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S"),
@@ -51,6 +66,7 @@ def create_memory_collection(
             "description": form.description,
             "sources": json.dumps([]),  # @TODO need to add the sources
             "embedding_model": embedder.embed_model_name,
+            "embedding_dim": embedding_dim,
         }
         vector_storage = Vector_Storage(app=app)
         vector_storage.db_client.create_collection(
