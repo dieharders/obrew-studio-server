@@ -427,6 +427,7 @@ class LLAMA_CPP:
         self.process_type = gen_type
         content = ""
         marker_num = 0
+        was_aborted = False
         decoder = codecs.getincrementaldecoder("utf-8")()
         eos_llama_token = "[end of text]"  # Corresponds to special token (number 2) in LLaMa embedding
         eos_deepseek_token = "</think"  # @TODO Include
@@ -438,6 +439,8 @@ class LLAMA_CPP:
             aborted = await request.is_disconnected()
             if aborted or not self.process or self.abort_requested:
                 print(f"{common.PRNT_LLAMA} Text generation aborted", flush=True)
+                was_aborted = True
+                self.abort_requested = False  # Reset for next request
                 break
             # Attempt to read bytes and convert to text
             try:
@@ -478,26 +481,6 @@ class LLAMA_CPP:
             if stream:
                 payload = token_payload(byte_text)
                 yield json.dumps(payload)  # streaming format expects json
-        # Finally, send all tokens together
-        content += decoder.decode(b"", final=True)
-        content = content.rstrip(eos_llama_token).strip()
-        if not content:
-            errMsg = "No response from model. Check available memory, try to lower amount of GPU Layers or offload to CPU only."
-            print(f"{common.PRNT_LLAMA} {errMsg}")
-            # Cleanup
-            if self.task_logging:
-                self.task_logging.cancel()
-            # Only terminate cli if Instruct mode
-            if self.process and gen_type == "completion":
-                self.process.terminate()
-                self.process = None
-            # Return error msg
-            raise Exception(f"{errMsg}")
-        payload = content_payload(content)
-        if stream:
-            yield json.dumps(payload)
-        else:
-            yield payload
         # Cleanup
         if self.task_logging:
             self.task_logging.cancel()
@@ -505,6 +488,22 @@ class LLAMA_CPP:
         if self.process and gen_type == "completion":
             self.process.terminate()
             self.process = None
+        # Skip sending final response if aborted
+        if was_aborted:
+            return
+        # Finally, send all tokens together
+        content += decoder.decode(b"", final=True)
+        content = content.rstrip(eos_llama_token).strip()
+        if not content:
+            errMsg = "No response from model. Check available memory, try to lower amount of GPU Layers or offload to CPU only."
+            print(f"{common.PRNT_LLAMA} {errMsg}")
+            # Return error msg
+            raise Exception(f"{errMsg}")
+        payload = content_payload(content)
+        if stream:
+            yield json.dumps(payload)
+        else:
+            yield payload
 
     # Vision inference - requires mmproj to be loaded
     async def vision_completion(
@@ -655,6 +654,7 @@ class LLAMA_CPP:
             if aborted or not self.process or self.abort_requested:
                 print(f"{common.PRNT_LLAMA} Vision generation aborted", flush=True)
                 break_reason = "aborted"
+                self.abort_requested = False  # Reset for next request
                 break
 
             try:
@@ -691,6 +691,21 @@ class LLAMA_CPP:
             if stream:
                 payload = token_payload(byte_text)
                 yield json.dumps(payload)
+
+        # Cleanup on abort
+        if break_reason == "aborted":
+            try:
+                if self.task_logging:
+                    self.task_logging.cancel()
+                if self.process:
+                    if self.process.returncode is None:
+                        self.process.terminate()
+                        await self.process.wait()
+                    self.process = None
+            except Exception as e:
+                print(f"{common.PRNT_LLAMA} Cleanup error: {e}")
+                self.process = None
+            return
 
         # Finalize content
         content += decoder.decode(b"", final=True)

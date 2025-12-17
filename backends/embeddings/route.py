@@ -369,6 +369,8 @@ def wipe_all_memories(
         file_parsers.delete_all_files()
         # Remove all vector storage collections and folders
         vector_storage.delete_all_vector_storage()
+        # Clear cached client so a fresh one is created on next request
+        app.state.db_client = None
         # Acknowledge success
         return {
             "success": True,
