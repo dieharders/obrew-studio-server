@@ -57,6 +57,16 @@ class SimpleRAG(RAG):
     ) -> AgentOutput:
         # Use _get_embedding to handle both sync and async embed functions
         query_embedding = await self._get_embedding(question)
+
+        # Validate query embedding dimension matches collection
+        query_dim = len(query_embedding)
+        expected_dim = self.collection.metadata.get("embedding_dim")
+        if expected_dim and expected_dim != query_dim:
+            raise ValueError(
+                f"Embedding dimension mismatch: collection has {expected_dim} "
+                f"dimensions but query embedding has {query_dim}."
+            )
+
         results = self.collection.query(
             query_embeddings=[query_embedding], n_results=top_k
         )
