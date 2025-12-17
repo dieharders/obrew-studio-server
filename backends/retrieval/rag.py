@@ -53,6 +53,7 @@ class SimpleRAG(RAG):
         system_message: str = None,
         template: str = None,
         top_k: int = 5,
+        expand_context: bool = True,  # Use original_text from metadata (sentence window context) instead of just the matched chunk
     ) -> AgentOutput:
         # Use _get_embedding to handle both sync and async embed functions
         query_embedding = await self._get_embedding(question)
@@ -60,6 +61,18 @@ class SimpleRAG(RAG):
             query_embeddings=[query_embedding], n_results=top_k
         )
         documents = results.get("documents", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
+
+        # Expand context for sentence window chunks if available
+        if expand_context and metadatas:
+            expanded_documents = []
+            for i, doc in enumerate(documents):
+                metadata = metadatas[i] if i < len(metadatas) else {}
+                # Use original_text (with window context) if available
+                expanded_text = metadata.get("original_text", doc)
+                expanded_documents.append(expanded_text)
+            documents = expanded_documents
+
         template_override = self.retrieval_templates.get("CONTEXT_ONLY").get("text")
         prompt_template = template or template_override
         prompt = apply_query_template(
