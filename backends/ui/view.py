@@ -109,6 +109,7 @@ class Webview:
             min_size=(300, 300),
             fullscreen=False,
             confirm_close=False,  # Prevent confirmation dialog on close
+            # storage_path='/path/to/your/storage'  # Custom location
             # http_port=3000,
             # draggable=True,
             # transparent=True,
@@ -125,7 +126,15 @@ class Webview:
                 # Use Cocoa backend on macOS
                 gui_settings = {"gui": "cocoa"}
 
-            webview.start(ssl=self.IS_WEBVIEW_SSL, debug=self.is_dev, **gui_settings)
+            webview.start(
+                ssl=self.IS_WEBVIEW_SSL,
+                debug=self.is_dev,
+                private_mode=False,  # persist localStorage etc across sessions
+                **gui_settings,
+                # If serving locally built and included webapp files
+                # http_server=True,
+                # http_port=5000  # Specify a fixed port
+            )
 
         self.callback = callback
 
