@@ -2,6 +2,7 @@ import os
 import glob
 import json
 import uuid
+import shutil
 from typing import Callable, List, Optional
 from core import common, classes
 from core.document import IndexNode
@@ -241,9 +242,6 @@ class Vector_Storage:
         """Remove all vector storage collections and folders"""
         if os.path.exists(VECTOR_STORAGE_PATH):
             try:
-                files = glob.glob(f"{VECTOR_STORAGE_PATH}/*")
-                for f in files:
-                    os.remove(f)
-                os.rmdir(VECTOR_STORAGE_PATH)
+                shutil.rmtree(VECTOR_STORAGE_PATH)
             except Exception as e:
                 print(f"{common.PRNT_API} Failed to remove vector storage: {e}")
