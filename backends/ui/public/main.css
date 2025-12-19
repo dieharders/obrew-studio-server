@@ -489,7 +489,7 @@
 
 .app-card-actions {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
@@ -498,6 +498,7 @@
   flex-direction: row;
   flex-wrap: wrap;
   gap: 1rem;
+  flex: 1;
 }
 
 .custom-server-input {
