@@ -4,7 +4,7 @@ import httpx
 from enum import Enum
 from types import NoneType
 from fastapi import FastAPI
-from typing import Any, List, Optional, Union, Type, Literal
+from typing import Any, List, Optional, Union, Type, Literal, TypedDict
 from pydantic import BaseModel
 from chromadb.api import ClientAPI
 from typing import TYPE_CHECKING
@@ -435,7 +435,7 @@ class GetDocumentResponse(BaseModel):
     }
 
 
-class SourceMetadata(dict):
+class SourceMetadata(TypedDict):
     """Metadata for a source document within a collection."""
 
     id: str
@@ -451,10 +451,10 @@ class SourceMetadata(dict):
     created_at: str
     modified_last: str
     embedding_model: str  # model id used to create the embeddings
-    chunkIds = List[str]
+    chunkIds: List[str]
 
 
-class ChunkMetadata(dict):
+class ChunkMetadata(TypedDict):
     """Metadata for a document chunk (page or image)."""
 
     id: str  # unique id for this chunk
