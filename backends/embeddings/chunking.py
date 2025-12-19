@@ -2,6 +2,7 @@ from nanoid import generate as generate_uuid
 from typing import List, Tuple
 from core import common
 from core.document import Document, IndexNode, TextNode
+from core.classes import ChunkMetadata
 
 
 # Chunks are created from each document and will inherit their metadata
@@ -13,16 +14,18 @@ def chunks_from_documents(
 
     for doc in documents:
         source_id = source_record.get("id")
+        source_collection_id = source_record.get("collection_name", "")
         # Set metadata on each chunk node
         for chunk_ind, parsed_node in enumerate(parsed_nodes):
             # Create metadata for chunk
-            chunk_metadata = dict(
-                sourceId=source_id,
-                order=chunk_ind,
-                # description="", # @TODO Ai generate based on chunk's text content
+            chunk_metadata: ChunkMetadata = {
+                "sourceId": source_id,
+                "source_collection_id": source_collection_id,  # Collection this chunk belongs to
+                "order": chunk_ind,
+                "description": "",  # Transcription/description of source chunk (AI-generated in future)
                 # tags="", # @TODO Ai generate based on chunk's description
                 # name="", # @TODO Ai generate based on chunk's text description above
-            )
+            }
             # Set metadatas
             excluded_llm_metadata_keys = doc.excluded_llm_metadata_keys
             excluded_llm_metadata_keys.append("order")
@@ -30,7 +33,7 @@ def chunks_from_documents(
             excluded_embed_metadata_keys.append("order")
             # Create chunk
             chunk_node = IndexNode(
-                id_=generate_uuid(),
+                id_=generate_uuid(),  # @TODO Why id_ not id ?
                 text=parsed_node.text or "None",
                 index_id=str(source_id),
                 metadata=chunk_metadata,

@@ -146,7 +146,7 @@ def main():
         # Start server process on startup for headless mode (otherwise, we do this via webui or cli)
         if is_headless:
             config = dict(host=host, port=port)
-            window_api.start_headless_server(config)
+            window_api.start_headless_server(config, headless=True)
             # Keep main thread alive so daemon server thread doesn't exit
             if window_api.api_server and window_api.api_server.server_thread:
                 window_api.api_server.server_thread.join()

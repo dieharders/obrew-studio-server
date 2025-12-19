@@ -273,7 +273,7 @@ class Embedder:
             "document_name": document_name,
             "document_id": source_id,
             "embedding_model": self.embed_model_name,
-            "description": description,
+            "description": description,  # transcription of complete source text or summary
             "checksum": checksum,  # the hash of the parsed file
             "tags": tags,
             "chunk_size": chunk_size,

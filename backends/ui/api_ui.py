@@ -157,7 +157,7 @@ class ApiUI:
             )
 
     # Start the API server
-    def start_headless_server(self, config):
+    def start_headless_server(self, config, headless=False):
         try:
             # Download deps on server startup
             if self.updater.status == "idle":
@@ -165,7 +165,8 @@ class ApiUI:
 
             server_info = self.get_server_info()
             remote_ip = server_info["remote_ip"]
-            print(f"{common.PRNT_APP} Starting headless API server...", flush=True)
+            mode = "headless" if headless else "GUI"
+            print(f"{common.PRNT_APP} Starting API server ({mode} mode)...", flush=True)
             self.api_server = ApiServer(
                 is_prod=self.is_prod,
                 is_dev=self.is_dev,
@@ -179,6 +180,7 @@ class ApiUI:
             return
         except Exception as e:
             print(f"{common.PRNT_APP} Failed to start API server. {e}", flush=True)
+            raise  # Re-raise so JavaScript receives the error
 
     # def start_server_process(self, config):
     #     process = Process(target=self.start_server, args=[config])

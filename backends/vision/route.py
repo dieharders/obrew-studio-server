@@ -57,9 +57,13 @@ async def load_vision_model(
 
         # Validate paths exist
         if not model_path:
-            raise Exception(f"Model path not found for {model_id}. Provide modelPath or install the model first.")
+            raise Exception(
+                f"Model path not found for {model_id}. Provide modelPath or install the model first."
+            )
         if not mmproj_path:
-            raise Exception(f"mmproj path not found for {model_id}. Provide mmprojPath or download the mmproj first.")
+            raise Exception(
+                f"mmproj path not found for {model_id}. Provide mmprojPath or download the mmproj first."
+            )
         if not os.path.exists(model_path):
             raise Exception(f"Model file not found: {model_path}")
         if not os.path.exists(mmproj_path):
@@ -454,15 +458,16 @@ async def embed_image(
         source_file_name = Path(image_path).name
         metadata = {
             "type": "image",
+            "source_collection_id": collection_name,  # Collection this document belongs to
             "source_file_name": source_file_name,
             "source_file_path": payload.image_path or "base64_upload",
+            "description": payload.description or "",  # Transcription/description of the image
             "created_at": datetime.now().isoformat(),
+            **(payload.metadata or {}),
         }
 
-        # Add transcription to metadata if available
-        transcription = payload.transcription_text or None
-        if payload.transcription_text:
-            metadata["transcription"] = transcription
+        # Add description to metadata if available
+        # Note: description is passed to collection.add() as documents parameter
 
         # Store in ChromaDB - ensure db_client is initialized
         doc_id = str(uuid.uuid4())
@@ -481,6 +486,7 @@ async def embed_image(
                         "type": "image_embeddings",
                         "embedding_model": embedding_model_name,
                         "embedding_dim": embedding_dim,
+                        "description": "",  # Summary of images in this collection
                     },
                 )
 
@@ -489,8 +495,8 @@ async def embed_image(
                     ids=[doc_id],
                     embeddings=[embedding],
                     metadatas=[metadata],
-                    # Add raw transcription text for reference
-                    documents=[transcription or ""],
+                    # Add raw description text for reference
+                    documents=[payload.description or ""],
                 )
 
                 print(
@@ -511,7 +517,7 @@ async def embed_image(
                 "collection_name": collection_name,
                 "embedding_model": embedding_model_name,
                 "embedding_dim": embedding_dim,
-                "transcription": transcription,
+                "description": payload.description,
                 "metadata": metadata,
             },
         }
@@ -757,13 +763,13 @@ async def query_image_collection(
             Vector_Storage(app=app)  # Initialize db_client
 
         if not app.state.db_client:
-            raise HTTPException(
-                status_code=500, detail="Vector database not available"
-            )
+            raise HTTPException(status_code=500, detail="Vector database not available")
 
         # Get collection
         try:
-            collection = app.state.db_client.get_collection(name=payload.collection_name)
+            collection = app.state.db_client.get_collection(
+                name=payload.collection_name
+            )
         except Exception as e:
             raise HTTPException(
                 status_code=404,
@@ -814,7 +820,10 @@ async def query_image_collection(
 
         # Validate model consistency: the query model should match the collection's embedding model
         collection_embedding_model = collection.metadata.get("embedding_model")
-        if collection_embedding_model and collection_embedding_model != query_model_name:
+        if (
+            collection_embedding_model
+            and collection_embedding_model != query_model_name
+        ):
             print(
                 f"{common.PRNT_API} Warning: Model mismatch! Collection was embedded with "
                 f"'{collection_embedding_model}' but querying with '{query_model_name}'. "
@@ -876,7 +885,7 @@ async def query_image_collection(
                 "metadata": metadatas[i] if i < len(metadatas) else {},
                 "document": (
                     documents[i] if i < len(documents) else None
-                ),  # Contains transcription if available
+                ),  # Contains description if available
             }
 
             if payload.include_embeddings and i < len(embeddings):
