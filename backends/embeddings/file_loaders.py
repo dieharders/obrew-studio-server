@@ -302,7 +302,7 @@ async def vision_image_loader(
     source_id: str,
     source_metadata: dict,
 ) -> List[Document]:
-    """Load images using vision model for transcription.
+    """Load images using vision model for description generation.
 
     Uses the loaded vision model to generate text descriptions of images.
     Falls back to simple_image_loader if vision model is not available or fails.
@@ -328,7 +328,7 @@ async def vision_image_loader(
         filename = os.path.basename(path)
         try:
             print(
-                f"{common.PRNT_EMBED} Transcribing image with vision model: {filename}",
+                f"{common.PRNT_EMBED} Generating description for image with vision model: {filename}",
                 flush=True,
             )
 
@@ -364,13 +364,13 @@ async def vision_image_loader(
                 raise Exception("Empty response from vision model")
 
             print(
-                f"{common.PRNT_EMBED} Vision transcription complete for: {filename}",
+                f"{common.PRNT_EMBED} Vision description complete for: {filename}",
                 flush=True,
             )
 
         except Exception as e:
             print(
-                f"{common.PRNT_EMBED} Vision transcription failed for {filename}: {e}. "
+                f"{common.PRNT_EMBED} Vision description failed for {filename}: {e}. "
                 "Falling back to placeholder.",
                 flush=True,
             )

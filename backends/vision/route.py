@@ -458,17 +458,16 @@ async def embed_image(
         source_file_name = Path(image_path).name
         metadata = {
             "type": "image",
+            "source_collection_id": collection_name,  # Collection this document belongs to
             "source_file_name": source_file_name,
             "source_file_path": payload.image_path or "base64_upload",
+            "description": payload.description or "",  # Transcription/description of the image
             "created_at": datetime.now().isoformat(),
             **(payload.metadata or {}),
         }
 
-        # Add transcription to metadata if available
-        # This should already be in metadata
-        # transcription = payload.description or None
-        # if payload.description:
-        #     metadata["description"] = transcription
+        # Add description to metadata if available
+        # Note: description is passed to collection.add() as documents parameter
 
         # Store in ChromaDB - ensure db_client is initialized
         doc_id = str(uuid.uuid4())
@@ -487,6 +486,7 @@ async def embed_image(
                         "type": "image_embeddings",
                         "embedding_model": embedding_model_name,
                         "embedding_dim": embedding_dim,
+                        "description": "",  # Summary of images in this collection
                     },
                 )
 
@@ -517,7 +517,7 @@ async def embed_image(
                 "collection_name": collection_name,
                 "embedding_model": embedding_model_name,
                 "embedding_dim": embedding_dim,
-                "transcription": payload.description,
+                "description": payload.description,
                 "metadata": metadata,
             },
         }
@@ -885,7 +885,7 @@ async def query_image_collection(
                 "metadata": metadatas[i] if i < len(metadatas) else {},
                 "document": (
                     documents[i] if i < len(documents) else None
-                ),  # Contains transcription if available
+                ),  # Contains description if available
             }
 
             if payload.include_embeddings and i < len(embeddings):

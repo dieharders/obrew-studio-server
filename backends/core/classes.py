@@ -436,18 +436,33 @@ class GetDocumentResponse(BaseModel):
 
 
 class SourceMetadata(dict):
+    """Metadata for a source document within a collection."""
+
     id: str
+    source_file_id: str  # ProjectFile id (unique identifier for the source file)
     checksum: str
     file_type: str  # type of the source (ingested) file
     file_path: str  # path to parsed file
     file_name: str  # name of parsed file
     file_size: int  # bytes
     name: str  # document name
-    description: str
+    description: str  # transcription of complete source text or summary of images
     tags: str
     created_at: str
     modified_last: str
+    embedding_model: str  # model id used to create the embeddings
     chunkIds = List[str]
+
+
+class ChunkMetadata(dict):
+    """Metadata for a document chunk (page or image)."""
+
+    id: str  # unique id for this chunk
+    source_collection_id: str  # collection id this chunk belongs to
+    sourceId: str  # source document id this chunk comes from
+    description: str  # transcription of source chunk or image
+    order: int  # index/position of this chunk
+    # Additional metadata like page number can be added here
 
 
 class FileExploreRequest(BaseModel):
