@@ -322,7 +322,8 @@ class VisionEmbedRequest(BaseModel):
     collection_name: Optional[str] = (
         None  # ChromaDB collection (auto-create from filename if not provided)
     )
-    transcription_text: Optional[str] = None
+    description: Optional[str] = None
+    metadata: Optional[dict] = None
 
     model_config = {
         "json_schema_extra": {
@@ -331,7 +332,7 @@ class VisionEmbedRequest(BaseModel):
                     "image_path": "/path/to/image.jpg",
                     "image_type": "path",
                     "collection_name": "my_images",
-                    "transcription_text": "Description of the image.",
+                    "description": "Description of the image.",
                 }
             ]
         }
