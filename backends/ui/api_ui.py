@@ -179,6 +179,7 @@ class ApiUI:
             return
         except Exception as e:
             print(f"{common.PRNT_APP} Failed to start API server. {e}", flush=True)
+            raise  # Re-raise so JavaScript receives the error
 
     # def start_server_process(self, config):
     #     process = Process(target=self.start_server, args=[config])

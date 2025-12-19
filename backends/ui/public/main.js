@@ -113,16 +113,20 @@ async function handleWebUILaunchError(err) {
   const btnEl = document.getElementById('startServerBtn')
   if (btnEl) btnEl.disabled = false
 
-  // Display error message
-  const toastEl = document.getElementById('messageBannerContent')
-  if (toastEl) {
-    toastEl.innerHTML = err
-    setTimeout(() => {
-      toastEl.innerHTML = ''
-    }, 10000)
-  }
+  // Display error message using showToast
+  showToast(err)
+
+  // Auto-dismiss after 10 seconds
+  setTimeout(() => {
+    dismissToast()
+  }, 10000)
 
   return ''
+}
+
+// Called from Python backend via evaluate_js when server fails to start
+function launchWebUIFailed(errorMessage) {
+  handleWebUILaunchError(errorMessage)
 }
 
 async function navigateToWebUI() {
