@@ -308,7 +308,10 @@ def audit_hardware() -> classes.HardwareAuditResponse:
 def download_text_model(request: Request, payload: classes.DownloadTextModelRequest):
     """
     Start an async download of a text model.
-    Returns a task_id immediately. Use /download/progress/{task_id} for SSE progress updates.
+    Returns task_id(s) immediately. Use /downloads/progress?task_id=<id> for SSE progress updates.
+
+    If mmproj is specified, both downloads start in parallel and both task IDs are returned.
+    The main task's progress will include secondary_task_id pointing to the mmproj download.
     """
     try:
         app: classes.FastAPIApp = request.app
@@ -328,8 +331,8 @@ def download_text_model(request: Request, payload: classes.DownloadTextModelRequ
             }
         )
 
-        def on_complete(task_id: str, file_path: str):
-            """Called when download completes successfully."""
+        def on_model_complete(task_id: str, file_path: str):
+            """Called when main model download completes successfully."""
             try:
                 # Get actual file path from HF cache
                 [model_cache_info, repo_revisions] = common.scan_cached_repo(
@@ -349,38 +352,50 @@ def download_text_model(request: Request, payload: classes.DownloadTextModelRequ
                     }
                 )
                 print(f"{common.PRNT_API} Text model saved: {actual_path}", flush=True)
-
-                # Handle mmproj download if specified (secondary download)
-                if mmproj_repo_id and mmproj_filename:
-                    _download_mmproj(
-                        download_manager,
-                        cache_dir,
-                        repo_id,
-                        mmproj_repo_id,
-                        mmproj_filename,
-                    )
             except Exception as e:
-                print(f"{common.PRNT_API} Error in on_complete: {e}", flush=True)
+                print(f"{common.PRNT_API} Error in on_model_complete: {e}", flush=True)
 
-        def on_error(task_id: str, error: Exception):
-            """Called when download fails."""
+        def on_model_error(task_id: str, error: Exception):
+            """Called when main model download fails."""
             print(
                 f"{common.PRNT_API} Download failed for {repo_id}: {error}", flush=True
             )
 
-        # Start the download in background thread
+        # Start the main model download
         task_id = download_manager.start_download(
             repo_id=repo_id,
             filename=filename,
             cache_dir=cache_dir,
-            on_complete=on_complete,
-            on_error=on_error,
+            on_complete=on_model_complete,
+            on_error=on_model_error,
         )
+
+        # Start mmproj download in parallel if specified
+        mmproj_task_id = None
+        if mmproj_repo_id and mmproj_filename:
+            mmproj_task_id = _start_mmproj_download(
+                download_manager=download_manager,
+                cache_dir=cache_dir,
+                model_repo_id=repo_id,
+                mmproj_repo_id=mmproj_repo_id,
+                mmproj_filename=mmproj_filename,
+            )
+            # Link the tasks so client can track both via main task's progress
+            if mmproj_task_id:
+                download_manager.set_secondary_task(task_id, mmproj_task_id)
+
+        response_data = {"taskId": task_id}
+        if mmproj_task_id:
+            response_data["mmprojTaskId"] = mmproj_task_id
+
+        message = f"Download started for {repo_id}/{filename}"
+        if mmproj_task_id:
+            message += f" (mmproj download also started)"
 
         return {
             "success": True,
-            "message": f"Download started for {repo_id}/{filename}",
-            "data": {"taskId": task_id},
+            "message": message,
+            "data": response_data,
         }
     except (KeyError, Exception, EnvironmentError, OSError, ValueError) as err:
         print(f"{common.PRNT_API} Error: {err}", flush=True)
@@ -389,17 +404,20 @@ def download_text_model(request: Request, payload: classes.DownloadTextModelRequ
         )
 
 
-def _download_mmproj(
+def _start_mmproj_download(
     download_manager: DownloadManager,
     cache_dir: str,
     model_repo_id: str,
     mmproj_repo_id: str,
     mmproj_filename: str,
-):
-    """Helper to download mmproj file after main model completes."""
+) -> str | None:
+    """
+    Start mmproj download and return task_id.
+    Returns None if download could not be started.
+    """
     try:
         print(
-            f"{common.PRNT_API} Downloading mmproj: {mmproj_filename} from {mmproj_repo_id}",
+            f"{common.PRNT_API} Starting mmproj download: {mmproj_filename} from {mmproj_repo_id}",
             flush=True,
         )
 
@@ -419,20 +437,24 @@ def _download_mmproj(
             except Exception as e:
                 print(f"{common.PRNT_API} Error saving mmproj path: {e}", flush=True)
 
-        download_manager.start_download(
+        def on_mmproj_error(task_id: str, error: Exception):
+            print(
+                f"{common.PRNT_API} mmproj download failed: {error}", flush=True
+            )
+
+        return download_manager.start_download(
             repo_id=mmproj_repo_id,
             filename=mmproj_filename,
             cache_dir=cache_dir,
             on_complete=on_mmproj_complete,
-            on_error=lambda tid, e: print(
-                f"{common.PRNT_API} Warning: Could not download mmproj: {e}", flush=True
-            ),
+            on_error=on_mmproj_error,
         )
     except Exception as mmproj_err:
         print(
             f"{common.PRNT_API} Warning: Could not start mmproj download: {mmproj_err}",
             flush=True,
         )
+        return None
 
 
 # Remove text model weights file and installation record.

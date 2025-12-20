@@ -1,7 +1,6 @@
 import os
 import json
 import shutil
-import asyncio
 from datetime import datetime, timezone
 from core import classes, common
 from core.download_manager import DownloadManager
@@ -14,7 +13,6 @@ from fastapi import (
     UploadFile,
     HTTPException,
 )
-from sse_starlette.sse import EventSourceResponse
 from embeddings.vector_storage import VECTOR_STORAGE_PATH, Vector_Storage
 from embeddings.embedder import Embedder
 from . import file_parsers
@@ -64,7 +62,9 @@ def create_memory_collection(
         )
         # Look up dimension from config, fall back to passed value for custom models
         config_dim = _get_embedding_dim_from_config(embedder.embed_model_name)
-        embedding_dim = config_dim or (form.embeddingDim if form.embeddingDim and form.embeddingDim > 0 else None)
+        embedding_dim = config_dim or (
+            form.embeddingDim if form.embeddingDim and form.embeddingDim > 0 else None
+        )
         metadata = {
             "icon": form.icon or "",
             "created_at": datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S"),
@@ -408,7 +408,9 @@ def wipe_all_memories(
 
 # Download an embedding model from huggingface hub (async with progress for GGUF)
 @router.post("/downloadEmbedModel")
-def download_embedding_model(request: Request, payload: classes.DownloadEmbeddingModelRequest):
+def download_embedding_model(
+    request: Request, payload: classes.DownloadEmbeddingModelRequest
+):
     """
     Start an async download of an embedding model.
     For GGUF models: Returns task_id for SSE progress tracking.
@@ -444,7 +446,9 @@ def download_embedding_model(request: Request, payload: classes.DownloadEmbeddin
             def on_complete(task_id: str, file_path: str):
                 """Called when GGUF download completes."""
                 try:
-                    model_path = os.path.join(cache_dir, f"models--{repo_id.replace('/', '--')}")
+                    model_path = os.path.join(
+                        cache_dir, f"models--{repo_id.replace('/', '--')}"
+                    )
                     total_size = 0
                     if os.path.exists(model_path):
                         for dirpath, _, filenames in os.walk(model_path):
@@ -461,12 +465,17 @@ def download_embedding_model(request: Request, payload: classes.DownloadEmbeddin
                             "size": total_size,
                         }
                     )
-                    print(f"{common.PRNT_API} Embedding model saved: {model_path}", flush=True)
+                    print(
+                        f"{common.PRNT_API} Embedding model saved: {model_path}",
+                        flush=True,
+                    )
                 except Exception as e:
                     print(f"{common.PRNT_API} Error in on_complete: {e}", flush=True)
 
             def on_error(task_id: str, error: Exception):
-                print(f"{common.PRNT_API} Embedding download failed: {error}", flush=True)
+                print(
+                    f"{common.PRNT_API} Embedding download failed: {error}", flush=True
+                )
 
             task_id = download_manager.start_download(
                 repo_id=repo_id,
@@ -521,7 +530,10 @@ def download_embedding_model(request: Request, payload: classes.DownloadEmbeddin
                                 cache_dir=cache_dir,
                             )
                             downloaded_files.append("pytorch_model.bin")
-                            print(f"{common.PRNT_API} Downloaded pytorch_model.bin", flush=True)
+                            print(
+                                f"{common.PRNT_API} Downloaded pytorch_model.bin",
+                                flush=True,
+                            )
                         except:
                             pass
                     continue
@@ -530,7 +542,9 @@ def download_embedding_model(request: Request, payload: classes.DownloadEmbeddin
                 raise Exception("No model files were successfully downloaded")
 
             common.scan_cached_repo(cache_dir=cache_dir, repo_id=repo_id)
-            model_path = os.path.join(cache_dir, f"models--{repo_id.replace('/', '--')}")
+            model_path = os.path.join(
+                cache_dir, f"models--{repo_id.replace('/', '--')}"
+            )
 
             total_size = 0
             if os.path.exists(model_path):

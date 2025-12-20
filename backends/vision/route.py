@@ -550,8 +550,8 @@ def download_vision_embedding_model(request: Request, payload: DownloadVisionEmb
     """
     Download a vision embedding model (GGUF + mmproj) from HuggingFace.
 
-    Returns task_id immediately. Use /embed/download/progress/{task_id} for SSE updates.
-    Downloads main model file first, then mmproj file sequentially.
+    Returns task_id(s) immediately. Use /downloads/progress?task_id=<id> for SSE updates.
+    Both model and mmproj downloads start in parallel if mmproj is specified.
     """
     try:
         app: classes.FastAPIApp = request.app
@@ -571,67 +571,73 @@ def download_vision_embedding_model(request: Request, payload: DownloadVisionEmb
             flush=True,
         )
 
+        # Track file paths from both downloads for metadata saving
+        download_results = {"model_path": None, "mmproj_path": None}
+
+        def _save_metadata_if_complete():
+            """Save metadata when both downloads complete."""
+            if download_results["model_path"] and download_results["mmproj_path"]:
+                try:
+                    total_size = 0
+                    if os.path.exists(download_results["model_path"]):
+                        total_size += os.path.getsize(download_results["model_path"])
+                    if os.path.exists(download_results["mmproj_path"]):
+                        total_size += os.path.getsize(download_results["mmproj_path"])
+
+                    common.save_vision_embedding_model(
+                        repo_id=repo_id,
+                        model_path=download_results["model_path"],
+                        mmproj_path=download_results["mmproj_path"],
+                        size=total_size,
+                    )
+                    print(
+                        f"{common.PRNT_API} Vision embedding model saved: {repo_id}",
+                        flush=True,
+                    )
+                except Exception as e:
+                    print(f"{common.PRNT_API} Error saving vision model metadata: {e}", flush=True)
+
         def on_model_complete(task_id: str, file_path: str):
-            """Called when main model download completes. Starts mmproj download."""
+            """Called when main model download completes."""
             try:
-                print(f"{common.PRNT_API} Main model downloaded, starting mmproj: {mmproj_filename}", flush=True)
-
-                def on_mmproj_complete(mmproj_task_id: str, mmproj_file_path: str):
-                    """Called when mmproj download completes. Saves metadata."""
-                    try:
-                        [model_cache_info, repo_revisions] = common.scan_cached_repo(
-                            cache_dir=cache_dir, repo_id=repo_id
-                        )
-
-                        model_path = common.get_cached_blob_path(
-                            repo_revisions=repo_revisions, filename=filename
-                        )
-                        mmproj_path = common.get_cached_blob_path(
-                            repo_revisions=repo_revisions, filename=mmproj_filename
-                        )
-
-                        if not isinstance(model_path, str):
-                            model_path = file_path
-                        if not isinstance(mmproj_path, str):
-                            mmproj_path = mmproj_file_path
-
-                        # Calculate total size
-                        total_size = 0
-                        if os.path.exists(model_path):
-                            total_size += os.path.getsize(model_path)
-                        if os.path.exists(mmproj_path):
-                            total_size += os.path.getsize(mmproj_path)
-
-                        # Save metadata
-                        common.save_vision_embedding_model(
-                            repo_id=repo_id,
-                            model_path=model_path,
-                            mmproj_path=mmproj_path,
-                            size=total_size,
-                        )
-
-                        print(
-                            f"{common.PRNT_API} Vision embedding model saved: {repo_id}",
-                            flush=True,
-                        )
-                    except Exception as e:
-                        print(f"{common.PRNT_API} Error saving vision model metadata: {e}", flush=True)
-
-                # Start mmproj download
-                download_manager.start_download(
-                    repo_id=repo_id,
-                    filename=mmproj_filename,
-                    cache_dir=cache_dir,
-                    on_complete=on_mmproj_complete,
-                    on_error=lambda tid, e: print(
-                        f"{common.PRNT_API} mmproj download failed: {e}", flush=True
-                    ),
+                [model_cache_info, repo_revisions] = common.scan_cached_repo(
+                    cache_dir=cache_dir, repo_id=repo_id
                 )
+                model_path = common.get_cached_blob_path(
+                    repo_revisions=repo_revisions, filename=filename
+                )
+                if not isinstance(model_path, str):
+                    model_path = file_path
+
+                download_results["model_path"] = model_path
+                print(f"{common.PRNT_API} Vision model downloaded: {model_path}", flush=True)
+                _save_metadata_if_complete()
             except Exception as e:
                 print(f"{common.PRNT_API} Error in on_model_complete: {e}", flush=True)
 
-        def on_error(task_id: str, error: Exception):
+        def on_mmproj_complete(task_id: str, file_path: str):
+            """Called when mmproj download completes."""
+            try:
+                [mmproj_cache_info, repo_revisions] = common.scan_cached_repo(
+                    cache_dir=cache_dir, repo_id=repo_id
+                )
+                mmproj_path = common.get_cached_blob_path(
+                    repo_revisions=repo_revisions, filename=mmproj_filename
+                )
+                if not isinstance(mmproj_path, str):
+                    mmproj_path = file_path
+
+                download_results["mmproj_path"] = mmproj_path
+                print(f"{common.PRNT_API} Vision mmproj downloaded: {mmproj_path}", flush=True)
+                _save_metadata_if_complete()
+            except Exception as e:
+                print(f"{common.PRNT_API} Error in on_mmproj_complete: {e}", flush=True)
+
+        def on_model_error(task_id: str, error: Exception):
             print(f"{common.PRNT_API} Vision model download failed: {error}", flush=True)
+
+        def on_mmproj_error(task_id: str, error: Exception):
+            print(f"{common.PRNT_API} Vision mmproj download failed: {error}", flush=True)
 
         # Start main model download
         task_id = download_manager.start_download(
@@ -639,13 +645,34 @@ def download_vision_embedding_model(request: Request, payload: DownloadVisionEmb
             filename=filename,
             cache_dir=cache_dir,
             on_complete=on_model_complete,
-            on_error=on_error,
+            on_error=on_model_error,
         )
+
+        # Start mmproj download in parallel
+        mmproj_task_id = None
+        if mmproj_filename:
+            mmproj_task_id = download_manager.start_download(
+                repo_id=repo_id,
+                filename=mmproj_filename,
+                cache_dir=cache_dir,
+                on_complete=on_mmproj_complete,
+                on_error=on_mmproj_error,
+            )
+            # Link the tasks so client can track both via main task's progress
+            download_manager.set_secondary_task(task_id, mmproj_task_id)
+
+        response_data = {"taskId": task_id}
+        if mmproj_task_id:
+            response_data["mmprojTaskId"] = mmproj_task_id
+
+        message = f"Download started for {repo_id}"
+        if mmproj_task_id:
+            message += " (model and mmproj downloading in parallel)"
 
         return {
             "success": True,
-            "message": f"Download started for {repo_id}",
-            "data": {"taskId": task_id},
+            "message": message,
+            "data": response_data,
         }
     except Exception as err:
         print(
