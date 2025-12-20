@@ -1,14 +1,16 @@
 import os
 import json
 import uuid
+import asyncio
 import tempfile
 from pathlib import Path
 from datetime import datetime
 from fastapi import APIRouter, Request, HTTPException
+from sse_starlette.sse import EventSourceResponse
 from .image_embedder import ImageEmbedder
 from core import classes, common
 from core.common import get_model_install_config
-from huggingface_hub import hf_hub_download
+from core.download_manager import DownloadManager
 from inference.llama_cpp import LLAMA_CPP
 from inference.classes import (
     CHAT_MODES,
@@ -544,14 +546,17 @@ async def embed_image(
 
 
 @router.post("/embed/download")
-def download_vision_embedding_model(payload: DownloadVisionEmbedModelRequest):
+def download_vision_embedding_model(request: Request, payload: DownloadVisionEmbedModelRequest):
     """
     Download a vision embedding model (GGUF + mmproj) from HuggingFace.
 
-    This downloads both the main model file and the mmproj file required
-    for multimodal vision embeddings.
+    Returns task_id immediately. Use /embed/download/progress/{task_id} for SSE updates.
+    Downloads main model file first, then mmproj file sequentially.
     """
     try:
+        app: classes.FastAPIApp = request.app
+        download_manager: DownloadManager = app.state.download_manager
+
         repo_id = payload.repo_id
         filename = payload.filename
         mmproj_filename = payload.mmproj_filename
@@ -562,76 +567,85 @@ def download_vision_embedding_model(payload: DownloadVisionEmbedModelRequest):
             os.makedirs(cache_dir)
 
         print(
-            f"{common.PRNT_API} Downloading vision embedding model: {repo_id}",
+            f"{common.PRNT_API} Starting vision embedding model download: {repo_id}",
             flush=True,
         )
 
-        # Download main model file
-        print(f"{common.PRNT_API} Downloading model file: {filename}", flush=True)
-        hf_hub_download(
+        def on_model_complete(task_id: str, file_path: str):
+            """Called when main model download completes. Starts mmproj download."""
+            try:
+                print(f"{common.PRNT_API} Main model downloaded, starting mmproj: {mmproj_filename}", flush=True)
+
+                def on_mmproj_complete(mmproj_task_id: str, mmproj_file_path: str):
+                    """Called when mmproj download completes. Saves metadata."""
+                    try:
+                        [model_cache_info, repo_revisions] = common.scan_cached_repo(
+                            cache_dir=cache_dir, repo_id=repo_id
+                        )
+
+                        model_path = common.get_cached_blob_path(
+                            repo_revisions=repo_revisions, filename=filename
+                        )
+                        mmproj_path = common.get_cached_blob_path(
+                            repo_revisions=repo_revisions, filename=mmproj_filename
+                        )
+
+                        if not isinstance(model_path, str):
+                            model_path = file_path
+                        if not isinstance(mmproj_path, str):
+                            mmproj_path = mmproj_file_path
+
+                        # Calculate total size
+                        total_size = 0
+                        if os.path.exists(model_path):
+                            total_size += os.path.getsize(model_path)
+                        if os.path.exists(mmproj_path):
+                            total_size += os.path.getsize(mmproj_path)
+
+                        # Save metadata
+                        common.save_vision_embedding_model(
+                            repo_id=repo_id,
+                            model_path=model_path,
+                            mmproj_path=mmproj_path,
+                            size=total_size,
+                        )
+
+                        print(
+                            f"{common.PRNT_API} Vision embedding model saved: {repo_id}",
+                            flush=True,
+                        )
+                    except Exception as e:
+                        print(f"{common.PRNT_API} Error saving vision model metadata: {e}", flush=True)
+
+                # Start mmproj download
+                download_manager.start_download(
+                    repo_id=repo_id,
+                    filename=mmproj_filename,
+                    cache_dir=cache_dir,
+                    on_complete=on_mmproj_complete,
+                    on_error=lambda tid, e: print(
+                        f"{common.PRNT_API} mmproj download failed: {e}", flush=True
+                    ),
+                )
+            except Exception as e:
+                print(f"{common.PRNT_API} Error in on_model_complete: {e}", flush=True)
+
+        def on_error(task_id: str, error: Exception):
+            print(f"{common.PRNT_API} Vision model download failed: {error}", flush=True)
+
+        # Start main model download
+        task_id = download_manager.start_download(
             repo_id=repo_id,
             filename=filename,
             cache_dir=cache_dir,
-            resume_download=True,
-        )
-
-        # Download mmproj file
-        print(
-            f"{common.PRNT_API} Downloading mmproj file: {mmproj_filename}", flush=True
-        )
-        hf_hub_download(
-            repo_id=repo_id,
-            filename=mmproj_filename,
-            cache_dir=cache_dir,
-            resume_download=True,
-        )
-
-        # Get actual file paths from cache
-        [model_cache_info, repo_revisions] = common.scan_cached_repo(
-            cache_dir=cache_dir, repo_id=repo_id
-        )
-
-        model_path = common.get_cached_blob_path(
-            repo_revisions=repo_revisions, filename=filename
-        )
-        mmproj_path = common.get_cached_blob_path(
-            repo_revisions=repo_revisions, filename=mmproj_filename
-        )
-
-        if not isinstance(model_path, str):
-            raise Exception("Model path is not a string.")
-        if not isinstance(mmproj_path, str):
-            raise Exception("mmproj path is not a string.")
-
-        # Calculate total size
-        total_size = 0
-        if os.path.exists(model_path):
-            total_size += os.path.getsize(model_path)
-        if os.path.exists(mmproj_path):
-            total_size += os.path.getsize(mmproj_path)
-
-        # Save metadata
-        common.save_vision_embedding_model(
-            repo_id=repo_id,
-            model_path=model_path,
-            mmproj_path=mmproj_path,
-            size=total_size,
-        )
-
-        print(
-            f"{common.PRNT_API} Vision embedding model downloaded successfully",
-            flush=True,
+            on_complete=on_model_complete,
+            on_error=on_error,
         )
 
         return {
             "success": True,
-            "message": f"Downloaded vision embedding model: {repo_id}",
-            "data": {
-                "repoId": repo_id,
-                "modelPath": model_path,
-                "mmprojPath": mmproj_path,
-                "size": total_size,
-            },
+            "message": f"Download started for {repo_id}",
+            "data": {"taskId": task_id},
         }
     except Exception as err:
         print(
