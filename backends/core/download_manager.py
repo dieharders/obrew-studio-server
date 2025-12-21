@@ -7,9 +7,8 @@ Progress updates are communicated via multiprocessing.Queue.
 
 import uuid
 import threading
-import multiprocessing
 import time
-from multiprocessing import Process, Queue, Event as MPEvent
+from multiprocessing import Process, Queue
 from dataclasses import dataclass, asdict
 from typing import Dict, Optional, Callable
 from tqdm import tqdm
@@ -176,7 +175,7 @@ class DownloadManager:
         self._shutdown_flag = threading.Event()
 
         # Shared queue for all progress updates
-        self._progress_queue = multiprocessing.Queue()
+        self._progress_queue = Queue()
 
         # Start background thread to process queue updates
         self._queue_thread = threading.Thread(target=self._process_queue, daemon=True)
