@@ -8,6 +8,7 @@ Progress updates are communicated via multiprocessing.Queue.
 import uuid
 import threading
 import time
+from queue import Empty
 from multiprocessing import Process, Queue
 from dataclasses import dataclass, asdict
 from typing import Dict, Optional, Callable
@@ -188,7 +189,7 @@ class DownloadManager:
                 # Use timeout so we can check shutdown flag periodically
                 try:
                     msg = self._progress_queue.get(timeout=0.1)
-                except Exception:
+                except Empty:
                     continue
 
                 task_id = msg.get("task_id")

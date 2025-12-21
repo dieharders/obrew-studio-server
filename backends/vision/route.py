@@ -1,12 +1,11 @@
 import os
 import json
 import uuid
-import asyncio
 import tempfile
+import threading
 from pathlib import Path
 from datetime import datetime
 from fastapi import APIRouter, Request, HTTPException
-from sse_starlette.sse import EventSourceResponse
 from .image_embedder import ImageEmbedder
 from core import classes, common
 from core.common import get_model_install_config
@@ -463,7 +462,8 @@ async def embed_image(
             "source_collection_id": collection_name,  # Collection this document belongs to
             "source_file_name": source_file_name,
             "source_file_path": payload.image_path or "base64_upload",
-            "description": payload.description or "",  # Transcription/description of the image
+            "description": payload.description
+            or "",  # Transcription/description of the image
             "created_at": datetime.now().isoformat(),
             **(payload.metadata or {}),
         }
@@ -546,7 +546,9 @@ async def embed_image(
 
 
 @router.post("/embed/download")
-def download_vision_embedding_model(request: Request, payload: DownloadVisionEmbedModelRequest):
+def download_vision_embedding_model(
+    request: Request, payload: DownloadVisionEmbedModelRequest
+):
     """
     Download a vision embedding model (GGUF + mmproj) from HuggingFace.
 
@@ -571,11 +573,13 @@ def download_vision_embedding_model(request: Request, payload: DownloadVisionEmb
             flush=True,
         )
 
-        # Track file paths from both downloads for metadata saving
+        # Thread-safe tracking for parallel downloads
+        # Each callback saves independently; metadata is saved when both complete
+        download_lock = threading.Lock()
         download_results = {"model_path": None, "mmproj_path": None}
 
         def _save_metadata_if_complete():
-            """Save metadata when both downloads complete."""
+            """Save metadata when both downloads complete. Must be called with lock held."""
             if download_results["model_path"] and download_results["mmproj_path"]:
                 try:
                     total_size = 0
@@ -595,7 +599,10 @@ def download_vision_embedding_model(request: Request, payload: DownloadVisionEmb
                         flush=True,
                     )
                 except Exception as e:
-                    print(f"{common.PRNT_API} Error saving vision model metadata: {e}", flush=True)
+                    print(
+                        f"{common.PRNT_API} Error saving vision model metadata: {e}",
+                        flush=True,
+                    )
 
         def on_model_complete(task_id: str, file_path: str):
             """Called when main model download completes."""
@@ -609,9 +616,13 @@ def download_vision_embedding_model(request: Request, payload: DownloadVisionEmb
                 if not isinstance(model_path, str):
                     model_path = file_path
 
-                download_results["model_path"] = model_path
-                print(f"{common.PRNT_API} Vision model downloaded: {model_path}", flush=True)
-                _save_metadata_if_complete()
+                print(
+                    f"{common.PRNT_API} Vision model downloaded: {model_path}",
+                    flush=True,
+                )
+                with download_lock:
+                    download_results["model_path"] = model_path
+                    _save_metadata_if_complete()
             except Exception as e:
                 print(f"{common.PRNT_API} Error in on_model_complete: {e}", flush=True)
 
@@ -627,17 +638,25 @@ def download_vision_embedding_model(request: Request, payload: DownloadVisionEmb
                 if not isinstance(mmproj_path, str):
                     mmproj_path = file_path
 
-                download_results["mmproj_path"] = mmproj_path
-                print(f"{common.PRNT_API} Vision mmproj downloaded: {mmproj_path}", flush=True)
-                _save_metadata_if_complete()
+                print(
+                    f"{common.PRNT_API} Vision mmproj downloaded: {mmproj_path}",
+                    flush=True,
+                )
+                with download_lock:
+                    download_results["mmproj_path"] = mmproj_path
+                    _save_metadata_if_complete()
             except Exception as e:
                 print(f"{common.PRNT_API} Error in on_mmproj_complete: {e}", flush=True)
 
         def on_model_error(task_id: str, error: Exception):
-            print(f"{common.PRNT_API} Vision model download failed: {error}", flush=True)
+            print(
+                f"{common.PRNT_API} Vision model download failed: {error}", flush=True
+            )
 
         def on_mmproj_error(task_id: str, error: Exception):
-            print(f"{common.PRNT_API} Vision mmproj download failed: {error}", flush=True)
+            print(
+                f"{common.PRNT_API} Vision mmproj download failed: {error}", flush=True
+            )
 
         # Start main model download
         task_id = download_manager.start_download(
