@@ -1,8 +1,6 @@
 import os
 import json
-import asyncio
 from fastapi import APIRouter, Request, HTTPException, Depends
-from sse_starlette.sse import EventSourceResponse
 from inference.agent import Agent
 from .llama_cpp import LLAMA_CPP
 from core import classes, common
@@ -438,9 +436,7 @@ def _start_mmproj_download(
                 print(f"{common.PRNT_API} Error saving mmproj path: {e}", flush=True)
 
         def on_mmproj_error(task_id: str, error: Exception):
-            print(
-                f"{common.PRNT_API} mmproj download failed: {error}", flush=True
-            )
+            print(f"{common.PRNT_API} mmproj download failed: {error}", flush=True)
 
         return download_manager.start_download(
             repo_id=mmproj_repo_id,
@@ -489,7 +485,10 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
             print(f"{common.PRNT_API} Freed {freed_size} space.", flush=True)
         except Exception as cache_err:
             # File not in cache (failed download) - continue to delete metadata
-            print(f"{common.PRNT_API} Cache not found (may be failed download): {cache_err}", flush=True)
+            print(
+                f"{common.PRNT_API} Cache not found (may be failed download): {cache_err}",
+                flush=True,
+            )
 
         # Always delete install record from json file (cleanup failed downloads)
         common.delete_text_model_revisions(repo_id=repo_id)

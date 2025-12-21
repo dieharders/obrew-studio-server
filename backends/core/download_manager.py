@@ -83,15 +83,17 @@ class ProgressCaptureTqdm(tqdm):
                 eta = int(remaining / rate)
 
             try:
-                self._progress_queue.put_nowait({
-                    "type": "progress",
-                    "task_id": self._task_id,
-                    "downloaded_bytes": self.n,
-                    "total_bytes": self.total,
-                    "percent": (self.n / self.total * 100) if self.total else 0,
-                    "speed_mbps": round(speed_mbps, 2),
-                    "eta_seconds": eta,
-                })
+                self._progress_queue.put_nowait(
+                    {
+                        "type": "progress",
+                        "task_id": self._task_id,
+                        "downloaded_bytes": self.n,
+                        "total_bytes": self.total,
+                        "percent": (self.n / self.total * 100) if self.total else 0,
+                        "speed_mbps": round(speed_mbps, 2),
+                        "eta_seconds": eta,
+                    }
+                )
             except Exception:
                 pass  # Queue full, skip this update
         return result
@@ -121,11 +123,13 @@ def _download_worker(
             return BoundProgressTqdm
 
         # Send downloading status
-        progress_queue.put({
-            "type": "status",
-            "task_id": task_id,
-            "status": "downloading",
-        })
+        progress_queue.put(
+            {
+                "type": "status",
+                "task_id": task_id,
+                "status": "downloading",
+            }
+        )
 
         # Perform the download
         file_path = hf_hub_download(
@@ -136,19 +140,23 @@ def _download_worker(
         )
 
         # Send completion
-        progress_queue.put({
-            "type": "complete",
-            "task_id": task_id,
-            "file_path": file_path,
-        })
+        progress_queue.put(
+            {
+                "type": "complete",
+                "task_id": task_id,
+                "file_path": file_path,
+            }
+        )
 
     except Exception as e:
         # Send error
-        progress_queue.put({
-            "type": "error",
-            "task_id": task_id,
-            "error": str(e),
-        })
+        progress_queue.put(
+            {
+                "type": "error",
+                "task_id": task_id,
+                "error": str(e),
+            }
+        )
 
 
 class DownloadManager:
@@ -203,7 +211,9 @@ class DownloadManager:
                         continue
 
                     if msg_type == "progress":
-                        self._progress[task_id].downloaded_bytes = msg["downloaded_bytes"]
+                        self._progress[task_id].downloaded_bytes = msg[
+                            "downloaded_bytes"
+                        ]
                         self._progress[task_id].total_bytes = msg["total_bytes"]
                         self._progress[task_id].percent = msg["percent"]
                         self._progress[task_id].speed_mbps = msg["speed_mbps"]
@@ -218,7 +228,10 @@ class DownloadManager:
                         self._progress[task_id].percent = 100.0
                         self._progress[task_id].file_path = msg["file_path"]
                         self._progress[task_id].completed_at = time.time()
-                        print(f"{PRNT_API} Download completed {task_id}: {msg['file_path']}", flush=True)
+                        print(
+                            f"{PRNT_API} Download completed {task_id}: {msg['file_path']}",
+                            flush=True,
+                        )
 
                         # Call on_complete callback
                         callbacks = self._callbacks.get(task_id, {})
@@ -227,13 +240,19 @@ class DownloadManager:
                             try:
                                 on_complete(task_id, msg["file_path"])
                             except Exception as e:
-                                print(f"{PRNT_API} Error in on_complete callback: {e}", flush=True)
+                                print(
+                                    f"{PRNT_API} Error in on_complete callback: {e}",
+                                    flush=True,
+                                )
 
                     elif msg_type == "error":
                         self._progress[task_id].status = "error"
                         self._progress[task_id].error = msg["error"]
                         self._progress[task_id].completed_at = time.time()
-                        print(f"{PRNT_API} Download error {task_id}: {msg['error']}", flush=True)
+                        print(
+                            f"{PRNT_API} Download error {task_id}: {msg['error']}",
+                            flush=True,
+                        )
 
                         # Call on_error callback
                         callbacks = self._callbacks.get(task_id, {})
@@ -242,7 +261,10 @@ class DownloadManager:
                             try:
                                 on_error(task_id, Exception(msg["error"]))
                             except Exception as e:
-                                print(f"{PRNT_API} Error in on_error callback: {e}", flush=True)
+                                print(
+                                    f"{PRNT_API} Error in on_error callback: {e}",
+                                    flush=True,
+                                )
 
             except Exception as e:
                 print(f"{PRNT_API} Queue processing error: {e}", flush=True)
@@ -293,7 +315,10 @@ class DownloadManager:
         with self._lock:
             self._processes[task_id] = process
 
-        print(f"{PRNT_API} Started download task {task_id}: {repo_id}/{filename}", flush=True)
+        print(
+            f"{PRNT_API} Started download task {task_id}: {repo_id}/{filename}",
+            flush=True,
+        )
         return task_id
 
     def get_progress(self, task_id: str) -> Optional[dict]:
@@ -335,7 +360,10 @@ class DownloadManager:
                 process.join(timeout=1.0)
                 # Force kill if still alive
                 if process.is_alive():
-                    print(f"{PRNT_API} Force killing download process {task_id}", flush=True)
+                    print(
+                        f"{PRNT_API} Force killing download process {task_id}",
+                        flush=True,
+                    )
                     process.kill()
                     process.join(timeout=1.0)
 
