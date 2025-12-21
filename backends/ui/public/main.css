@@ -552,15 +552,29 @@
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  border: none;
+  border-width: 0.15rem;
+  border-style: solid;
+  border-color: transparent;
 }
 
 .form-header-collapsible:hover {
-  background-color: #f8f9fa;
+  background-color: #fff9f0;
+  box-shadow: 0 4px 16px rgba(255, 179, 39, 0.3);
+  border-color: #ffb327;
+  transition: all 0.2s ease;
 }
 
 .form-header-collapsible .chevron {
   margin: 0;
+  transition: transform 0.2s ease;
+}
+
+.form-header-collapsible:hover .chevron {
+  transform: translateY(3px);
+}
+
+.form-header-collapsible:hover .chevron.rotate {
+  transform: rotate(180deg) translateY(3px);
 }
 
 .form-header-row {
