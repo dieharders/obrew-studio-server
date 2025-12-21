@@ -167,6 +167,11 @@
   align-items: center;
   margin: 4rem auto 2rem auto;
   padding: 0;
+  transition: transform 0.2s ease;
+}
+
+.logo-container:hover {
+  transform: scale(1.25);
 }
 
 .logo-image {
