@@ -574,24 +574,33 @@ def download_vision_embedding_model(
         )
 
         # Thread-safe tracking for parallel downloads
-        # Each callback saves independently; metadata is saved when both complete
+        # Each callback saves independently; metadata is saved when required downloads complete
         download_lock = threading.Lock()
         download_results = {"model_path": None, "mmproj_path": None}
+        # Track whether mmproj is required (if filename was provided)
+        mmproj_required = bool(mmproj_filename)
 
         def _save_metadata_if_complete():
-            """Save metadata when both downloads complete. Must be called with lock held."""
-            if download_results["model_path"] and download_results["mmproj_path"]:
+            """Save metadata when required downloads complete. Must be called with lock held."""
+            # If mmproj was requested, wait for both; otherwise just need model
+            if mmproj_required:
+                ready_to_save = download_results["model_path"] and download_results["mmproj_path"]
+            else:
+                ready_to_save = download_results["model_path"] is not None
+
+            if ready_to_save:
                 try:
                     total_size = 0
                     if os.path.exists(download_results["model_path"]):
                         total_size += os.path.getsize(download_results["model_path"])
-                    if os.path.exists(download_results["mmproj_path"]):
-                        total_size += os.path.getsize(download_results["mmproj_path"])
+                    mmproj_path = download_results["mmproj_path"]
+                    if mmproj_path and os.path.exists(mmproj_path):
+                        total_size += os.path.getsize(mmproj_path)
 
                     common.save_vision_embedding_model(
                         repo_id=repo_id,
                         model_path=download_results["model_path"],
-                        mmproj_path=download_results["mmproj_path"],
+                        mmproj_path=mmproj_path or "",  # Use empty string if no mmproj
                         size=total_size,
                     )
                     print(
