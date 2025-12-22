@@ -434,14 +434,8 @@ def download_embedding_model(
 
         if is_gguf:
             # GGUF models use async download with progress tracking
-            common.save_embedding_model(
-                {
-                    "repoId": repo_id,
-                    "modelName": model_name,
-                    "savePath": filename,
-                    "size": 0,
-                }
-            )
+            # NOTE: We save the model metadata only on completion (in on_complete callback)
+            # to avoid showing cancelled downloads as "Ready"
 
             def on_complete(task_id: str, file_path: str):
                 """Called when GGUF download completes."""
