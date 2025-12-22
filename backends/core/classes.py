@@ -13,6 +13,7 @@ from collections.abc import Callable
 if TYPE_CHECKING:
     from inference.llama_cpp import LLAMA_CPP
     from backends.vision.image_embedder import ImageEmbedder
+    from core.download_manager import DownloadManager
 
 
 class ApiServerClass(dict):
@@ -44,6 +45,7 @@ class AppState(dict):
     api: Type[ApiServerClass] | None
     llm: "LLAMA_CPP"  # Unified model for text and vision (when mmproj is loaded)
     vision_embedder: "ImageEmbedder"
+    download_manager: "DownloadManager"
 
 
 class FastAPIApp(FastAPI):

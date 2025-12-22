@@ -17,7 +17,7 @@ python-dotenv==1.0.0
 # For type safety
 pydantic==2.11.3
 # For downloading models
-huggingface-hub==0.22.2
+huggingface-hub==1.2.3
 # For servers
 fastapi==0.115.0
 uvicorn==0.29.0

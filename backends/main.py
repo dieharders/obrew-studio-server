@@ -10,11 +10,11 @@ import ctypes
 
 # Fix Windows console encoding for Unicode characters
 # Note: sys.stdout/stderr can be None when running as a GUI app without a console
-if sys.platform == 'win32':
+if sys.platform == "win32":
     if sys.stdout is not None:
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     if sys.stderr is not None:
-        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # Custom
 from ui.view import Webview
@@ -167,22 +167,21 @@ def main():
             )
             view_instance.create_window()
 
-            # Handle window closing
-            def on_window_closing():
+            # Handle window closed - force exit to work around pywebview macOS hang
+            # See: https://github.com/r0x0r/pywebview/issues/138
+            def on_window_closed():
                 print(
-                    f"{common.PRNT_APP} Window closing, shutting down server...",
+                    f"{common.PRNT_APP} Window closed, shutting down gracefully...",
                     flush=True,
                 )
-                if view_instance.api_server:
-                    view_instance.api_server.shutdown()
-                # Give server time to cleanup
-                import time
-
-                time.sleep(0.5)
-                return True
+                # Graceful shutdown - cancel downloads, unload models, stop server
+                _close_app(api=window_api)
+                # Force exit to avoid pywebview macOS hang
+                os._exit(0)
 
             window_handle = view_instance.webview_window
-            window_handle.events.closing += on_window_closing
+            window_handle.events.closed += on_window_closed
+
             # Start window
             start_ui = view_instance.callback
             start_ui()

@@ -15,11 +15,13 @@ from contextlib import asynccontextmanager
 
 # Custom
 from core import common, classes
+from core.download_manager import init_download_manager
 from services.route import router as services
 from embeddings.route import router as embeddings
 from inference.route import router as text_inference
 from vision.route import router as vision_inference
 from storage.route import router as storage
+from downloads.route import router as downloads
 
 
 class ApiServer:
@@ -125,6 +127,8 @@ class ApiServer:
             )
             # https://www.python-httpx.org/quickstart/
             app.state.requests_client = httpx.Client()
+            # Initialize download manager for concurrent model downloads
+            app.state.download_manager = init_download_manager(max_workers=3)
 
             # Tell front-end to go to webui
             if self.on_startup_callback:
@@ -180,6 +184,9 @@ class ApiServer:
             if self.app.state.vision_embedder:
                 # vision_embedder.unload() is async (spawns a server process)
                 self._run_async_cleanup(self.app.state.vision_embedder.unload())
+            if self.app.state.download_manager:
+                # Shutdown download manager and cancel pending downloads
+                self.app.state.download_manager.shutdown()
 
             # Gracefully shutdown uvicorn server
             if self.server:
@@ -281,6 +288,9 @@ class ApiServer:
         )
         endpoint_router.include_router(
             vision_inference, prefix="/v1/vision", tags=["vision inference"]
+        )
+        endpoint_router.include_router(
+            downloads, prefix="/v1/downloads", tags=["downloads"]
         )
         app.include_router(endpoint_router)
 

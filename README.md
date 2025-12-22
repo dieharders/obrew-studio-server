@@ -88,16 +88,26 @@ To use Ai locally with your private data for free:
 ✅ Knowledge Base: Search a vector database with Llama Index to retrieve information<br>
 ✅ Agents: Customized LLM, can choose or specify tool use<br>
 ✅ Tool Use: Choose from pre-made or write your own<br>
-❌ Observability: Source citations, logging<br>
-❌ Multi-modal: vision, text, audio, 3d, and beyond<br>
-❌ Multi-device memory sharing (i.e. cluster of macs running single large model)<br>
+✅ Multi-modal:
+
+- ✅ image
+- ✅ text
+- ❌ video
+- ❌ audio
+- ❌ 3d
+  <br>
+
+❌ Observability: Source citations, logging, tracing<br>
+❌ Cached Context & Extended Context<br>
 ❌ Voice-to-Text and Text-to-Speech<br>
+
+<!-- ❌ Multi-device memory sharing (i.e. cluster of macs running single large model)<br> -->
 
 ## Supported Model Providers
 
 This is a local first project. The ultimate goal is to support many providers via one API.
 
-✅ [Open-Source](https://huggingface.co)<br>
+✅ [Open-Source (GGUF format)](https://huggingface.co)<br>
 ❌ [Google Gemini](https://gemini.google.com)<br>
 ❌ [OpenAI](https://openai.com/chatgpt)<br>
 ❌ [Anthropic](https://www.anthropic.com)<br>

@@ -3,6 +3,7 @@ import json
 import shutil
 from datetime import datetime, timezone
 from core import classes, common
+from core.download_manager import DownloadManager
 from fastapi import (
     APIRouter,
     Request,
@@ -61,7 +62,9 @@ def create_memory_collection(
         )
         # Look up dimension from config, fall back to passed value for custom models
         config_dim = _get_embedding_dim_from_config(embedder.embed_model_name)
-        embedding_dim = config_dim or (form.embeddingDim if form.embeddingDim and form.embeddingDim > 0 else None)
+        embedding_dim = config_dim or (
+            form.embeddingDim if form.embeddingDim and form.embeddingDim > 0 else None
+        )
         metadata = {
             "icon": form.icon or "",
             "created_at": datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S"),
@@ -403,47 +406,87 @@ def wipe_all_memories(
         }
 
 
-# Download an embedding model from huggingface hub
+# Download an embedding model from huggingface hub (async with progress for GGUF)
 @router.post("/downloadEmbedModel")
-def download_embedding_model(payload: classes.DownloadEmbeddingModelRequest):
+def download_embedding_model(
+    request: Request, payload: classes.DownloadEmbeddingModelRequest
+):
+    """
+    Start an async download of an embedding model.
+    For GGUF models: Returns task_id for SSE progress tracking.
+    For transformer models: Downloads synchronously (multiple files).
+    """
     try:
+        app: classes.FastAPIApp = request.app
+        download_manager: DownloadManager = app.state.download_manager
+
         repo_id = payload.repo_id
         filename = payload.filename
         cache_dir = common.app_path(common.EMBEDDING_MODELS_CACHE_DIR)
-        resume_download = True
 
-        # Extract model name from repo_id (e.g., "intfloat/multilingual-e5-large-instruct" -> "multilingual-e5-large-instruct")
+        # Extract model name from repo_id
         model_name = repo_id.split("/")[-1]
 
-        # Check if this is a GGUF model (single file download)
+        # Check if this is a GGUF model (single file download with progress)
         is_gguf = filename.lower().endswith(".gguf")
 
         print(f"{common.PRNT_API} Downloading embedding model {repo_id}...", flush=True)
 
         if is_gguf:
-            # GGUF models are single files, similar to text model downloads
-            # Save initial metadata to json file
-            common.save_embedding_model(
-                {
-                    "repoId": repo_id,
-                    "modelName": model_name,
-                    "savePath": filename,
-                    "size": 0,
-                }
-            )
+            # GGUF models use async download with progress tracking
+            # NOTE: We save the model metadata only on completion (in on_complete callback)
+            # to avoid showing cancelled downloads as "Ready"
 
-            # Download the single GGUF file
-            hf_hub_download(
+            def on_complete(task_id: str, file_path: str):
+                """Called when GGUF download completes."""
+                try:
+                    model_path = os.path.join(
+                        cache_dir, f"models--{repo_id.replace('/', '--')}"
+                    )
+                    total_size = 0
+                    if os.path.exists(model_path):
+                        for dirpath, _, filenames in os.walk(model_path):
+                            for f in filenames:
+                                fp = os.path.join(dirpath, f)
+                                if os.path.exists(fp):
+                                    total_size += os.path.getsize(fp)
+
+                    common.save_embedding_model(
+                        {
+                            "repoId": repo_id,
+                            "modelName": model_name,
+                            "savePath": model_path,
+                            "size": total_size,
+                        }
+                    )
+                    print(
+                        f"{common.PRNT_API} Embedding model saved: {model_path}",
+                        flush=True,
+                    )
+                except Exception as e:
+                    print(f"{common.PRNT_API} Error in on_complete: {e}", flush=True)
+
+            def on_error(task_id: str, error: Exception):
+                print(
+                    f"{common.PRNT_API} Embedding download failed: {error}", flush=True
+                )
+
+            task_id = download_manager.start_download(
                 repo_id=repo_id,
                 filename=filename,
                 cache_dir=cache_dir,
-                resume_download=resume_download,
+                on_complete=on_complete,
+                on_error=on_error,
             )
-            print(f"{common.PRNT_API} Downloaded {filename}", flush=True)
+
+            return {
+                "success": True,
+                "message": f"Download started for {repo_id}/{filename}",
+                "data": {"taskId": task_id},
+            }
 
         else:
-            # Standard Transformer models with multiple files
-            # Save initial metadata to json file
+            # Transformer models: synchronous multi-file download (no SSE progress)
             common.save_embedding_model(
                 {
                     "repoId": repo_id,
@@ -453,15 +496,13 @@ def download_embedding_model(payload: classes.DownloadEmbeddingModelRequest):
                 }
             )
 
-            # Download model files using hf_hub_download (same pattern as text models)
-            # Embedding models typically have these core files
             files_to_download = [
                 "config.json",
                 "tokenizer_config.json",
                 "tokenizer.json",
                 "special_tokens_map.json",
                 "vocab.txt",
-                "model.safetensors",  # or pytorch_model.bin
+                "model.safetensors",
             ]
 
             downloaded_files = []
@@ -471,20 +512,16 @@ def download_embedding_model(payload: classes.DownloadEmbeddingModelRequest):
                         repo_id=repo_id,
                         filename=file,
                         cache_dir=cache_dir,
-                        resume_download=resume_download,
                     )
                     downloaded_files.append(file)
                     print(f"{common.PRNT_API} Downloaded {file}", flush=True)
                 except Exception:
-                    # Some files might not exist (e.g., model.safetensors vs pytorch_model.bin)
-                    # Try pytorch_model.bin if safetensors fails
                     if file == "model.safetensors":
                         try:
                             hf_hub_download(
                                 repo_id=repo_id,
                                 filename="pytorch_model.bin",
                                 cache_dir=cache_dir,
-                                resume_download=resume_download,
                             )
                             downloaded_files.append("pytorch_model.bin")
                             print(
@@ -493,44 +530,41 @@ def download_embedding_model(payload: classes.DownloadEmbeddingModelRequest):
                             )
                         except:
                             pass
-                    # Continue with other files even if one fails
                     continue
 
             if not downloaded_files:
                 raise Exception("No model files were successfully downloaded")
 
-        # Scan cache to verify download
-        common.scan_cached_repo(cache_dir=cache_dir, repo_id=repo_id)
+            common.scan_cached_repo(cache_dir=cache_dir, repo_id=repo_id)
+            model_path = os.path.join(
+                cache_dir, f"models--{repo_id.replace('/', '--')}"
+            )
 
-        # Get the base model directory path
-        model_path = os.path.join(cache_dir, f"models--{repo_id.replace('/', '--')}")
+            total_size = 0
+            if os.path.exists(model_path):
+                for dirpath, _, filenames in os.walk(model_path):
+                    for f in filenames:
+                        fp = os.path.join(dirpath, f)
+                        if os.path.exists(fp):
+                            total_size += os.path.getsize(fp)
 
-        # Calculate total size
-        total_size = 0
-        if os.path.exists(model_path):
-            for dirpath, dirnames, filenames in os.walk(model_path):
-                for f in filenames:
-                    fp = os.path.join(dirpath, f)
-                    if os.path.exists(fp):
-                        total_size += os.path.getsize(fp)
+            common.save_embedding_model(
+                {
+                    "repoId": repo_id,
+                    "modelName": model_name,
+                    "savePath": model_path,
+                    "size": total_size,
+                }
+            )
 
-        # Save finalized details to disk
-        common.save_embedding_model(
-            {
-                "repoId": repo_id,
-                "modelName": model_name,
-                "savePath": model_path,
-                "size": total_size,
+            print(f"{common.PRNT_API} Successfully downloaded {repo_id}", flush=True)
+            size_mb = total_size / (1024 * 1024)
+            return {
+                "success": True,
+                "message": f"Saved embedding model to {model_path}. Size: {size_mb:.2f} MB",
+                "data": None,
             }
-        )
 
-        print(f"{common.PRNT_API} Successfully downloaded {repo_id}", flush=True)
-        size_mb = total_size / (1024 * 1024)
-        return {
-            "success": True,
-            "message": f"Saved embedding model to {model_path}. Size: {size_mb:.2f} MB",
-            "data": None,
-        }
     except (KeyError, Exception, EnvironmentError, OSError, ValueError) as err:
         print(f"{common.PRNT_API} Error: {err}", flush=True)
         raise HTTPException(

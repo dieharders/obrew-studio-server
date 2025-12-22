@@ -5,8 +5,8 @@ from inference.agent import Agent
 from .llama_cpp import LLAMA_CPP
 from core import classes, common
 from core.common import get_model_install_config, get_prompt_formats
+from core.download_manager import DownloadManager
 from huggingface_hub import (
-    hf_hub_download,
     get_hf_file_metadata,
     hf_hub_url,
     HfApi,
@@ -149,7 +149,9 @@ async def load_text_inference(
         # Look up model path from model_id if not provided
         model_path = data.modelPath or common.get_model_file_path(model_id)
         if not model_path:
-            raise Exception(f"Model path not found for {model_id}. Provide modelPath or install the model first.")
+            raise Exception(
+                f"Model path not found for {model_id}. Provide modelPath or install the model first."
+            )
         if not os.path.exists(model_path):
             raise Exception(f"Model file not found: {model_path}")
 
@@ -297,17 +299,27 @@ def audit_hardware() -> classes.HardwareAuditResponse:
         }
 
 
-# Download a text model from huggingface hub
+# Download a text model from huggingface hub (async with progress tracking)
 # https://huggingface.co/docs/huggingface_hub/v0.21.4/en/package_reference/file_download#huggingface_hub.hf_hub_download
+# @TODO Consolidate this with the other download model endpoints into the /downloads endpoint
 @router.post("/download")
-def download_text_model(payload: classes.DownloadTextModelRequest):
+def download_text_model(request: Request, payload: classes.DownloadTextModelRequest):
+    """
+    Start an async download of a text model.
+    Returns task_id(s) immediately. Use /downloads/progress?task_id=<id> for SSE progress updates.
+
+    If mmproj is specified, both downloads start in parallel and both task IDs are returned.
+    The main task's progress will include secondary_task_id pointing to the mmproj download.
+    """
     try:
+        app: classes.FastAPIApp = request.app
+        download_manager: DownloadManager = app.state.download_manager
+
         repo_id = payload.repo_id
         filename = payload.filename
         cache_dir = common.app_path(common.TEXT_MODELS_CACHE_DIR)
-        resume_download = False
-        # repo_type = "model" # optional, specify type of data, defaults to model
-        # local_dir = "" # optional, downloaded file will be placed under this directory
+        mmproj_repo_id = payload.mmproj_repo_id
+        mmproj_filename = payload.mmproj_filename
 
         # Save initial path and details to json file
         common.save_text_model(
@@ -317,96 +329,128 @@ def download_text_model(payload: classes.DownloadTextModelRequest):
             }
         )
 
-        # Download model.
-        # Returned path is symlink which isnt loadable; for our purposes we use get_cached_blob_path().
-        hf_hub_download(
+        def on_model_complete(task_id: str, file_path: str):
+            """Called when main model download completes successfully."""
+            try:
+                # Get actual file path from HF cache
+                [model_cache_info, repo_revisions] = common.scan_cached_repo(
+                    cache_dir=cache_dir, repo_id=repo_id
+                )
+                actual_path = common.get_cached_blob_path(
+                    repo_revisions=repo_revisions, filename=filename
+                )
+                if not isinstance(actual_path, str):
+                    actual_path = file_path
+
+                # Save finalized details to disk
+                common.save_text_model(
+                    {
+                        "repoId": repo_id,
+                        "savePath": {filename: actual_path},
+                    }
+                )
+                print(f"{common.PRNT_API} Text model saved: {actual_path}", flush=True)
+            except Exception as e:
+                print(f"{common.PRNT_API} Error in on_model_complete: {e}", flush=True)
+
+        def on_model_error(task_id: str, error: Exception):
+            """Called when main model download fails."""
+            print(
+                f"{common.PRNT_API} Download failed for {repo_id}: {error}", flush=True
+            )
+
+        # Start the main model download
+        task_id = download_manager.start_download(
             repo_id=repo_id,
             filename=filename,
             cache_dir=cache_dir,
-            resume_download=resume_download,
-            # local_dir=cache_dir,
-            # local_dir_use_symlinks=False,
-            # repo_type=repo_type,
+            on_complete=on_model_complete,
+            on_error=on_model_error,
         )
 
-        # Get actual file path
-        [model_cache_info, repo_revisions] = common.scan_cached_repo(
-            cache_dir=cache_dir, repo_id=repo_id
-        )
-        # Get from dl path
-        # file_path = common.app_path(download_path)
-
-        # Get from huggingface hub managed cache dir
-        file_path = common.get_cached_blob_path(
-            repo_revisions=repo_revisions, filename=filename
-        )
-        if not isinstance(file_path, str):
-            raise Exception("Path is not string.")
-
-        # Save finalized details to disk
-        common.save_text_model(
-            {
-                "repoId": repo_id,
-                "savePath": {filename: file_path},
-            }
-        )
-
-        # Download mmproj file if explicitly provided (for multimodal/vision models)
-        mmproj_path = None
-        mmproj_repo_id = payload.mmproj_repo_id
-        mmproj_filename = payload.mmproj_filename
-
+        # Start mmproj download in parallel if specified
+        mmproj_task_id = None
         if mmproj_repo_id and mmproj_filename:
-            try:
-                print(
-                    f"{common.PRNT_API} Downloading mmproj: {mmproj_filename} from {mmproj_repo_id}",
-                    flush=True,
-                )
+            mmproj_task_id = _start_mmproj_download(
+                download_manager=download_manager,
+                cache_dir=cache_dir,
+                model_repo_id=repo_id,
+                mmproj_repo_id=mmproj_repo_id,
+                mmproj_filename=mmproj_filename,
+            )
+            # Link the tasks so client can track both via main task's progress
+            if mmproj_task_id:
+                download_manager.set_secondary_task(task_id, mmproj_task_id)
 
-                # Download mmproj file
-                hf_hub_download(
-                    repo_id=mmproj_repo_id,
-                    filename=mmproj_filename,
-                    cache_dir=cache_dir,
-                    resume_download=False,
-                )
+        response_data = {"taskId": task_id}
+        if mmproj_task_id:
+            response_data["mmprojTaskId"] = mmproj_task_id
 
-                # Get mmproj file path from cache
-                [mmproj_cache_info, mmproj_revisions] = common.scan_cached_repo(
-                    cache_dir=cache_dir, repo_id=mmproj_repo_id
-                )
-                mmproj_path = common.get_cached_blob_path(
-                    repo_revisions=mmproj_revisions, filename=mmproj_filename
-                )
-
-                # Save mmproj path to model metadata
-                if mmproj_path:
-                    common.save_mmproj_path(repo_id, mmproj_path)
-                    print(
-                        f"{common.PRNT_API} Saved mmproj to {mmproj_path}",
-                        flush=True,
-                    )
-            except Exception as mmproj_err:
-                # Don't fail the whole download if mmproj fails, just log it
-                print(
-                    f"{common.PRNT_API} Warning: Could not download mmproj: {mmproj_err}",
-                    flush=True,
-                )
-
-        message = f"Saved model file to {file_path}."
-        if mmproj_path:
-            message += f" Also downloaded mmproj to {mmproj_path}."
+        message = f"Download started for {repo_id}/{filename}"
+        if mmproj_task_id:
+            message += f" (mmproj download also started)"
 
         return {
             "success": True,
             "message": message,
-            "data": None,
+            "data": response_data,
         }
     except (KeyError, Exception, EnvironmentError, OSError, ValueError) as err:
         print(f"{common.PRNT_API} Error: {err}", flush=True)
         raise HTTPException(
             status_code=400, detail=f"Something went wrong. Reason: {err}"
         )
+
+
+def _start_mmproj_download(
+    download_manager: DownloadManager,
+    cache_dir: str,
+    model_repo_id: str,
+    mmproj_repo_id: str,
+    mmproj_filename: str,
+) -> str | None:
+    """
+    Start mmproj download and return task_id.
+    Returns None if download could not be started.
+    """
+    try:
+        print(
+            f"{common.PRNT_API} Starting mmproj download: {mmproj_filename} from {mmproj_repo_id}",
+            flush=True,
+        )
+
+        def on_mmproj_complete(task_id: str, file_path: str):
+            try:
+                [mmproj_cache_info, mmproj_revisions] = common.scan_cached_repo(
+                    cache_dir=cache_dir, repo_id=mmproj_repo_id
+                )
+                mmproj_path = common.get_cached_blob_path(
+                    repo_revisions=mmproj_revisions, filename=mmproj_filename
+                )
+                if mmproj_path:
+                    common.save_mmproj_path(model_repo_id, mmproj_path)
+                    print(
+                        f"{common.PRNT_API} Saved mmproj to {mmproj_path}", flush=True
+                    )
+            except Exception as e:
+                print(f"{common.PRNT_API} Error saving mmproj path: {e}", flush=True)
+
+        def on_mmproj_error(task_id: str, error: Exception):
+            print(f"{common.PRNT_API} mmproj download failed: {error}", flush=True)
+
+        return download_manager.start_download(
+            repo_id=mmproj_repo_id,
+            filename=mmproj_filename,
+            cache_dir=cache_dir,
+            on_complete=on_mmproj_complete,
+            on_error=on_mmproj_error,
+        )
+    except Exception as mmproj_err:
+        print(
+            f"{common.PRNT_API} Warning: Could not start mmproj download: {mmproj_err}",
+            flush=True,
+        )
+        return None
 
 
 # Remove text model weights file and installation record.
@@ -418,32 +462,39 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
 
     try:
         cache_dir = common.app_path(common.TEXT_MODELS_CACHE_DIR)
+        freed_size = "0.0"
 
-        # Checks file and throws if not found
-        common.check_cached_file_exists(
-            cache_dir=cache_dir, repo_id=repo_id, filename=filename
-        )
+        # Try to delete from HF cache (may not exist for failed downloads)
+        try:
+            common.check_cached_file_exists(
+                cache_dir=cache_dir, repo_id=repo_id, filename=filename
+            )
+
+            # Find model hash and delete from cache
+            [model_cache_info, repo_revisions] = common.scan_cached_repo(
+                cache_dir=cache_dir, repo_id=repo_id
+            )
+            repo_commit_hash = []
+            for r in repo_revisions:
+                repo_commit_hash.append(r.commit_hash)
+
+            # Delete weights from cache
+            delete_strategy = model_cache_info.delete_revisions(*repo_commit_hash)
+            delete_strategy.execute()
+            freed_size = delete_strategy.expected_freed_size_str
+            print(f"{common.PRNT_API} Freed {freed_size} space.", flush=True)
+        except Exception as cache_err:
+            # File not in cache (failed download) - continue to delete metadata
+            print(
+                f"{common.PRNT_API} Cache not found (may be failed download): {cache_err}",
+                flush=True,
+            )
+
+        # Always delete install record from json file (cleanup failed downloads)
+        common.delete_text_model_revisions(repo_id=repo_id)
 
         # Check if this model has an associated mmproj file to delete
         mmproj_path = common.get_mmproj_path(repo_id)
-
-        # Find model hash
-        [model_cache_info, repo_revisions] = common.scan_cached_repo(
-            cache_dir=cache_dir, repo_id=repo_id
-        )
-        repo_commit_hash = []
-        for r in repo_revisions:
-            repo_commit_hash.append(r.commit_hash)
-
-        # Delete weights from cache, https://huggingface.co/docs/huggingface_hub/en/guides/manage-cache
-        delete_strategy = model_cache_info.delete_revisions(*repo_commit_hash)
-        delete_strategy.execute()
-        freed_size = delete_strategy.expected_freed_size_str
-        print(f"{common.PRNT_API} Freed {freed_size} space.", flush=True)
-
-        # Delete install record from json file
-        if freed_size != "0.0":
-            common.delete_text_model_revisions(repo_id=repo_id)
 
         # Also delete the mmproj file if it exists
         # The mmproj may be in a different repo, so we need to delete it separately

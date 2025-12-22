@@ -343,6 +343,35 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
     }
     data.append(memory_api)
 
+    # Return centralized download management services
+    downloads_api = {
+        "name": "downloads",
+        "port": app.state.api.SERVER_PORT,
+        "endpoints": [
+            # Stream download progress via SSE (works for all model types)
+            # Use queryParams: { task_id: "..." } to specify task
+            {
+                "name": "progress",
+                "urlPath": "/v1/downloads/progress",
+                "method": "GET",
+            },
+            # Cancel an in-progress download
+            # Use queryParams: { task_id: "..." } to specify task
+            {
+                "name": "cancel",
+                "urlPath": "/v1/downloads",
+                "method": "DELETE",
+            },
+            # Get all active downloads
+            {
+                "name": "list",
+                "urlPath": "/v1/downloads",
+                "method": "GET",
+            },
+        ],
+    }
+    data.append(downloads_api)
+
     return {
         "success": True,
         "message": "These are the currently available service api's",
