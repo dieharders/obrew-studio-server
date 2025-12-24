@@ -883,6 +883,35 @@ class InstalledTextModelResponse(BaseModel):
     }
 
 
+class WipeAllModelsResponse(BaseModel):
+    success: bool
+    message: str
+    data: dict
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "success": True,
+                    "message": "Successfully wiped all model caches. Freed 2.3 GB of space.",
+                    "data": {
+                        "freed_space_total": "2.3 GB",
+                        "freed_space_breakdown": {
+                            "text_models": "1.5 GB",
+                            "embedding_models": "500 MB",
+                            "vision_embedding_models": "300 MB"
+                        },
+                        "caches_cleared": 3,
+                        "metadata_files_reset": 2,
+                        "errors": [],
+                        "warnings": []
+                    }
+                }
+            ]
+        }
+    }
+
+
 class ContextRetrievalOptions(BaseModel):
     response_mode: Optional[str] = None
     similarity_top_k: Optional[int] = None

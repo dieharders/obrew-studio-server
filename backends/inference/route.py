@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 from fastapi import APIRouter, Request, HTTPException, Depends
 from inference.agent import Agent
 from .llama_cpp import LLAMA_CPP
@@ -570,6 +571,227 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
         raise HTTPException(
             status_code=400, detail=f"Something went wrong. Reason: {err}"
         )
+
+
+@router.post("/wipe")
+def wipe_all_models(request: Request) -> classes.WipeAllModelsResponse:
+    """
+    Wipe all cached model files from HuggingFace download cache and reset JSON tracking files.
+    This is a synchronous operation that returns only after all operations complete.
+    """
+    app = request.app
+
+    # Phase 1: Initialize tracking
+    errors = []
+    warnings = []
+    freed_space = {
+        "text_models": "0 B",
+        "embedding_models": "0 B",
+        "vision_embedding_models": "0 B",
+    }
+    caches_cleared = 0
+    metadata_files_reset = 0
+
+    # Phase 2: Check for loaded models (warnings)
+    if hasattr(app.state, "llm") and app.state.llm is not None:
+        warnings.append("Text model is currently loaded in memory")
+    if hasattr(app.state, "vision_embedder") and app.state.vision_embedder is not None:
+        warnings.append("Vision embedding model is currently loaded in memory")
+
+    # Phase 3: Delete each cache directory
+    cache_configs = [
+        ("text_models", common.TEXT_MODELS_CACHE_DIR),
+        ("embedding_models", common.EMBEDDING_MODELS_CACHE_DIR),
+        ("vision_embedding_models", common.VISION_EMBEDDING_MODELS_CACHE_DIR),
+    ]
+
+    for cache_type, cache_dir_name in cache_configs:
+        try:
+            cache_dir = common.app_path(cache_dir_name)
+
+            # Check if cache directory exists
+            if not os.path.exists(cache_dir):
+                print(
+                    f"{common.PRNT_API} Cache directory does not exist: {cache_dir}",
+                    flush=True,
+                )
+                continue
+
+            # Calculate size before deletion for fallback method
+            def get_dir_size(path):
+                total = 0
+                try:
+                    for entry in os.scandir(path):
+                        if entry.is_file(follow_symlinks=False):
+                            total += entry.stat().st_size
+                        elif entry.is_dir(follow_symlinks=False):
+                            total += get_dir_size(entry.path)
+                except Exception:
+                    pass
+                return total
+
+            size_before = get_dir_size(cache_dir)
+
+            # Try HuggingFace API method first
+            try:
+                from huggingface_hub import scan_cache_dir
+
+                hf_cache_info = scan_cache_dir(cache_dir)
+
+                # Get all repos and their revisions
+                all_commit_hashes = []
+                for repo in hf_cache_info.repos:
+                    for revision in repo.revisions:
+                        all_commit_hashes.append(revision.commit_hash)
+
+                if all_commit_hashes:
+                    # Delete all revisions
+                    delete_strategy = hf_cache_info.delete_revisions(*all_commit_hashes)
+                    delete_strategy.execute()
+                    freed_space[cache_type] = delete_strategy.expected_freed_size_str
+                    print(
+                        f"{common.PRNT_API} Deleted {cache_type} cache via HF API. Freed {freed_space[cache_type]}",
+                        flush=True,
+                    )
+                else:
+                    # Empty cache, use fallback
+                    raise Exception("No revisions found, using fallback")
+
+            except Exception as hf_err:
+                # Fallback to shutil.rmtree
+                print(
+                    f"{common.PRNT_API} HF API failed for {cache_type}, using fallback: {hf_err}",
+                    flush=True,
+                )
+
+                try:
+                    shutil.rmtree(cache_dir)
+                    # Recreate the directory
+                    os.makedirs(cache_dir, exist_ok=True)
+
+                    # Convert size to human-readable format
+                    def format_size(size_bytes):
+                        for unit in ["B", "KB", "MB", "GB", "TB"]:
+                            if size_bytes < 1024.0:
+                                return f"{size_bytes:.1f} {unit}"
+                            size_bytes /= 1024.0
+                        return f"{size_bytes:.1f} PB"
+
+                    freed_space[cache_type] = format_size(size_before)
+                    print(
+                        f"{common.PRNT_API} Deleted {cache_type} cache via rmtree. Freed ~{freed_space[cache_type]}",
+                        flush=True,
+                    )
+
+                except Exception as rmtree_err:
+                    errors.append(f"{cache_type}: {str(rmtree_err)}")
+                    print(
+                        f"{common.PRNT_API} Failed to delete {cache_type}: {rmtree_err}",
+                        flush=True,
+                    )
+                    continue
+
+            caches_cleared += 1
+
+        except Exception as e:
+            errors.append(f"{cache_type}: {str(e)}")
+            print(f"{common.PRNT_API} Error processing {cache_type}: {e}", flush=True)
+
+    # Phase 4: Reset JSON metadata files (always execute)
+    try:
+        # Reset installed_models.json
+        try:
+            with open(common.MODEL_METADATAS_FILEPATH, "w") as f:
+                json.dump(common.DEFAULT_SETTINGS_DICT, f, indent=2)
+            print(
+                f"{common.PRNT_API} Reset {common.MODEL_METADATAS_FILEPATH}", flush=True
+            )
+            metadata_files_reset += 1
+        except Exception as e:
+            errors.append(f"installed_models.json reset: {str(e)}")
+            print(
+                f"{common.PRNT_API} Failed to reset installed_models.json: {e}",
+                flush=True,
+            )
+
+        # Reset installed_embedding_models.json
+        try:
+            with open(common.EMBEDDING_METADATAS_FILEPATH, "w") as f:
+                json.dump(common.DEFAULT_EMBEDDING_SETTINGS_DICT, f, indent=2)
+            print(
+                f"{common.PRNT_API} Reset {common.EMBEDDING_METADATAS_FILEPATH}",
+                flush=True,
+            )
+            metadata_files_reset += 1
+        except Exception as e:
+            errors.append(f"installed_embedding_models.json reset: {str(e)}")
+            print(
+                f"{common.PRNT_API} Failed to reset installed_embedding_models.json: {e}",
+                flush=True,
+            )
+
+    except Exception as e:
+        errors.append(f"Metadata reset: {str(e)}")
+        print(f"{common.PRNT_API} Error during metadata reset: {e}", flush=True)
+
+    # Phase 5: Calculate totals and build response
+    # Calculate total freed space
+    def parse_size_str(size_str):
+        """Convert size string like '1.5 GB' to bytes"""
+        try:
+            parts = size_str.strip().split()
+            if len(parts) != 2:
+                return 0
+            value = float(parts[0])
+            unit = parts[1].upper()
+
+            multipliers = {
+                "B": 1,
+                "KB": 1024,
+                "MB": 1024**2,
+                "GB": 1024**3,
+                "TB": 1024**4,
+                "PB": 1024**5,
+            }
+            return int(value * multipliers.get(unit, 0))
+        except Exception:
+            return 0
+
+    def format_size(size_bytes):
+        """Convert bytes to human-readable format"""
+        for unit in ["B", "KB", "MB", "GB", "TB"]:
+            if size_bytes < 1024.0:
+                return f"{size_bytes:.1f} {unit}"
+            size_bytes /= 1024.0
+        return f"{size_bytes:.1f} PB"
+
+    total_bytes = sum(parse_size_str(freed_space[key]) for key in freed_space)
+    freed_space_total = format_size(total_bytes)
+
+    # Determine success status
+    success = caches_cleared > 0 or metadata_files_reset > 0
+
+    # Build message
+    if success:
+        if len(errors) == 0:
+            message = f"Successfully wiped all model caches. Freed {freed_space_total} of space."
+        else:
+            message = f"Partially wiped model caches. Freed {freed_space_total}. Some operations failed."
+    else:
+        message = "Failed to wipe model caches. No space freed."
+
+    return {
+        "success": success,
+        "message": message,
+        "data": {
+            "freed_space_total": freed_space_total,
+            "freed_space_breakdown": freed_space,
+            "caches_cleared": caches_cleared,
+            "metadata_files_reset": metadata_files_reset,
+            "errors": errors,
+            "warnings": warnings,
+        },
+    }
 
 
 # Run text inference
