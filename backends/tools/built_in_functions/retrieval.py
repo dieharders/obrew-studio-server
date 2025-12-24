@@ -86,6 +86,7 @@ async def main(**kwargs: Params) -> str:
     # Create a curried func, always non-streamed
     async def llm_func(prompt: str, system_message: str):
         print(f"{common.PRNT_RAG} Context:\n{prompt}", flush=True)
+        # @TODO Why do we pass prompt and sys msg here and also to retriever.query() ?
         response = await llm.text_completion(
             request=kwargs.get("request"), prompt=prompt, system_message=system_message
         )
@@ -128,7 +129,7 @@ async def main(**kwargs: Params) -> str:
                 embed_fn = embedder.embed_text
 
             # Use the RAG methodology (SimpleRAG, RankerRAG, etc.) based on "strategy" borrow code from llama-index implementation
-            # @TODO Perform the different "strategies" done by llama-index (tree-summarize, etc)
+            # @TODO Perform the different "strategies" (tree-summarize, etc) will be performed by app layer
             match strategy:
                 case RESPONSE_SYNTHESIS_MODES.CONTEXT_ONLY.value:
                     retriever = SimpleRAG(
@@ -147,6 +148,7 @@ async def main(**kwargs: Params) -> str:
             result = await retriever.query(
                 question=query or "",
                 system_message=system_message,  # overridden internally if not provided
+                # @TODO We will remove this and app will pass an already built prompt (we should rly only need the user query)
                 # template=template,  # overridden internally if not provided
                 top_k=similarity_top_k or 5,
             )
