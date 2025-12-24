@@ -96,8 +96,8 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
             },
             # Delete all model in HuggingFace cache
             {
-                "name": "wipe",
-                "urlPath": "/v1/text/wipe",
+                "name": "wipeModels",
+                "urlPath": "/v1/text/wipeModels",
                 "method": "POST",
             },
         ],

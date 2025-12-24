@@ -573,7 +573,7 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
         )
 
 
-@router.post("/wipe")
+@router.post("/wipeModels")
 def wipe_all_models(request: Request) -> classes.WipeAllModelsResponse:
     """
     Wipe all cached model files from HuggingFace download cache and reset JSON tracking files.
