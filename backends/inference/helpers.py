@@ -20,7 +20,6 @@ KEY_USER_MESSAGE = "{{user_message}}"  # Final message to send with prompt templ
 KEY_PROMPT_MESSAGE = "{{user_prompt}}"  # User's query
 KEY_TOOL_MESSAGE = "{{tool_defs}}"
 KEY_CONTEXT_MESSAGE = "{{context_str}}"  # used by tools and RAG
-QUERY_MESSAGE = "{{query_str}}"
 
 
 class Message_Template(TypedDict):
@@ -57,8 +56,7 @@ def apply_query_template(
 ):
     """Return question text for retrieval (RAG)"""
 
-    result = template.replace(QUERY_MESSAGE, query)
-    result = result.replace(KEY_PROMPT_MESSAGE, query)
+    result = template.replace(KEY_PROMPT_MESSAGE, query)
     if len(context_list) != 0:
         context_str = "\n".join(context_list)
         result = result.replace(KEY_CONTEXT_MESSAGE, context_str)

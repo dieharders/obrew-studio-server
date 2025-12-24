@@ -13,17 +13,17 @@ from core import common
 
 SIMPLE_RAG_PROMPT_TEMPLATE = (
     "We have provided context information below.\n"
-    "---------------------\n"
+    "```\n"
     "{context_str}"
-    "\n---------------------\n"
-    "Given this information, please answer the question: {query_str}\n"
+    "\n```\n"
+    "Given this information, please answer the question: {user_prompt}\n"
 )
 
 REFINE_TEMPLATE = (
-    "The original question is as follows: {query_str}\nWe have provided an"
+    "The original question is as follows: {user_prompt}\nWe have provided an"
     " existing answer: {existing_answer}\nWe have the opportunity to refine"
     " the existing answer (only if needed) with some more context"
-    " below.\n------------\n{context_str}\n------------\nUsing both the new"
+    " below.\n```\n{context_str}\n```\nUsing both the new"
     " context and your own knowledge, update or repeat the existing answer.\n"
 )
 
@@ -36,7 +36,7 @@ def build_qa_prompt(
     """Build a QA prompt with context and query substituted."""
     prompt_template = template or SIMPLE_RAG_PROMPT_TEMPLATE
     prompt = prompt_template.replace("{context_str}", context)
-    prompt = prompt.replace("{query_str}", query)
+    prompt = prompt.replace("{user_prompt}", query)
     return prompt
 
 
@@ -46,7 +46,7 @@ def build_refine_prompt(
     context: str = "",
 ) -> str:
     """Build a refine prompt for improving existing answers."""
-    prompt = REFINE_TEMPLATE.replace("{query_str}", query)
+    prompt = REFINE_TEMPLATE.replace("{user_prompt}", query)
     prompt = prompt.replace("{existing_answer}", existing_answer)
     prompt = prompt.replace("{context_str}", context)
     return prompt
