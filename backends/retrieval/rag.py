@@ -20,7 +20,7 @@ class RAG:
         self.embed_fn = embed_fn
         self.llm_fn = llm_fn
         self.collection = collection
-        self.system_message_override = "You are a helpful assistant. Use the provided context to answer the user's question.\n\nIf you don't know the answer based on the context, say you don't know. Do not make up an answer."
+        self.system_message_override = "You are a helpful assistant. Use the provided information to answer the user's question. If you don't know the answer based on the given info, say you don't know. Do not make up facts or answers."
         self.retrieval_templates = dict()
 
         # Get the file for the retrieval templates
@@ -88,7 +88,7 @@ class SimpleRAG(RAG):
                 expanded_documents.append(expanded_text)
             documents = expanded_documents
 
-        template_override = self.retrieval_templates.get("CONTEXT_ONLY").get("text")
+        template_override = self.retrieval_templates.get("QUESTION_ANSWER").get("text")
         prompt_template = template or template_override
         prompt = apply_query_template(
             template=prompt_template,
