@@ -130,7 +130,7 @@ VISION_EMBEDDING_MODELS_CACHE_DIR = "vision_embed_models"
 INSTALLED_TEXT_MODELS = "installed_text_models"  # key in json file
 INSTALLED_EMBEDDING_MODELS = "installed_embedding_models"  # key in json file
 INSTALLED_VISION_EMBEDDING_MODELS = "installed_vision_embedding_models"  # key in json file
-DEFAULT_SETTINGS_DICT = {"current_download_path": "", INSTALLED_TEXT_MODELS: []}
+DEFAULT_SETTINGS_DICT = {"current_download_path": "", INSTALLED_TEXT_MODELS: [], INSTALLED_VISION_EMBEDDING_MODELS: []}
 DEFAULT_EMBEDDING_SETTINGS_DICT = {INSTALLED_EMBEDDING_MODELS: []}
 DEFAULT_VISION_EMBEDDING_SETTINGS_DICT = {INSTALLED_VISION_EMBEDDING_MODELS: []}
 DEFAULT_MAX_TOKENS = 128
@@ -312,6 +312,22 @@ def get_cached_blob_path(repo_revisions: list, filename: str):
                 # CachedFileInfo: file.blob_path same as -> file.file_path.resolve()
                 actual_path = str(file.blob_path)
                 return actual_path
+
+
+def get_cached_file_paths(repo_revisions: list, filename: str):
+    """
+    Returns both the blob path and symlink path for a cached file.
+    Returns: Tuple[blob_path, symlink_path, file_size] or None if not found
+    """
+    for r in repo_revisions:
+        files: List[CachedFileInfo] = list(r.files)
+        for file in files:
+            if file.file_name == filename:
+                blob_path = str(file.blob_path)
+                symlink_path = str(file.file_path)
+                file_size = file.size_on_disk
+                return (blob_path, symlink_path, file_size)
+    return None
 
 
 # Determine if the input string is acceptable as an id
