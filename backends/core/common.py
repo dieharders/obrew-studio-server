@@ -314,6 +314,22 @@ def get_cached_blob_path(repo_revisions: list, filename: str):
                 return actual_path
 
 
+def get_cached_file_paths(repo_revisions: list, filename: str):
+    """
+    Returns both the blob path and symlink path for a cached file.
+    Returns: Tuple[blob_path, symlink_path, file_size] or None if not found
+    """
+    for r in repo_revisions:
+        files: List[CachedFileInfo] = list(r.files)
+        for file in files:
+            if file.file_name == filename:
+                blob_path = str(file.blob_path)
+                symlink_path = str(file.file_path)
+                file_size = file.size_on_disk
+                return (blob_path, symlink_path, file_size)
+    return None
+
+
 # Determine if the input string is acceptable as an id
 def check_valid_id(input: str):
     l = len(input)

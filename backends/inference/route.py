@@ -454,8 +454,7 @@ def _start_mmproj_download(
         return None
 
 
-# Remove text model weights file and installation record.
-# Current limitation is that this deletes all quant files for a repo.
+# Remove a single text model weights file and its installation record.
 @router.post("/delete")
 def delete_text_model(payload: classes.DeleteTextModelRequest):
     filename = payload.filename
@@ -463,7 +462,7 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
 
     try:
         cache_dir = common.app_path(common.TEXT_MODELS_CACHE_DIR)
-        freed_size = "0.0"
+        remaining_files_count = 0
 
         # Try to delete from HF cache (may not exist for failed downloads)
         try:
@@ -471,19 +470,41 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
                 cache_dir=cache_dir, repo_id=repo_id, filename=filename
             )
 
-            # Find model hash and delete from cache
+            # Find the specific file's blob and symlink paths
             [model_cache_info, repo_revisions] = common.scan_cached_repo(
                 cache_dir=cache_dir, repo_id=repo_id
             )
-            repo_commit_hash = []
-            for r in repo_revisions:
-                repo_commit_hash.append(r.commit_hash)
+            file_paths = common.get_cached_file_paths(repo_revisions, filename)
 
-            # Delete weights from cache
-            delete_strategy = model_cache_info.delete_revisions(*repo_commit_hash)
-            delete_strategy.execute()
-            freed_size = delete_strategy.expected_freed_size_str
-            print(f"{common.PRNT_API} Freed {freed_size} space.", flush=True)
+            if file_paths:
+                blob_path, symlink_path, file_size = file_paths
+
+                # Delete the blob file (actual data)
+                if os.path.exists(blob_path):
+                    os.remove(blob_path)
+                    print(f"{common.PRNT_API} Deleted blob: {blob_path}", flush=True)
+
+                # Delete the symlink in snapshots/
+                if os.path.exists(symlink_path) or os.path.islink(symlink_path):
+                    os.remove(symlink_path)
+                    print(
+                        f"{common.PRNT_API} Deleted symlink: {symlink_path}", flush=True
+                    )
+
+                print(f"{common.PRNT_API} Freed {file_size} space.", flush=True)
+
+                # Count remaining GGUF files in this repo
+                for r in repo_revisions:
+                    for file in r.files:
+                        if (
+                            file.file_name.endswith(".gguf")
+                            and file.file_name != filename
+                        ):
+                            remaining_files_count += 1
+            else:
+                print(
+                    f"{common.PRNT_API} File not found in cache: {filename}", flush=True
+                )
         except Exception as cache_err:
             # File not in cache (failed download) - continue to delete metadata
             print(
@@ -491,79 +512,29 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
                 flush=True,
             )
 
-        # Always delete install record from json file (cleanup failed downloads)
-        common.delete_text_model_revisions(repo_id=repo_id)
+        # Delete install record for this specific file from json metadata
+        common.delete_text_model(filename=filename, repo_id=repo_id)
 
-        # Check if this model has an associated mmproj file to delete
-        mmproj_path = common.get_mmproj_path(repo_id)
+        # Only delete mmproj if this was the last GGUF file for this repo
+        if remaining_files_count == 0:
+            mmproj_path = common.get_mmproj_path(repo_id)
 
-        # Also delete the mmproj file if it exists
-        # The mmproj may be in a different repo, so we need to delete it separately
-        if mmproj_path:
-            try:
-                # Try to extract repo info from the mmproj path and delete via HF cache
-                # Path format: .../models--org--repo/snapshots/hash/filename
-                if os.path.exists(mmproj_path):
-                    # Get the repo folder from the path
-                    path_parts = mmproj_path.split(os.sep)
-                    models_idx = next(
-                        (
-                            i
-                            for i, p in enumerate(path_parts)
-                            if p.startswith("models--")
-                        ),
-                        None,
+            if mmproj_path and os.path.exists(mmproj_path):
+                try:
+                    os.remove(mmproj_path)
+                    print(
+                        f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}",
+                        flush=True,
                     )
-                    if models_idx is not None:
-                        repo_folder = path_parts[
-                            models_idx
-                        ]  # e.g., "models--org--repo"
-                        mmproj_repo = repo_folder.replace("models--", "").replace(
-                            "--", "/", 1
-                        )
-                        try:
-                            [mmproj_cache_info, mmproj_revisions] = (
-                                common.scan_cached_repo(
-                                    cache_dir=cache_dir, repo_id=mmproj_repo
-                                )
-                            )
-                            mmproj_commit_hashes = [
-                                r.commit_hash for r in mmproj_revisions
-                            ]
-                            if mmproj_commit_hashes:
-                                mmproj_delete_strategy = (
-                                    mmproj_cache_info.delete_revisions(
-                                        *mmproj_commit_hashes
-                                    )
-                                )
-                                mmproj_delete_strategy.execute()
-                                print(
-                                    f"{common.PRNT_API} Deleted mmproj repo: {mmproj_repo}",
-                                    flush=True,
-                                )
-                        except Exception:
-                            # If HF cache deletion fails, try simple file removal
-                            os.remove(mmproj_path)
-                            print(
-                                f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}",
-                                flush=True,
-                            )
-                    else:
-                        # Fallback to simple file removal
-                        os.remove(mmproj_path)
-                        print(
-                            f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}",
-                            flush=True,
-                        )
-            except Exception as mmproj_err:
-                print(
-                    f"{common.PRNT_API} Warning: Could not delete mmproj: {mmproj_err}",
-                    flush=True,
-                )
+                except Exception as mmproj_err:
+                    print(
+                        f"{common.PRNT_API} Warning: Could not delete mmproj: {mmproj_err}",
+                        flush=True,
+                    )
 
         return {
             "success": True,
-            "message": f"Deleted model file from {filename}. Freed {freed_size} of space.",
+            "message": f"Deleted model file {filename}.",
             "data": None,
         }
     except (KeyError, Exception) as err:
