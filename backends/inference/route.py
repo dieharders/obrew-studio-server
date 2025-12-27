@@ -456,7 +456,7 @@ def _start_mmproj_download(
 
 # Remove a single text model weights file and its installation record.
 @router.post("/delete")
-def delete_text_model(payload: classes.DeleteTextModelRequest):
+def delete_text_model(payload: classes.DeleteTextModelRequest) -> classes.GenericEmptyResponse:
     filename = payload.filename
     repo_id = payload.repoId
 
@@ -589,19 +589,7 @@ def wipe_all_models(request: Request) -> classes.WipeAllModelsResponse:
                 continue
 
             # Calculate size before deletion for fallback method
-            def get_dir_size(path):
-                total = 0
-                try:
-                    for entry in os.scandir(path):
-                        if entry.is_file(follow_symlinks=False):
-                            total += entry.stat().st_size
-                        elif entry.is_dir(follow_symlinks=False):
-                            total += get_dir_size(entry.path)
-                except Exception:
-                    pass
-                return total
-
-            size_before = get_dir_size(cache_dir)
+            size_before = common.get_dir_size(cache_dir)
 
             # Try HuggingFace API method first
             try:
@@ -640,15 +628,7 @@ def wipe_all_models(request: Request) -> classes.WipeAllModelsResponse:
                     # Recreate the directory
                     os.makedirs(cache_dir, exist_ok=True)
 
-                    # Convert size to human-readable format
-                    def format_size(size_bytes):
-                        for unit in ["B", "KB", "MB", "GB", "TB"]:
-                            if size_bytes < 1024.0:
-                                return f"{size_bytes:.1f} {unit}"
-                            size_bytes /= 1024.0
-                        return f"{size_bytes:.1f} PB"
-
-                    freed_space[cache_type] = format_size(size_before)
+                    freed_space[cache_type] = common.format_size(size_before)
                     print(
                         f"{common.PRNT_API} Deleted {cache_type} cache via rmtree. Freed ~{freed_space[cache_type]}",
                         flush=True,
@@ -706,38 +686,8 @@ def wipe_all_models(request: Request) -> classes.WipeAllModelsResponse:
         print(f"{common.PRNT_API} Error during metadata reset: {e}", flush=True)
 
     # Phase 5: Calculate totals and build response
-    # Calculate total freed space
-    def parse_size_str(size_str):
-        """Convert size string like '1.5 GB' to bytes"""
-        try:
-            parts = size_str.strip().split()
-            if len(parts) != 2:
-                return 0
-            value = float(parts[0])
-            unit = parts[1].upper()
-
-            multipliers = {
-                "B": 1,
-                "KB": 1024,
-                "MB": 1024**2,
-                "GB": 1024**3,
-                "TB": 1024**4,
-                "PB": 1024**5,
-            }
-            return int(value * multipliers.get(unit, 0))
-        except Exception:
-            return 0
-
-    def format_size(size_bytes):
-        """Convert bytes to human-readable format"""
-        for unit in ["B", "KB", "MB", "GB", "TB"]:
-            if size_bytes < 1024.0:
-                return f"{size_bytes:.1f} {unit}"
-            size_bytes /= 1024.0
-        return f"{size_bytes:.1f} PB"
-
-    total_bytes = sum(parse_size_str(freed_space[key]) for key in freed_space)
-    freed_space_total = format_size(total_bytes)
+    total_bytes = sum(common.parse_size_str(freed_space[key]) for key in freed_space)
+    freed_space_total = common.format_size(total_bytes)
 
     # Determine success status
     success = caches_cleared > 0 or metadata_files_reset > 0
