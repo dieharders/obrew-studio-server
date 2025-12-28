@@ -35,6 +35,10 @@ from embeddings.vector_storage import Vector_Storage
 
 router = APIRouter()
 
+# Vision embedding server port
+# @TODO Need a checker to prevent port collision with backend
+VISION_SERVER_PORT = 8081
+
 # ============================================================================
 # Image/Multi-Modal Inference Endpoints
 # ============================================================================
@@ -412,7 +416,7 @@ async def embed_image(
                     await embedder.load_model(
                         model_path=model_path,
                         mmproj_path=mmproj_path,
-                        port=8081,  # @TODO Need a checker to prevent port collision w/ backend
+                        port=VISION_SERVER_PORT,
                     )
             else:
                 raise HTTPException(
@@ -924,7 +928,7 @@ async def query_image_collection(
                     await embedder.load_model(
                         model_path=model_path,
                         mmproj_path=mmproj_path,
-                        port=8081,  # @TODO Need a checker to prevent port collision w/ backend
+                        port=VISION_SERVER_PORT,
                     )
             else:
                 raise HTTPException(
