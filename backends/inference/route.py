@@ -64,9 +64,9 @@ def get_text_model(request: Request) -> LoadedTextModelResponse | dict:
 
     try:
         llm = app.state.llm
-        model_id = llm.model_id
 
         if llm:
+            model_id = llm.model_id
             return {
                 "success": True,
                 "message": f"{model_id} is loaded.",
