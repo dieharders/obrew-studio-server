@@ -401,6 +401,26 @@ async def embed_image(
     try:
         embedder = _get_vision_embedder(app)
 
+        # Load specific model if repo_id provided from frontend settings
+        if payload.repo_id:
+            model_path, mmproj_path = embedder._find_model_files(
+                repo_id=payload.repo_id
+            )
+            if model_path and mmproj_path:
+                # Only reload if different model is needed
+                if not embedder.is_loaded or embedder.model_name != payload.repo_id:
+                    await embedder.load_model(
+                        model_path=model_path,
+                        mmproj_path=mmproj_path,
+                        port=8081,  # @TODO Need a checker to prevent port collision w/ backend
+                    )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Vision embedding model not found in cache: {payload.repo_id}. "
+                    "Please download the model first.",
+                )
+
         # Get image path
         temp_dir = tempfile.gettempdir()
         if payload.image_type == "base64":
@@ -473,6 +493,9 @@ async def embed_image(
 
         # Store in ChromaDB - ensure db_client is initialized
         doc_id = str(uuid.uuid4())
+        # Use repo_id from frontend if available (for model lookup during queries)
+        # Fall back to embedder.model_name if repo_id not provided
+        stored_model_id = payload.repo_id or embedding_model_name
 
         # Initialize db_client if not already done (Vector_Storage handles this)
         if not hasattr(app.state, "db_client") or not app.state.db_client:
@@ -480,13 +503,23 @@ async def embed_image(
 
         if app.state.db_client:
             try:
-                # Get or create collection
-                # Store embedding_model and embedding_dim at collection level for validation
-                collection = app.state.db_client.get_or_create_collection(
+                # Delete existing collection to overwrite with new embedding
+                try:
+                    app.state.db_client.delete_collection(name=collection_name)
+                    print(
+                        f"{common.PRNT_API} Deleted existing collection: {collection_name}",
+                        flush=True,
+                    )
+                except Exception:
+                    # Collection doesn't exist, will be created
+                    pass
+
+                # Create collection with current embedding model info
+                collection = app.state.db_client.create_collection(
                     name=collection_name,
                     metadata={
                         "type": "image_embeddings",
-                        "embedding_model": embedding_model_name,
+                        "embedding_model": stored_model_id,
                         "embedding_dim": embedding_dim,
                         "description": "",  # Summary of images in this collection
                     },
@@ -517,7 +550,7 @@ async def embed_image(
             "data": {
                 "id": doc_id,
                 "collection_name": collection_name,
-                "embedding_model": embedding_model_name,
+                "embedding_model": stored_model_id,
                 "embedding_dim": embedding_dim,
                 "description": payload.description,
                 "metadata": metadata,
@@ -584,7 +617,9 @@ def download_vision_embedding_model(
             """Save metadata when required downloads complete. Must be called with lock held."""
             # If mmproj was requested, wait for both; otherwise just need model
             if mmproj_required:
-                ready_to_save = download_results["model_path"] and download_results["mmproj_path"]
+                ready_to_save = (
+                    download_results["model_path"] and download_results["mmproj_path"]
+                )
             else:
                 ready_to_save = download_results["model_path"] is not None
 
@@ -867,15 +902,43 @@ async def query_image_collection(
                 },
             }
 
-        # Get the vision embedder and create query embedding
+        # Get the vision embedder
         embedder = _get_vision_embedder(app)
+
+        # Load the specific model that was used to create this collection
+        collection_embedding_model = collection.metadata.get("embedding_model")
+        if collection_embedding_model and collection_embedding_model != "unknown":
+            model_path, mmproj_path = embedder._find_model_files(
+                repo_id=collection_embedding_model
+            )
+            if model_path and mmproj_path:
+                # Only reload if different model is needed
+                if (
+                    not embedder.is_loaded
+                    or embedder.model_name != collection_embedding_model
+                ):
+                    print(
+                        f"{common.PRNT_API} Loading collection's embedding model: {collection_embedding_model}",
+                        flush=True,
+                    )
+                    await embedder.load_model(
+                        model_path=model_path,
+                        mmproj_path=mmproj_path,
+                        port=8081,  # @TODO Need a checker to prevent port collision w/ backend
+                    )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Collection's embedding model not found: {collection_embedding_model}. "
+                    "The model may have been deleted. Please re-embed or download the model.",
+                )
 
         print(
             f"{common.PRNT_API} Creating query embedding for: {payload.query[:100]}...",
             flush=True,
         )
 
-        # Generate query embedding using vision model (auto-loads if needed)
+        # Generate query embedding using the collection's model
         query_embedding = await embedder.embed_query_text(
             text=payload.query,
             auto_unload=False,  # Keep loaded for potential subsequent queries
