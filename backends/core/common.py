@@ -130,7 +130,7 @@ VISION_EMBEDDING_MODELS_CACHE_DIR = "vision_embed_models"
 INSTALLED_TEXT_MODELS = "installed_text_models"  # key in json file
 INSTALLED_EMBEDDING_MODELS = "installed_embedding_models"  # key in json file
 INSTALLED_VISION_EMBEDDING_MODELS = "installed_vision_embedding_models"  # key in json file
-DEFAULT_SETTINGS_DICT = {"current_download_path": "", INSTALLED_TEXT_MODELS: []}
+DEFAULT_SETTINGS_DICT = {"current_download_path": "", INSTALLED_TEXT_MODELS: [], INSTALLED_VISION_EMBEDDING_MODELS: []}
 DEFAULT_EMBEDDING_SETTINGS_DICT = {INSTALLED_EMBEDDING_MODELS: []}
 DEFAULT_VISION_EMBEDDING_SETTINGS_DICT = {INSTALLED_VISION_EMBEDDING_MODELS: []}
 DEFAULT_MAX_TOKENS = 128
@@ -312,6 +312,74 @@ def get_cached_blob_path(repo_revisions: list, filename: str):
                 # CachedFileInfo: file.blob_path same as -> file.file_path.resolve()
                 actual_path = str(file.blob_path)
                 return actual_path
+
+
+def get_cached_file_paths(repo_revisions: list, filename: str):
+    """
+    Returns both the blob path and symlink path for a cached file.
+    Returns: Tuple[blob_path, symlink_path, file_size] or None if not found
+    """
+    for r in repo_revisions:
+        files: List[CachedFileInfo] = list(r.files)
+        for file in files:
+            if file.file_name == filename:
+                blob_path = str(file.blob_path)
+                symlink_path = str(file.file_path)
+                file_size = file.size_on_disk
+                return (blob_path, symlink_path, file_size)
+    return None
+
+
+def get_dir_size(path: str) -> int:
+    """
+    Calculate the total size of a directory recursively.
+    Returns size in bytes.
+    """
+    total = 0
+    try:
+        for entry in os.scandir(path):
+            if entry.is_file(follow_symlinks=False):
+                total += entry.stat().st_size
+            elif entry.is_dir(follow_symlinks=False):
+                total += get_dir_size(entry.path)
+    except Exception:
+        pass
+    return total
+
+
+def format_size(size_bytes: int) -> str:
+    """
+    Convert bytes to human-readable format (e.g., '1.5 GB').
+    """
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size_bytes < 1024.0:
+            return f"{size_bytes:.1f} {unit}"
+        size_bytes /= 1024.0
+    return f"{size_bytes:.1f} PB"
+
+
+def parse_size_str(size_str: str) -> int:
+    """
+    Convert size string like '1.5 GB' to bytes.
+    """
+    try:
+        parts = size_str.strip().split()
+        if len(parts) != 2:
+            return 0
+        value = float(parts[0])
+        unit = parts[1].upper()
+
+        multipliers = {
+            "B": 1,
+            "KB": 1024,
+            "MB": 1024**2,
+            "GB": 1024**3,
+            "TB": 1024**4,
+            "PB": 1024**5,
+        }
+        return int(value * multipliers.get(unit, 0))
+    except Exception:
+        return 0
 
 
 # Determine if the input string is acceptable as an id

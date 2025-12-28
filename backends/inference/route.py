@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 from fastapi import APIRouter, Request, HTTPException, Depends
 from inference.agent import Agent
 from .llama_cpp import LLAMA_CPP
@@ -453,16 +454,15 @@ def _start_mmproj_download(
         return None
 
 
-# Remove text model weights file and installation record.
-# Current limitation is that this deletes all quant files for a repo.
+# Remove a single text model weights file and its installation record.
 @router.post("/delete")
-def delete_text_model(payload: classes.DeleteTextModelRequest):
+def delete_text_model(payload: classes.DeleteTextModelRequest) -> classes.GenericEmptyResponse:
     filename = payload.filename
     repo_id = payload.repoId
 
     try:
         cache_dir = common.app_path(common.TEXT_MODELS_CACHE_DIR)
-        freed_size = "0.0"
+        remaining_files_count = 0
 
         # Try to delete from HF cache (may not exist for failed downloads)
         try:
@@ -470,19 +470,41 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
                 cache_dir=cache_dir, repo_id=repo_id, filename=filename
             )
 
-            # Find model hash and delete from cache
+            # Find the specific file's blob and symlink paths
             [model_cache_info, repo_revisions] = common.scan_cached_repo(
                 cache_dir=cache_dir, repo_id=repo_id
             )
-            repo_commit_hash = []
-            for r in repo_revisions:
-                repo_commit_hash.append(r.commit_hash)
+            file_paths = common.get_cached_file_paths(repo_revisions, filename)
 
-            # Delete weights from cache
-            delete_strategy = model_cache_info.delete_revisions(*repo_commit_hash)
-            delete_strategy.execute()
-            freed_size = delete_strategy.expected_freed_size_str
-            print(f"{common.PRNT_API} Freed {freed_size} space.", flush=True)
+            if file_paths:
+                blob_path, symlink_path, file_size = file_paths
+
+                # Delete the blob file (actual data)
+                if os.path.exists(blob_path):
+                    os.remove(blob_path)
+                    print(f"{common.PRNT_API} Deleted blob: {blob_path}", flush=True)
+
+                # Delete the symlink in snapshots/
+                if os.path.exists(symlink_path) or os.path.islink(symlink_path):
+                    os.remove(symlink_path)
+                    print(
+                        f"{common.PRNT_API} Deleted symlink: {symlink_path}", flush=True
+                    )
+
+                print(f"{common.PRNT_API} Freed {file_size} space.", flush=True)
+
+                # Count remaining GGUF files in this repo
+                for r in repo_revisions:
+                    for file in r.files:
+                        if (
+                            file.file_name.endswith(".gguf")
+                            and file.file_name != filename
+                        ):
+                            remaining_files_count += 1
+            else:
+                print(
+                    f"{common.PRNT_API} File not found in cache: {filename}", flush=True
+                )
         except Exception as cache_err:
             # File not in cache (failed download) - continue to delete metadata
             print(
@@ -490,79 +512,29 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
                 flush=True,
             )
 
-        # Always delete install record from json file (cleanup failed downloads)
-        common.delete_text_model_revisions(repo_id=repo_id)
+        # Delete install record for this specific file from json metadata
+        common.delete_text_model(filename=filename, repo_id=repo_id)
 
-        # Check if this model has an associated mmproj file to delete
-        mmproj_path = common.get_mmproj_path(repo_id)
+        # Only delete mmproj if this was the last GGUF file for this repo
+        if remaining_files_count == 0:
+            mmproj_path = common.get_mmproj_path(repo_id)
 
-        # Also delete the mmproj file if it exists
-        # The mmproj may be in a different repo, so we need to delete it separately
-        if mmproj_path:
-            try:
-                # Try to extract repo info from the mmproj path and delete via HF cache
-                # Path format: .../models--org--repo/snapshots/hash/filename
-                if os.path.exists(mmproj_path):
-                    # Get the repo folder from the path
-                    path_parts = mmproj_path.split(os.sep)
-                    models_idx = next(
-                        (
-                            i
-                            for i, p in enumerate(path_parts)
-                            if p.startswith("models--")
-                        ),
-                        None,
+            if mmproj_path and os.path.exists(mmproj_path):
+                try:
+                    os.remove(mmproj_path)
+                    print(
+                        f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}",
+                        flush=True,
                     )
-                    if models_idx is not None:
-                        repo_folder = path_parts[
-                            models_idx
-                        ]  # e.g., "models--org--repo"
-                        mmproj_repo = repo_folder.replace("models--", "").replace(
-                            "--", "/", 1
-                        )
-                        try:
-                            [mmproj_cache_info, mmproj_revisions] = (
-                                common.scan_cached_repo(
-                                    cache_dir=cache_dir, repo_id=mmproj_repo
-                                )
-                            )
-                            mmproj_commit_hashes = [
-                                r.commit_hash for r in mmproj_revisions
-                            ]
-                            if mmproj_commit_hashes:
-                                mmproj_delete_strategy = (
-                                    mmproj_cache_info.delete_revisions(
-                                        *mmproj_commit_hashes
-                                    )
-                                )
-                                mmproj_delete_strategy.execute()
-                                print(
-                                    f"{common.PRNT_API} Deleted mmproj repo: {mmproj_repo}",
-                                    flush=True,
-                                )
-                        except Exception:
-                            # If HF cache deletion fails, try simple file removal
-                            os.remove(mmproj_path)
-                            print(
-                                f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}",
-                                flush=True,
-                            )
-                    else:
-                        # Fallback to simple file removal
-                        os.remove(mmproj_path)
-                        print(
-                            f"{common.PRNT_API} Deleted mmproj file: {mmproj_path}",
-                            flush=True,
-                        )
-            except Exception as mmproj_err:
-                print(
-                    f"{common.PRNT_API} Warning: Could not delete mmproj: {mmproj_err}",
-                    flush=True,
-                )
+                except Exception as mmproj_err:
+                    print(
+                        f"{common.PRNT_API} Warning: Could not delete mmproj: {mmproj_err}",
+                        flush=True,
+                    )
 
         return {
             "success": True,
-            "message": f"Deleted model file from {filename}. Freed {freed_size} of space.",
+            "message": f"Deleted model file {filename}.",
             "data": None,
         }
     except (KeyError, Exception) as err:
@@ -570,6 +542,177 @@ def delete_text_model(payload: classes.DeleteTextModelRequest):
         raise HTTPException(
             status_code=400, detail=f"Something went wrong. Reason: {err}"
         )
+
+
+@router.post("/wipeModels")
+def wipe_all_models(request: Request) -> classes.WipeAllModelsResponse:
+    """
+    Wipe all cached model files from HuggingFace download cache and reset JSON tracking files.
+    This is a synchronous operation that returns only after all operations complete.
+    """
+    app = request.app
+
+    # Phase 1: Initialize tracking
+    errors = []
+    warnings = []
+    freed_space = {
+        "text_models": "0 B",
+        "embedding_models": "0 B",
+        "vision_embedding_models": "0 B",
+    }
+    caches_cleared = 0
+    metadata_files_reset = 0
+
+    # Phase 2: Check for loaded models (warnings)
+    if hasattr(app.state, "llm") and app.state.llm is not None:
+        warnings.append("Text model is currently loaded in memory")
+    if hasattr(app.state, "vision_embedder") and app.state.vision_embedder is not None:
+        warnings.append("Vision embedding model is currently loaded in memory")
+
+    # Phase 3: Delete each cache directory
+    cache_configs = [
+        ("text_models", common.TEXT_MODELS_CACHE_DIR),
+        ("embedding_models", common.EMBEDDING_MODELS_CACHE_DIR),
+        ("vision_embedding_models", common.VISION_EMBEDDING_MODELS_CACHE_DIR),
+    ]
+
+    for cache_type, cache_dir_name in cache_configs:
+        try:
+            cache_dir = common.app_path(cache_dir_name)
+
+            # Check if cache directory exists
+            if not os.path.exists(cache_dir):
+                print(
+                    f"{common.PRNT_API} Cache directory does not exist: {cache_dir}",
+                    flush=True,
+                )
+                continue
+
+            # Calculate size before deletion for fallback method
+            size_before = common.get_dir_size(cache_dir)
+
+            # Try HuggingFace API method first
+            try:
+                from huggingface_hub import scan_cache_dir
+
+                hf_cache_info = scan_cache_dir(cache_dir)
+
+                # Get all repos and their revisions
+                all_commit_hashes = []
+                for repo in hf_cache_info.repos:
+                    for revision in repo.revisions:
+                        all_commit_hashes.append(revision.commit_hash)
+
+                if all_commit_hashes:
+                    # Delete all revisions
+                    delete_strategy = hf_cache_info.delete_revisions(*all_commit_hashes)
+                    delete_strategy.execute()
+                    freed_space[cache_type] = delete_strategy.expected_freed_size_str
+                    print(
+                        f"{common.PRNT_API} Deleted {cache_type} cache via HF API. Freed {freed_space[cache_type]}",
+                        flush=True,
+                    )
+                else:
+                    # Empty cache, use fallback
+                    raise Exception("No revisions found, using fallback")
+
+            except Exception as hf_err:
+                # Fallback to shutil.rmtree
+                print(
+                    f"{common.PRNT_API} HF API failed for {cache_type}, using fallback: {hf_err}",
+                    flush=True,
+                )
+
+                try:
+                    shutil.rmtree(cache_dir)
+                    # Recreate the directory
+                    os.makedirs(cache_dir, exist_ok=True)
+
+                    freed_space[cache_type] = common.format_size(size_before)
+                    print(
+                        f"{common.PRNT_API} Deleted {cache_type} cache via rmtree. Freed ~{freed_space[cache_type]}",
+                        flush=True,
+                    )
+
+                except Exception as rmtree_err:
+                    errors.append(f"{cache_type}: {str(rmtree_err)}")
+                    print(
+                        f"{common.PRNT_API} Failed to delete {cache_type}: {rmtree_err}",
+                        flush=True,
+                    )
+                    continue
+
+            caches_cleared += 1
+
+        except Exception as e:
+            errors.append(f"{cache_type}: {str(e)}")
+            print(f"{common.PRNT_API} Error processing {cache_type}: {e}", flush=True)
+
+    # Phase 4: Reset JSON metadata files (always execute)
+    try:
+        # Reset installed_models.json
+        try:
+            with open(common.MODEL_METADATAS_FILEPATH, "w") as f:
+                json.dump(common.DEFAULT_SETTINGS_DICT, f, indent=2)
+            print(
+                f"{common.PRNT_API} Reset {common.MODEL_METADATAS_FILEPATH}", flush=True
+            )
+            metadata_files_reset += 1
+        except Exception as e:
+            errors.append(f"installed_models.json reset: {str(e)}")
+            print(
+                f"{common.PRNT_API} Failed to reset installed_models.json: {e}",
+                flush=True,
+            )
+
+        # Reset installed_embedding_models.json
+        try:
+            with open(common.EMBEDDING_METADATAS_FILEPATH, "w") as f:
+                json.dump(common.DEFAULT_EMBEDDING_SETTINGS_DICT, f, indent=2)
+            print(
+                f"{common.PRNT_API} Reset {common.EMBEDDING_METADATAS_FILEPATH}",
+                flush=True,
+            )
+            metadata_files_reset += 1
+        except Exception as e:
+            errors.append(f"installed_embedding_models.json reset: {str(e)}")
+            print(
+                f"{common.PRNT_API} Failed to reset installed_embedding_models.json: {e}",
+                flush=True,
+            )
+
+    except Exception as e:
+        errors.append(f"Metadata reset: {str(e)}")
+        print(f"{common.PRNT_API} Error during metadata reset: {e}", flush=True)
+
+    # Phase 5: Calculate totals and build response
+    total_bytes = sum(common.parse_size_str(freed_space[key]) for key in freed_space)
+    freed_space_total = common.format_size(total_bytes)
+
+    # Determine success status
+    success = caches_cleared > 0 or metadata_files_reset > 0
+
+    # Build message
+    if success:
+        if len(errors) == 0:
+            message = f"Successfully wiped all model caches. Freed {freed_space_total} of space."
+        else:
+            message = f"Partially wiped model caches. Freed {freed_space_total}. Some operations failed."
+    else:
+        message = "Failed to wipe model caches. No space freed."
+
+    return {
+        "success": success,
+        "message": message,
+        "data": {
+            "freed_space_total": freed_space_total,
+            "freed_space_breakdown": freed_space,
+            "caches_cleared": caches_cleared,
+            "metadata_files_reset": metadata_files_reset,
+            "errors": errors,
+            "warnings": warnings,
+        },
+    }
 
 
 # Run text inference

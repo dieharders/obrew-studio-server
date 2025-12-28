@@ -94,6 +94,12 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
                 "urlPath": "/v1/text/delete",
                 "method": "POST",
             },
+            # Delete all model in HuggingFace cache
+            {
+                "name": "wipeModels",
+                "urlPath": "/v1/text/wipeModels",
+                "method": "POST",
+            },
         ],
     }
     data.append(text_inference_api)
