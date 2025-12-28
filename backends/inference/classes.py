@@ -324,6 +324,7 @@ class VisionEmbedRequest(BaseModel):
     )
     description: Optional[str] = None
     metadata: Optional[dict] = None
+    repo_id: Optional[str] = None  # Model repo ID from frontend settings
 
     model_config = {
         "json_schema_extra": {
@@ -333,6 +334,7 @@ class VisionEmbedRequest(BaseModel):
                     "image_type": "path",
                     "collection_name": "my_images",
                     "description": "Description of the image.",
+                    "repo_id": "owner/model-name",
                 }
             ]
         }
