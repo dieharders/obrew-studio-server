@@ -1,5 +1,4 @@
 import os
-import glob
 import json
 import uuid
 import shutil
@@ -248,10 +247,15 @@ class Vector_Storage:
             print(f"{common.PRNT_API} Remove file {source_id} from {source_file_path}")
             os.remove(source_file_path)
 
-    def delete_all_vector_storage(self):
-        """Remove all vector storage collections and folders"""
+    @staticmethod
+    def delete_all_vector_storage():
+        """Remove all vector storage collections and folders (including chroma.sqlite3)"""
         if os.path.exists(VECTOR_STORAGE_PATH):
             try:
                 shutil.rmtree(VECTOR_STORAGE_PATH)
+                print(
+                    f"{common.PRNT_API} Removed vector storage at {VECTOR_STORAGE_PATH}"
+                )
             except Exception as e:
                 print(f"{common.PRNT_API} Failed to remove vector storage: {e}")
+                raise e  # Re-raise so the caller knows it failed
