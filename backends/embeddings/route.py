@@ -383,16 +383,17 @@ def wipe_all_memories(
     app = request.app
 
     try:
-        # Delete all db values
-        vector_storage = Vector_Storage(app=app)
-        db = vector_storage.db_client
-        db.reset()
         # Delete all parsed files in /memories
         file_parsers.delete_all_files()
-        # Remove all vector storage collections and folders
-        vector_storage.delete_all_vector_storage()
-        # Clear cached client so a fresh one is created on next request
-        app.state.db_client = None
+        # Release the db connection before deleting storage files
+        # ChromaDB PersistentClient lacks a close() method (GitHub issue #5868),
+        # so we clear the reference and force garbage collection
+        if app.state.db_client is not None:
+            import gc
+            app.state.db_client = None
+            gc.collect()
+        # Remove all vector storage collections and folders (including chroma.sqlite3)
+        Vector_Storage.delete_all_vector_storage()
         # Acknowledge success
         return {
             "success": True,

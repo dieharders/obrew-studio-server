@@ -226,6 +226,9 @@ def tool_to_json_schema(params: List[dict]) -> str:
     for param in params:
         param_name = param["name"]
         param_schema = {"type": param["type"]}
+        # Include enum values for Literal types (from options field)
+        if param.get("options"):
+            param_schema["enum"] = param["options"]
         # Assign param
         properties[param_name] = param_schema
         # Add param to required
