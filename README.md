@@ -1,9 +1,9 @@
 <h3 align="center">
-    Obrew Studio - Your Personal Ai Engine
+    OpenBrew - Your Personal Ai Engine
 </h3>
 
 <h3 align="center">
-    <img src="assets/images/banner.png" width="360" height="auto" />
+    <img src="assets/images/banner.png" width="auto" height="320" />
     <br>
     <br>
     A general purpose tool for building private Ai desktop apps.
@@ -33,13 +33,13 @@
 
 The goal of this project is to be an all-in-one solution for running local Ai that is easy to install, setup and use. It handles all basic building blocks of Ai: inference, memory retrieval (RAG) and storage (vector DB), model file management, and agent/workflow building.
 
-<p align="center">
-    <img src="assets/images/obrew-demo.gif" width="360" height="auto" />
-</p>
+
+https://github.com/user-attachments/assets/1aadbc35-b1bd-4489-996d-aea31f6171d6
+
 
 ## Description
 
-Obrew Studio is a native app with a GUI that can be configured to allow access from other apps you write or third party services, making it an ideal engine for Ai workloads built on your own tech stack.
+OpenBrew is a native app with a GUI that can be configured to allow access from other apps you write or third party services, making it an ideal engine for Ai workloads built on your own tech stack.
 
 <p align="center">
     <img src="assets/images/chat-history.png" height="250" />
@@ -48,7 +48,7 @@ Obrew Studio is a native app with a GUI that can be configured to allow access f
 
 ## How It Works
 
-This backend runs a web server that acts as the main gateway to the suite of tools. A WebUI is provided called [Obrew Studio: WebUI](https://studio.openbrew.ai/) to access this server. You can also run in headless mode to access it programmatically via the API.
+This backend runs a web server that acts as the main gateway to the suite of tools. A WebUI is provided called [OpenBrew: WebUI](https://studio.openbrew.ai/) to access this server. You can also run in headless mode to access it programmatically via the API.
 
 <p align="center">
     <img src="assets/images/tools.png" height="250" />
