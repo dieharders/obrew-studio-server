@@ -61,6 +61,10 @@ This backend runs a web server that acts as the main gateway to the suite of too
 
 ### Included Apps (FileBuff and OBrew Studio)
 
+![Workflow](https://github.com/user-attachments/assets/22a74440-db25-4b75-9dca-523ee2b14c88)
+
+https://github.com/user-attachments/assets/8a4c297b-6b63-4ac3-a982-cc326c2d8ab4
+
 ## Minimum Hardware Requirements
 
 - 8GB Disk space
