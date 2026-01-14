@@ -48,16 +48,16 @@ OpenBrew is a native app with a GUI that can be configured to allow access from 
 
 This backend runs a web server that acts as the main gateway to the suite of tools. A WebUI is provided called [OpenBrew: WebUI](https://studio.openbrew.ai/) to access this server. You can also run in headless mode to access it programmatically via the API.
 
+<p align="center">
+    <img src="assets/images/obrew-apps.PNG" height="300" />
+    <img src="assets/images/app-qr.PNG" height="300" />
+</p>
+
 ### To use Ai locally with your private data for free:
 
-- Launch the desktop app and use the GUI to start building
-- or navigate your browser to any web app that supports the api
-- or connect with a service provider or custom stack that supports the api
-
-<p align="center">
-    <img src="assets/images/app-qr.PNG" height="300" />
-    <img src="assets/images/obrew-apps.PNG" height="300" />
-</p>
+- Launch the desktop app and choose an app to start using
+- or navigate your browser to any web app that supports the API
+- or connect with a service provider or custom stack that supports the OpenBrew API
 
 ## Minimum Hardware Requirements
 
