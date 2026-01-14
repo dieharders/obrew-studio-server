@@ -40,8 +40,8 @@ https://github.com/user-attachments/assets/1aadbc35-b1bd-4489-996d-aea31f6171d6
 OpenBrew is a native app with a GUI that can be configured to allow access from other apps you write or third party services, making it an ideal engine for Ai workloads built on your own tech stack.
 
 <p align="center">
-    <img src="assets/images/home.png" height="300" />
-    <img src="assets/images/startup.png" height="300" />
+    <img src="assets/images/home.PNG" height="300" />
+    <img src="assets/images/startup.PNG" height="300" />
 </p>
 
 ## How It Works
@@ -55,8 +55,8 @@ This backend runs a web server that acts as the main gateway to the suite of too
 - or connect with a service provider or custom stack that supports the api
 
 <p align="center">
-    <img src="assets/images/app-qr.png" height="300" />
-    <img src="assets/images/obrew-apps.png" height="300" />
+    <img src="assets/images/app-qr.PNG" height="300" />
+    <img src="assets/images/obrew-apps.PNG" height="300" />
 </p>
 
 ## Minimum Hardware Requirements
