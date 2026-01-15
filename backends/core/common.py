@@ -79,35 +79,39 @@ def dep_path(relative_path=None):
 def get_env_path():
     """
     Get the path to the .env file.
-    On macOS production builds, uses Application Support. On first run, copies from app bundle if needed.
-    In development or on Windows/Linux, uses dep_path (cwd).
+    On production builds, uses app_path (Application Support on macOS, cwd on Windows/Linux).
+    On first run, copies from app bundle if needed.
+    In development, uses app_path (cwd).
     """
     is_frozen = getattr(sys, "frozen", False)
 
-    # Only use Application Support for macOS production builds
-    if sys.platform == "darwin" and is_frozen:
-        env_path = app_path(".env")
+    # Use app_path for the .env file location (consistent with save_settings)
+    env_path = app_path(".env")
 
-        # If .env doesn't exist in Application Support, copy from app bundle
-        if not os.path.exists(env_path):
-            bundled_env = dep_path(".env")
-            if os.path.exists(bundled_env):
-                import shutil
-                # Ensure the directory exists
-                os.makedirs(os.path.dirname(env_path), exist_ok=True)
-                shutil.copy(bundled_env, env_path)
-                print(f"{bcolors.HEADER}[OBREW]{bcolors.ENDC} Copied .env from app bundle to {env_path}", flush=True)
-            else:
-                # Create an empty .env if no bundled one exists
-                os.makedirs(os.path.dirname(env_path), exist_ok=True)
-                with open(env_path, "w") as f:
-                    f.write("# Obrew Server Environment Variables\n")
-                print(f"{bcolors.HEADER}[OBREW]{bcolors.ENDC} Created new .env at {env_path}", flush=True)
+    # For production builds, copy bundled .env if user's .env doesn't exist yet
+    if is_frozen and not os.path.exists(env_path):
+        bundled_env = dep_path(".env")
+        if os.path.exists(bundled_env):
+            import shutil
 
-        return env_path
-    else:
-        # Development mode or Windows/Linux: use dep_path (cwd)
-        return dep_path(".env")
+            # Ensure the directory exists
+            os.makedirs(os.path.dirname(env_path), exist_ok=True)
+            shutil.copy(bundled_env, env_path)
+            print(
+                f"{bcolors.HEADER}[OBREW]{bcolors.ENDC} Copied .env from app bundle to {env_path}",
+                flush=True,
+            )
+        else:
+            # Create an empty .env if no bundled one exists
+            os.makedirs(os.path.dirname(env_path), exist_ok=True)
+            with open(env_path, "w") as f:
+                f.write("# Obrew Server Environment Variables\n")
+            print(
+                f"{bcolors.HEADER}[OBREW]{bcolors.ENDC} Created new .env at {env_path}",
+                flush=True,
+            )
+
+    return env_path
 
 
 MODEL_METADATAS_FILENAME = "installed_models.json"
@@ -129,8 +133,14 @@ EMBEDDING_MODELS_CACHE_DIR = "embed_models"
 VISION_EMBEDDING_MODELS_CACHE_DIR = "vision_embed_models"
 INSTALLED_TEXT_MODELS = "installed_text_models"  # key in json file
 INSTALLED_EMBEDDING_MODELS = "installed_embedding_models"  # key in json file
-INSTALLED_VISION_EMBEDDING_MODELS = "installed_vision_embedding_models"  # key in json file
-DEFAULT_SETTINGS_DICT = {"current_download_path": "", INSTALLED_TEXT_MODELS: [], INSTALLED_VISION_EMBEDDING_MODELS: []}
+INSTALLED_VISION_EMBEDDING_MODELS = (
+    "installed_vision_embedding_models"  # key in json file
+)
+DEFAULT_SETTINGS_DICT = {
+    "current_download_path": "",
+    INSTALLED_TEXT_MODELS: [],
+    INSTALLED_VISION_EMBEDDING_MODELS: [],
+}
 DEFAULT_EMBEDDING_SETTINGS_DICT = {INSTALLED_EMBEDDING_MODELS: []}
 DEFAULT_VISION_EMBEDDING_SETTINGS_DICT = {INSTALLED_VISION_EMBEDDING_MODELS: []}
 DEFAULT_MAX_TOKENS = 128
@@ -530,7 +540,11 @@ def save_mmproj_path(model_repo_id: str, mmproj_path: str):
     # Find the model in the list
     models_list: List = existing_data.get(INSTALLED_TEXT_MODELS, [])
     model_index = next(
-        (i for i, item in enumerate(models_list) if item.get("repoId") == model_repo_id),
+        (
+            i
+            for i, item in enumerate(models_list)
+            if item.get("repoId") == model_repo_id
+        ),
         None,
     )
 
