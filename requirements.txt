@@ -52,3 +52,5 @@ GPUtil==1.4.0
 Pillow>=10.0.0
 # macOS Platform Support
 pyobjc-framework-Cocoa==10.3.1; sys_platform == 'darwin'  # macOS only - for AppKit screen resolution
+# Excel spreadsheet parsing for agentic file search
+openpyxl>=3.1.0
