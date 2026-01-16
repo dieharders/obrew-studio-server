@@ -83,6 +83,26 @@ FILE_TOOLS = {
     },
 }
 
+# JSON Schema for constrained tool call output
+# This ensures LLM output is always valid JSON with the correct structure
+TOOL_CALL_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "tool": {
+            "type": "string",
+            "enum": list(FILE_TOOLS.keys()),
+            "description": "The tool to execute",
+        },
+        "args": {
+            "type": "object",
+            "description": "Arguments for the tool",
+            "additionalProperties": True,
+        },
+    },
+    "required": ["tool", "args"],
+    "additionalProperties": False,
+}
+
 
 def _build_tools_prompt() -> str:
     """Build a prompt describing all available tools."""
@@ -172,8 +192,19 @@ class AgenticSearchAgent:
         self,
         prompt: str,
         system_message: str = None,
+        constrain_json: dict = None,
     ) -> str:
-        """Get a completion from the LLM."""
+        """
+        Get a completion from the LLM.
+
+        Args:
+            prompt: The prompt to send
+            system_message: Optional system message
+            constrain_json: Optional JSON schema to constrain output format
+
+        Returns:
+            LLM response text (guaranteed valid JSON if constrain_json provided)
+        """
         if not self.llm:
             raise ValueError("No LLM is loaded. Load a model first.")
 
@@ -182,6 +213,7 @@ class AgenticSearchAgent:
             system_message=system_message or "You are a helpful assistant.",
             stream=False,
             request=None,
+            constrain_json_output=constrain_json,
         )
 
         content = []
@@ -322,26 +354,23 @@ Starting Directory: {directory}
 1. Analyze the query and decide which tool to use first
 2. After each tool result, decide if you need more information or can answer
 3. When you have enough information, use the "done" tool
-4. Always respond with a JSON tool call in this format:
-
-```json
-{{"tool": "tool_name", "args": {{"param1": "value1"}}}}
-```
+4. Respond with a JSON object specifying the tool and arguments
 
 What tool would you like to use first?"""
 
-        system_message = "You are a file search agent. Always respond with a JSON tool call. Be methodical - scan first, then preview relevant files, then read/parse as needed."
+        system_message = "You are a file search agent. Respond with JSON specifying the tool and args. Be methodical - scan first, then preview relevant files, then read/parse as needed."
 
         current_prompt = initial_context
 
         for iteration in range(max_iterations):
             print(f"{common.PRNT_API} [AgenticSearch] Iteration {iteration + 1}/{max_iterations}", flush=True)
 
-            # Get LLM's tool choice
+            # Get LLM's tool choice with constrained JSON output
             try:
                 llm_response = await self._llm_completion(
                     prompt=current_prompt,
                     system_message=system_message,
+                    constrain_json=TOOL_CALL_SCHEMA,
                 )
             except Exception as e:
                 tool_logs.append({
@@ -350,26 +379,21 @@ What tool would you like to use first?"""
                 })
                 break
 
-            # Parse tool call
-            tool_call = self._parse_tool_call(llm_response)
+            # Parse tool call - with constrained output this should always succeed
+            try:
+                tool_call = json.loads(llm_response)
+            except json.JSONDecodeError:
+                # Fallback to regex parsing if somehow constrained output failed
+                tool_call = self._parse_tool_call(llm_response)
 
             if not tool_call:
-                # LLM didn't return valid tool call - try to recover
                 tool_logs.append({
                     "iteration": iteration + 1,
                     "error": "Failed to parse tool call",
                     "raw_response": llm_response[:500],
                 })
-                # Prompt LLM to try again
-                current_prompt = f"""Your previous response was not a valid JSON tool call. Please respond with:
-
-```json
-{{"tool": "tool_name", "args": {{"param1": "value1"}}}}
-```
-
-Available tools: {list(FILE_TOOLS.keys())}
-
-What tool would you like to use?"""
+                # Retry without constrained output as fallback
+                current_prompt = f"Select a tool from: {list(FILE_TOOLS.keys())}. Respond with JSON."
                 continue
 
             tool_name = tool_call.get("tool")
@@ -388,6 +412,43 @@ What tool would you like to use?"""
             }
             if tool_name in TOOL_ALIASES:
                 tool_name = TOOL_ALIASES[tool_name]
+
+            # Normalize argument names (LLM may use variations)
+            ARG_ALIASES = {
+                "filename": "file_path",
+                "file": "file_path",
+                "path": "file_path",
+                "dir": "directory_path",
+                "directory": "directory_path",
+                "folder": "directory_path",
+            }
+            for alias, canonical in ARG_ALIASES.items():
+                if alias in tool_args and canonical not in tool_args:
+                    tool_args[canonical] = tool_args.pop(alias)
+
+            # Fix path encoding issues (LLM sometimes outputs LaTeX-style escapes)
+            # Note: JSON parsing interprets \t as TAB, so "\textbackslash" becomes TAB + "extbackslash"
+            for path_arg in ["file_path", "directory_path"]:
+                if path_arg in tool_args and tool_args[path_arg]:
+                    # Fix TAB+extbackslash (from JSON parsing \textbackslash as \t + extbackslash)
+                    tool_args[path_arg] = tool_args[path_arg].replace("\textbackslash ", "\\")
+                    tool_args[path_arg] = tool_args[path_arg].replace("\textbackslash", "\\")
+                    # Also handle literal \textbackslash if somehow preserved
+                    tool_args[path_arg] = tool_args[path_arg].replace("\\textbackslash ", "\\")
+                    tool_args[path_arg] = tool_args[path_arg].replace("\\textbackslash", "\\")
+
+            # Resolve relative paths to absolute paths using last scan results
+            if tool_name in ["file_preview", "file_read", "file_parse"]:
+                file_path = tool_args.get("file_path", "")
+                if file_path and last_scanned_files:
+                    # Check if it's a relative path (no drive letter or doesn't start with /)
+                    is_relative = not (len(file_path) > 1 and file_path[1] == ':') and not file_path.startswith('/')
+                    if is_relative:
+                        # Try to find matching absolute path from scanned files
+                        for scanned_path in last_scanned_files:
+                            if scanned_path.endswith(file_path) or Path(scanned_path).name == file_path:
+                                tool_args["file_path"] = scanned_path
+                                break
 
             print(f"{common.PRNT_API} [AgenticSearch] Tool: {tool_name}, Args: {tool_args}", flush=True)
 

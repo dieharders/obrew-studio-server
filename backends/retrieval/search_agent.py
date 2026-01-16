@@ -18,6 +18,21 @@ from core import common
 from core.classes import FastAPIApp
 
 
+# JSON Schema for constrained file selection output
+FILE_SELECTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "files": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "List of file paths to select",
+        },
+    },
+    "required": ["files"],
+    "additionalProperties": False,
+}
+
+
 class SearchAgent:
     """
     Agentic file search with multi-phase strategy and directory whitelisting.
@@ -112,6 +127,7 @@ class SearchAgent:
         self,
         prompt: str,
         system_message: str = None,
+        constrain_json: dict = None,
     ) -> str:
         """
         Get a completion from the LLM.
@@ -119,9 +135,10 @@ class SearchAgent:
         Args:
             prompt: The prompt to send to the LLM
             system_message: Optional system message
+            constrain_json: Optional JSON schema to constrain output format
 
         Returns:
-            LLM response text
+            LLM response text (guaranteed valid JSON if constrain_json provided)
         """
         if not self.llm:
             raise ValueError("No LLM is loaded. Load a model first.")
@@ -131,6 +148,7 @@ class SearchAgent:
             system_message=system_message or "You are a helpful assistant.",
             stream=False,
             request=None,
+            constrain_json_output=constrain_json,
         )
 
         # Collect response
@@ -223,24 +241,27 @@ Available Files:
 
 Instructions:
 1. Select up to {max_files_preview} files that are most likely to contain information relevant to the query
-2. Return ONLY a JSON array of file paths (relative paths as shown above)
-3. Prioritize files by relevance to the query
-
-Return format: ["path1", "path2", ...]"""
+2. Prioritize files by relevance to the query
+3. Return the file paths in a JSON object with a "files" array"""
 
         try:
             selection_response = await self._llm_completion(
                 prompt=selection_prompt,
-                system_message="You are a file selection assistant. Return only valid JSON arrays.",
+                system_message="You are a file selection assistant.",
+                constrain_json=FILE_SELECTION_SCHEMA,
             )
 
-            # Parse the selection
-            json_match = re.search(r'\[.*\]', selection_response, re.DOTALL)
-            if json_match:
-                selected_paths = json.loads(json_match.group())
-            else:
-                # Fallback: use first N files
-                selected_paths = [f["relative_path"] for f in scan_result[:max_files_preview]]
+            # Parse the selection - with constrained output this should always succeed
+            try:
+                result = json.loads(selection_response)
+                selected_paths = result.get("files", [])
+            except json.JSONDecodeError:
+                # Fallback to regex parsing
+                json_match = re.search(r'\[.*\]', selection_response, re.DOTALL)
+                if json_match:
+                    selected_paths = json.loads(json_match.group())
+                else:
+                    selected_paths = [f["relative_path"] for f in scan_result[:max_files_preview]]
 
             tool_logs.append({
                 "phase": "select",
@@ -297,21 +318,26 @@ File Previews:
 
 Instructions:
 1. Select up to {max_files_parse} files that are most likely to answer the user's query
-2. Return ONLY a JSON array of file paths (relative paths)
-
-Return format: ["path1", "path2", ...]"""
+2. Return the file paths in a JSON object with a "files" array"""
 
         try:
             parse_selection = await self._llm_completion(
                 prompt=deep_parse_prompt,
-                system_message="You are a file selection assistant. Return only valid JSON arrays.",
+                system_message="You are a file selection assistant.",
+                constrain_json=FILE_SELECTION_SCHEMA,
             )
 
-            json_match = re.search(r'\[.*\]', parse_selection, re.DOTALL)
-            if json_match:
-                files_to_parse = json.loads(json_match.group())
-            else:
-                files_to_parse = [p["relative_path"] for p in previews[:max_files_parse]]
+            # Parse - with constrained output this should always succeed
+            try:
+                result = json.loads(parse_selection)
+                files_to_parse = result.get("files", [])
+            except json.JSONDecodeError:
+                # Fallback to regex parsing
+                json_match = re.search(r'\[.*\]', parse_selection, re.DOTALL)
+                if json_match:
+                    files_to_parse = json.loads(json_match.group())
+                else:
+                    files_to_parse = [p["relative_path"] for p in previews[:max_files_parse]]
         except Exception:
             files_to_parse = [p["relative_path"] for p in previews[:max_files_parse]]
 
