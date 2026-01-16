@@ -192,6 +192,52 @@ class AgenticSearchAgent:
         data = read_event_data(content)
         return data.get("text", "")
 
+    def _fix_windows_paths_in_json(self, json_str: str) -> str:
+        """
+        Fix Windows paths in JSON by escaping ALL backslashes within path strings.
+
+        LLMs often return paths like C:\files\report.txt which breaks JSON parsing because:
+        - \f is a valid JSON escape (form feed) → corrupts 'files' to form_feed + 'iles'
+        - \r is a valid JSON escape (carriage return) → corrupts 'reports' to CR + 'eports'
+        - \t is a valid JSON escape (tab) → corrupts 'temp' to tab + 'emp'
+        - \n is a valid JSON escape (newline) → corrupts 'news' to newline + 'ews'
+        - \b is a valid JSON escape (backspace) → corrupts 'bin' to backspace + 'in'
+
+        Solution: Find Windows-style paths and escape ALL their backslashes.
+        """
+
+        def escape_path_backslashes(match):
+            """Escape all backslashes within a matched path string."""
+            path = match.group(0)
+            # Replace single backslashes with double backslashes
+            # But don't double-escape already-escaped backslashes
+            result = ""
+            i = 0
+            while i < len(path):
+                if path[i] == '\\':
+                    # Check if already escaped (next char is also backslash)
+                    if i + 1 < len(path) and path[i + 1] == '\\':
+                        result += '\\\\'
+                        i += 2
+                    else:
+                        result += '\\\\'
+                        i += 1
+                else:
+                    result += path[i]
+                    i += 1
+            return result
+
+        # Find Windows paths within JSON string values (between quotes)
+        # Pattern: drive letter followed by colon and backslash, then path characters
+        # This captures paths like: C:\Users\... or D:\Project Files\...
+        fixed = re.sub(
+            r'[A-Za-z]:\\[^"]*',
+            escape_path_backslashes,
+            json_str
+        )
+
+        return fixed
+
     def _parse_tool_call(self, response: str) -> Optional[Dict[str, Any]]:
         """
         Parse the LLM's response to extract tool call.
@@ -204,18 +250,28 @@ class AgenticSearchAgent:
         # Try to find JSON block
         json_match = re.search(r'```json\s*(\{.*?\})\s*```', response, re.DOTALL)
         if json_match:
+            json_str = json_match.group(1)
             try:
-                return json.loads(json_match.group(1))
+                return json.loads(json_str)
             except json.JSONDecodeError:
-                pass
+                # Try fixing Windows paths
+                try:
+                    return json.loads(self._fix_windows_paths_in_json(json_str))
+                except json.JSONDecodeError:
+                    pass
 
         # Try to find raw JSON object
         json_match = re.search(r'\{[^{}]*"tool"[^{}]*\}', response, re.DOTALL)
         if json_match:
+            json_str = json_match.group()
             try:
-                return json.loads(json_match.group())
+                return json.loads(json_str)
             except json.JSONDecodeError:
-                pass
+                # Try fixing Windows paths
+                try:
+                    return json.loads(self._fix_windows_paths_in_json(json_str))
+                except json.JSONDecodeError:
+                    pass
 
         return None
 
@@ -250,6 +306,7 @@ class AgenticSearchAgent:
         tool_logs = []
         context_history = []
         sources = set()
+        last_scanned_files = []  # Track files from last scan for better error messages
 
         # Build initial context
         initial_context = f"""You are a file search agent. Your task is to find information to answer the user's query.
@@ -318,6 +375,20 @@ What tool would you like to use?"""
             tool_name = tool_call.get("tool")
             tool_args = tool_call.get("args", {})
 
+            # Normalize common tool name variations
+            TOOL_ALIASES = {
+                "scan": "file_scan",
+                "preview": "file_preview",
+                "parse": "file_parse",
+                "read": "file_read",
+                "read_file": "file_read",
+                "grep": "file_grep",
+                "glob": "file_glob",
+                "search": "file_grep",
+            }
+            if tool_name in TOOL_ALIASES:
+                tool_name = TOOL_ALIASES[tool_name]
+
             print(f"{common.PRNT_API} [AgenticSearch] Tool: {tool_name}, Args: {tool_args}", flush=True)
 
             # Check if done
@@ -340,7 +411,30 @@ What tool would you like to use?"""
 
             # Execute tool
             try:
+                # Inject default directory for tools that need it
+                if tool_name in ["file_scan", "file_grep", "file_glob"]:
+                    if "directory_path" not in tool_args or not tool_args["directory_path"]:
+                        tool_args["directory_path"] = directory
+
+                # Check for missing file_path on file operations
+                if tool_name in ["file_preview", "file_read", "file_parse"]:
+                    if "file_path" not in tool_args or not tool_args["file_path"]:
+                        # Provide helpful error with available files
+                        if last_scanned_files:
+                            file_list = "\n".join(f"  - {f}" for f in last_scanned_files[:10])
+                            raise ValueError(
+                                f"file_path is required. Available files from last scan:\n{file_list}"
+                            )
+                        else:
+                            raise ValueError(
+                                "file_path is required. Use file_scan first to see available files."
+                            )
+
                 result = await self._execute_tool(tool_name, **tool_args)
+
+                # Track scanned files for better error messages
+                if tool_name == "file_scan" and isinstance(result, list):
+                    last_scanned_files = [f.get("path", f.get("relative_path", "")) for f in result[:20]]
 
                 # Track sources from file operations
                 if tool_name in ["file_read", "file_parse"]:
