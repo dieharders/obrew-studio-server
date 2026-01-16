@@ -40,6 +40,26 @@ def sanitize_kwargs(kwargs: dict) -> list[str]:
     return arr
 
 
+def inference_call_to_cli_args(model) -> dict:
+    """Convert inference Pydantic model (LoadTextInferenceCall) to llama.cpp CLI args."""
+    kwargs = {
+        "--mirostat-ent": model.mirostat_tau,
+        "--top-k": model.top_k,
+        "--top-p": model.top_p,
+        "--min-p": model.min_p,
+        "--repeat-penalty": model.repeat_penalty,
+        "--presence-penalty": model.presence_penalty,
+        "--frequency-penalty": model.frequency_penalty,
+        "--temp": model.temperature,
+        "--n-predict": model.max_tokens,
+    }
+    if model.stop:
+        kwargs["--reverse-prompt"] = model.stop
+    if model.grammar:
+        kwargs["--grammar"] = model.grammar
+    return kwargs
+
+
 def apply_query_template(
     template: str,
     query: str,

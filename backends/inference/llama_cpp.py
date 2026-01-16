@@ -17,6 +17,7 @@ from inference.helpers import (
     token_payload,
     content_payload,
     sanitize_kwargs,
+    inference_call_to_cli_args,
 )
 from inference.classes import (
     CHAT_MODES,
@@ -57,9 +58,7 @@ class LLAMA_CPP:
         verbose=False,
         debug=False,  # Show logs
         model_init_kwargs: LoadTextInferenceInit = None,  # kwargs to pass when loading the model
-        generate_kwargs: (
-            LoadTextInferenceCall | InferenceRequest
-        ) = None,  # kwargs to pass when generating text
+        generate_kwargs: LoadTextInferenceCall = None,  # kwargs to pass when generating text
     ):
         # Set args
         n_ctx = model_init_kwargs.n_ctx or DEFAULT_CONTEXT_WINDOW
@@ -106,7 +105,9 @@ class LLAMA_CPP:
         self.model_path = model_path  # text-models/your-model.gguf
         self.mmproj_path = mmproj_path  # mmproj file for vision (None if text-only)
         self.model_init_kwargs = init_kwargs
-        self._generate_kwargs = generate_kwargs  # proxy
+        self._generate_kwargs = (
+            inference_call_to_cli_args(generate_kwargs) if generate_kwargs else None
+        )
         deps_path = common.dep_path()
         BINARY_FOLDER_PATH = os.path.join(deps_path, "servers", "llama.cpp")
         # Platform-aware binary name - use llama-mtmd-cli for vision, llama-cli for text-only
@@ -436,7 +437,7 @@ class LLAMA_CPP:
         yield event_payload(FEEDING_PROMPT)
         while True:
             # Handle abort signal or non-existent process
-            aborted = await request.is_disconnected()
+            aborted = await request.is_disconnected() if request else False
             if aborted or not self.process or self.abort_requested:
                 print(f"{common.PRNT_LLAMA} Text generation aborted", flush=True)
                 was_aborted = True
@@ -630,7 +631,9 @@ class LLAMA_CPP:
             raise Exception("Vision inference was cancelled")
         except (ValueError, UnicodeEncodeError, Exception) as e:
             err_msg = str(e) if str(e) else f"{type(e).__name__} (no message)"
-            print(f"{common.PRNT_LLAMA} Error in vision inference: {err_msg}", flush=True)
+            print(
+                f"{common.PRNT_LLAMA} Error in vision inference: {err_msg}", flush=True
+            )
             raise Exception(f"Failed vision inference: {err_msg}")
 
     async def _vision_generator(
