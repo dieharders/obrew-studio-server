@@ -18,73 +18,75 @@ from core.classes import FastAPIApp
 
 
 # Tool definitions with descriptions for the LLM
+# Note: file operations use file_index (from scan results) instead of full paths
+# Examples use flat structure: {"tool": "file_read", "file_index": 0} instead of nested args
 FILE_TOOLS = {
     "file_scan": {
-        "description": "Scan a directory and return metadata about all files (name, type, size, modified date). Use this first to get an overview of available files.",
+        "description": "Scan a directory and return a numbered list of files. Use this FIRST to see available files. Each file gets an index number you can use with other tools.",
         "params": {
-            "directory_path": "The directory path to scan (required)",
             "file_patterns": "Optional list of file extensions to filter, e.g. ['.pdf', '.docx']",
-            "recursive": "Whether to scan subdirectories (default: True)",
         },
-        "returns": "List of file metadata objects",
+        "returns": "Numbered list of files with metadata",
+        "example": {"tool": "file_scan"},
     },
     "file_preview": {
-        "description": "Get a quick preview of a file's content (first ~500 chars). Use this to quickly assess if a file is relevant before fully parsing it.",
+        "description": "Get a quick preview of a file's content. Use the file_index from scan results.",
         "params": {
-            "file_path": "The path to the file to preview (required)",
-            "max_chars": "Maximum characters to preview (default: 500)",
-            "max_lines": "Maximum lines to preview (default: 20)",
+            "file_index": "The index number of the file from scan results (required)",
         },
         "returns": "File metadata and content preview",
+        "example": {"tool": "file_preview", "file_index": 0},
     },
     "file_parse": {
-        "description": "Extract full text from documents (PDF, DOCX, PPTX, XLSX, RTF, CSV, XML, HTML). Use this for binary documents that need parsing.",
+        "description": "Extract full text from documents (PDF, DOCX, PPTX, XLSX). Use for binary documents.",
         "params": {
-            "file_path": "The path to the document (required)",
-            "output_format": "'markdown' or 'text' (default: 'text')",
+            "file_index": "The index number of the file from scan results (required)",
         },
         "returns": "Extracted document content",
+        "example": {"tool": "file_parse", "file_index": 2},
     },
     "file_read": {
-        "description": "Read the raw contents of a text file. Use this for plain text files (.txt, .md, .py, etc.).",
+        "description": "Read the raw contents of a text file (.txt, .md, .json, etc.).",
         "params": {
-            "file_path": "The path to the file (required)",
-            "start_line": "Starting line number, 1-indexed (optional)",
-            "end_line": "Ending line number, inclusive (optional)",
+            "file_index": "The index number of the file from scan results (required)",
         },
-        "returns": "File content and line info",
+        "returns": "File content",
+        "example": {"tool": "file_read", "file_index": 1},
     },
     "file_grep": {
-        "description": "Search for a pattern (text or regex) within files in a directory. Use this to find specific content across multiple files.",
+        "description": "Search for a pattern within all files in the directory.",
         "params": {
             "pattern": "The search pattern (required)",
-            "directory_path": "The directory to search (required)",
-            "file_patterns": "Optional file extensions to search",
-            "case_sensitive": "Case sensitive search (default: False)",
-            "use_regex": "Interpret pattern as regex (default: False)",
-            "max_results": "Maximum matches to return (default: 50)",
+            "case_sensitive": "Case sensitive search (default: false)",
         },
-        "returns": "List of matches with file, line number, and context",
+        "returns": "List of matches with file index, line number, and context",
+        "example": {"tool": "file_grep", "pattern": "delivery"},
     },
     "file_glob": {
-        "description": "Find files matching a glob pattern. Use this to locate files by name pattern.",
+        "description": "Find files matching a glob pattern.",
         "params": {
             "pattern": "Glob pattern, e.g. '*.pdf', '**/*.txt' (required)",
-            "directory_path": "The directory to search (required)",
         },
-        "returns": "List of matching file paths",
+        "returns": "List of matching files with their indices",
+        "example": {"tool": "file_glob", "pattern": "*.md"},
     },
     "done": {
-        "description": "Signal that you have gathered enough information to answer the query. Use this when you're ready to provide the final answer.",
+        "description": "Signal that you have gathered enough information. Use when ready to answer.",
         "params": {
             "summary": "Brief summary of what you found (required)",
         },
         "returns": "Ends the tool loop",
+        "example": {"tool": "done", "summary": "Found 3 relevant inventory reports"},
     },
 }
 
-# JSON Schema for constrained tool call output
-# This ensures LLM output is always valid JSON with the correct structure
+
+def _to_forward_slashes(path: str) -> str:
+    """Convert Windows backslashes to forward slashes (works on all OS)."""
+    return path.replace("\\", "/")
+
+# JSON Schema for constrained tool call output - flat structure
+# Example: {"tool": "file_read", "file_index": 0} instead of nested {"tool": "...", "args": {...}}
 TOOL_CALL_SCHEMA = {
     "type": "object",
     "properties": {
@@ -93,27 +95,30 @@ TOOL_CALL_SCHEMA = {
             "enum": list(FILE_TOOLS.keys()),
             "description": "The tool to execute",
         },
-        "args": {
-            "type": "object",
-            "description": "Arguments for the tool",
-            "additionalProperties": True,
-        },
+        # Common parameters - these go directly in the object, not nested
+        "file_index": {"type": "integer", "description": "File index from scan results"},
+        "file_patterns": {"type": "array", "items": {"type": "string"}},
+        "pattern": {"type": "string", "description": "Search or glob pattern"},
+        "case_sensitive": {"type": "boolean"},
+        "summary": {"type": "string", "description": "Summary for done tool"},
     },
-    "required": ["tool", "args"],
-    "additionalProperties": False,
+    "required": ["tool"],
+    "additionalProperties": True,  # Allow other params
 }
 
 
 def _build_tools_prompt() -> str:
-    """Build a prompt describing all available tools."""
+    """Build a prompt describing all available tools with examples."""
     lines = ["Available tools:\n"]
     for tool_name, tool_info in FILE_TOOLS.items():
         lines.append(f"## {tool_name}")
-        lines.append(f"Description: {tool_info['description']}")
-        lines.append("Parameters:")
-        for param, desc in tool_info["params"].items():
-            lines.append(f"  - {param}: {desc}")
-        lines.append(f"Returns: {tool_info['returns']}")
+        lines.append(f"{tool_info['description']}")
+        if tool_info["params"]:
+            lines.append("Parameters:")
+            for param, desc in tool_info["params"].items():
+                lines.append(f"  - {param}: {desc}")
+        if "example" in tool_info:
+            lines.append(f"Example: {json.dumps(tool_info['example'])}")
         lines.append("")
     return "\n".join(lines)
 
@@ -338,27 +343,27 @@ class AgenticSearchAgent:
         tool_logs = []
         context_history = []
         sources = set()
-        last_scanned_files = []  # Track files from last scan for better error messages
+        # File index map: index (int) -> file info dict with 'path', 'filename', etc.
+        file_index_map: Dict[int, Dict[str, Any]] = {}
 
-        # Build initial context
+        # Build initial context - don't show full directory path, just indicate scanning is available
         initial_context = f"""You are a file search agent. Your task is to find information to answer the user's query.
 
 User Query: {query}
 
-Starting Directory: {directory}
 {f"File type hints: {file_patterns}" if file_patterns else ""}
 
 {TOOLS_PROMPT}
 
 ## Instructions
-1. Analyze the query and decide which tool to use first
-2. After each tool result, decide if you need more information or can answer
+1. Start by using file_scan to see available files (each file gets an index number)
+2. Use file_index to reference files in other tools (e.g., file_read, file_preview)
 3. When you have enough information, use the "done" tool
-4. Respond with a JSON object specifying the tool and arguments
+4. Always respond with a JSON object
 
 What tool would you like to use first?"""
 
-        system_message = "You are a file search agent. Respond with JSON specifying the tool and args. Be methodical - scan first, then preview relevant files, then read/parse as needed."
+        system_message = "You are a file search agent. Respond with JSON. Use file_index (integer) to reference files from scan results. Start with file_scan, then read relevant files."
 
         current_prompt = initial_context
 
@@ -397,7 +402,11 @@ What tool would you like to use first?"""
                 continue
 
             tool_name = tool_call.get("tool")
-            tool_args = tool_call.get("args", {})
+            # Flat format: {"tool": "file_read", "file_index": 0}
+            tool_args = {k: v for k, v in tool_call.items() if k != "tool"}
+            # If LLM still uses nested args, flatten it
+            if "args" in tool_args and isinstance(tool_args["args"], dict):
+                tool_args = tool_args["args"]
 
             # Normalize common tool name variations
             TOOL_ALIASES = {
@@ -415,40 +424,54 @@ What tool would you like to use first?"""
 
             # Normalize argument names (LLM may use variations)
             ARG_ALIASES = {
-                "filename": "file_path",
-                "file": "file_path",
-                "path": "file_path",
-                "dir": "directory_path",
-                "directory": "directory_path",
-                "folder": "directory_path",
+                "index": "file_index",
+                "idx": "file_index",
+                "file": "file_index",
+                "filename": "file_index",
             }
             for alias, canonical in ARG_ALIASES.items():
                 if alias in tool_args and canonical not in tool_args:
                     tool_args[canonical] = tool_args.pop(alias)
 
-            # Fix path encoding issues (LLM sometimes outputs LaTeX-style escapes)
-            # Note: JSON parsing interprets \t as TAB, so "\textbackslash" becomes TAB + "extbackslash"
-            for path_arg in ["file_path", "directory_path"]:
-                if path_arg in tool_args and tool_args[path_arg]:
-                    # Fix TAB+extbackslash (from JSON parsing \textbackslash as \t + extbackslash)
-                    tool_args[path_arg] = tool_args[path_arg].replace("\textbackslash ", "\\")
-                    tool_args[path_arg] = tool_args[path_arg].replace("\textbackslash", "\\")
-                    # Also handle literal \textbackslash if somehow preserved
-                    tool_args[path_arg] = tool_args[path_arg].replace("\\textbackslash ", "\\")
-                    tool_args[path_arg] = tool_args[path_arg].replace("\\textbackslash", "\\")
-
-            # Resolve relative paths to absolute paths using last scan results
+            # Resolve file_index to file_path for file operations
             if tool_name in ["file_preview", "file_read", "file_parse"]:
-                file_path = tool_args.get("file_path", "")
-                if file_path and last_scanned_files:
-                    # Check if it's a relative path (no drive letter or doesn't start with /)
-                    is_relative = not (len(file_path) > 1 and file_path[1] == ':') and not file_path.startswith('/')
-                    if is_relative:
-                        # Try to find matching absolute path from scanned files
-                        for scanned_path in last_scanned_files:
-                            if scanned_path.endswith(file_path) or Path(scanned_path).name == file_path:
-                                tool_args["file_path"] = scanned_path
+                file_index = tool_args.get("file_index")
+                if file_index is not None:
+                    resolved_path = None
+
+                    # Try to parse as integer first
+                    try:
+                        idx = int(file_index)
+                        if idx in file_index_map:
+                            resolved_path = file_index_map[idx]["path"]
+                    except (ValueError, TypeError):
+                        pass
+
+                    # If not an integer or not found, try to match by filename
+                    if resolved_path is None and isinstance(file_index, str) and file_index_map:
+                        # Try exact match on filename or relative_path
+                        for idx, info in file_index_map.items():
+                            filename = info.get("filename", "")
+                            rel_path = info.get("relative_path", "")
+                            if file_index == filename or file_index == rel_path:
+                                resolved_path = info["path"]
+                                print(f"{common.PRNT_API} [AgenticSearch] Matched filename '{file_index}' to index {idx}", flush=True)
                                 break
+                        # Try partial match if exact match failed
+                        if resolved_path is None:
+                            for idx, info in file_index_map.items():
+                                filename = info.get("filename", "")
+                                if file_index in filename or filename in file_index:
+                                    resolved_path = info["path"]
+                                    print(f"{common.PRNT_API} [AgenticSearch] Partial match '{file_index}' to '{filename}' (index {idx})", flush=True)
+                                    break
+
+                    if resolved_path:
+                        tool_args["file_path"] = resolved_path
+                        del tool_args["file_index"]
+                    else:
+                        available = ", ".join(str(i) for i in sorted(file_index_map.keys())[:10])
+                        raise ValueError(f"Could not resolve file_index '{file_index}'. Use integer indices: {available}")
 
             print(f"{common.PRNT_API} [AgenticSearch] Tool: {tool_name}, Args: {tool_args}", flush=True)
 
@@ -477,36 +500,45 @@ What tool would you like to use first?"""
                     if "directory_path" not in tool_args or not tool_args["directory_path"]:
                         tool_args["directory_path"] = directory
 
-                # Check for missing file_path on file operations
+                # Check for missing file_path on file operations (after index resolution)
                 if tool_name in ["file_preview", "file_read", "file_parse"]:
                     if "file_path" not in tool_args or not tool_args["file_path"]:
-                        # Provide helpful error with available files
-                        if last_scanned_files:
-                            file_list = "\n".join(f"  - {f}" for f in last_scanned_files[:10])
+                        if file_index_map:
+                            available = ", ".join(str(i) for i in sorted(file_index_map.keys())[:10])
                             raise ValueError(
-                                f"file_path is required. Available files from last scan:\n{file_list}"
+                                f"file_index is required. Use an index from scan results: {available}"
                             )
                         else:
                             raise ValueError(
-                                "file_path is required. Use file_scan first to see available files."
+                                "Use file_scan first to see available files, then use file_index to reference them."
                             )
 
                 result = await self._execute_tool(tool_name, **tool_args)
 
-                # Track scanned files for better error messages
+                # Build file index map from scan results
                 if tool_name == "file_scan" and isinstance(result, list):
-                    last_scanned_files = [f.get("path", f.get("relative_path", "")) for f in result[:20]]
+                    file_index_map.clear()
+                    for idx, file_info in enumerate(result):
+                        file_index_map[idx] = file_info
+                    # Format scan results for LLM with indices and forward slashes (no full paths!)
+                    formatted_files = []
+                    for idx, f in enumerate(result):
+                        filename = f.get("filename", f.get("relative_path", "unknown"))
+                        file_type = f.get("type", "file")
+                        size = f.get("size", "")
+                        formatted_files.append(f"[{idx}] {filename} ({file_type}, {size})")
+                    result_str = "Files found:\n" + "\n".join(formatted_files)
+                else:
+                    # Track sources from file operations
+                    if tool_name in ["file_read", "file_parse"]:
+                        file_path = tool_args.get("file_path", "")
+                        if file_path:
+                            sources.add(file_path)
 
-                # Track sources from file operations
-                if tool_name in ["file_read", "file_parse"]:
-                    file_path = tool_args.get("file_path", "")
-                    if file_path:
-                        sources.add(file_path)
-
-                # Truncate large results for context
-                result_str = json.dumps(result, indent=2, default=str)
-                if len(result_str) > 3000:
-                    result_str = result_str[:3000] + "\n... (truncated)"
+                    # Standard JSON result for non-scan tools
+                    result_str = json.dumps(result, indent=2, default=str)
+                    if len(result_str) > 3000:
+                        result_str = result_str[:3000] + "\n... (truncated)"
 
                 tool_logs.append({
                     "iteration": iteration + 1,
@@ -516,9 +548,16 @@ What tool would you like to use first?"""
                     "result_preview": result_str[:500] if len(result_str) > 500 else result_str,
                 })
 
+                # For context history shown to LLM, use simplified args (no full paths)
+                display_args = {k: v for k, v in tool_args.items() if k != "directory_path"}
+                if "file_path" in display_args:
+                    # Show filename instead of full path
+                    display_args["file"] = Path(display_args["file_path"]).name
+                    del display_args["file_path"]
+
                 context_history.append({
                     "tool": tool_name,
-                    "args": tool_args,
+                    "args": display_args,
                     "result": result_str,
                 })
 
@@ -548,13 +587,8 @@ What tool would you like to use first?"""
 
 {history_str}
 
-Based on these results, what tool would you like to use next?
-If you have enough information to answer the query, use the "done" tool.
-
-Remember to respond with a JSON tool call:
-```json
-{{"tool": "tool_name", "args": {{"param1": "value1"}}}}
-```"""
+What tool would you like to use next? Use file_index (integer) to reference files.
+If you have enough information, use the "done" tool."""
 
         # Final synthesis
         print(f"{common.PRNT_API} [AgenticSearch] Synthesizing final answer", flush=True)

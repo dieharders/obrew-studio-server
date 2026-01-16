@@ -18,18 +18,11 @@ from core import common
 from core.classes import FastAPIApp
 
 
-# JSON Schema for constrained file selection output
+# JSON Schema for constrained file selection output - just an array of indices
 FILE_SELECTION_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "files": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "List of file paths to select",
-        },
-    },
-    "required": ["files"],
-    "additionalProperties": False,
+    "type": "array",
+    "items": {"type": "integer"},
+    "description": "Array of file indices to select",
 }
 
 
@@ -225,11 +218,18 @@ class SearchAgent:
                 "tool_logs": tool_logs,
             }
 
+        # Build file index map (index -> file info) - LLM sees indices, not paths
+        file_index_map: Dict[int, Dict[str, Any]] = {}
+        for idx, file_info in enumerate(scan_result[:50]):  # Limit to first 50
+            file_index_map[idx] = file_info
+
         # Phase 2: Use LLM to select files to preview based on query
         print(f"{common.PRNT_API} [SearchAgent] Phase 2: Selecting files to preview", flush=True)
+
+        # Format files with indices for LLM (no full paths exposed)
         file_list_str = "\n".join(
-            f"- {f['relative_path']} ({f['type']}, {f['size']})"
-            for f in scan_result[:50]  # Limit to first 50 for context length
+            f"[{idx}] {f.get('filename', f.get('relative_path', 'unknown'))} ({f.get('type', 'file')}, {f.get('size', '')})"
+            for idx, f in file_index_map.items()
         )
 
         selection_prompt = f"""Given the user's query and a list of available files, select the most relevant files to examine.
@@ -242,45 +242,56 @@ Available Files:
 Instructions:
 1. Select up to {max_files_preview} files that are most likely to contain information relevant to the query
 2. Prioritize files by relevance to the query
-3. Return the file paths in a JSON object with a "files" array"""
+3. Return ONLY a JSON array of file indices (the numbers in brackets)
+4. Example: [0, 2, 5]"""
 
         try:
             selection_response = await self._llm_completion(
                 prompt=selection_prompt,
-                system_message="You are a file selection assistant.",
+                system_message="You are a file selection assistant. Return only a JSON array of integers.",
                 constrain_json=FILE_SELECTION_SCHEMA,
             )
 
             # Parse the selection - with constrained output this should always succeed
             try:
-                result = json.loads(selection_response)
-                selected_paths = result.get("files", [])
+                selected_indices = json.loads(selection_response)
+                # Handle if LLM still wraps in object
+                if isinstance(selected_indices, dict):
+                    selected_indices = selected_indices.get("files", [])
             except json.JSONDecodeError:
                 # Fallback to regex parsing
                 json_match = re.search(r'\[.*\]', selection_response, re.DOTALL)
                 if json_match:
-                    selected_paths = json.loads(json_match.group())
+                    selected_indices = json.loads(json_match.group())
                 else:
-                    selected_paths = [f["relative_path"] for f in scan_result[:max_files_preview]]
+                    selected_indices = list(range(min(max_files_preview, len(file_index_map))))
+
+            # Validate indices are within range
+            selected_indices = [
+                idx for idx in selected_indices
+                if isinstance(idx, int) and idx in file_index_map
+            ]
 
             tool_logs.append({
                 "phase": "select",
-                "selected_count": len(selected_paths),
+                "selected_count": len(selected_indices),
+                "selected_indices": selected_indices,
             })
         except Exception as e:
             print(f"{common.PRNT_API} [SearchAgent] Selection failed, using fallback: {e}", flush=True)
-            selected_paths = [f["relative_path"] for f in scan_result[:max_files_preview]]
-
-        # Map relative paths back to full paths
-        path_map = {f["relative_path"]: f["path"] for f in scan_result}
+            selected_indices = list(range(min(max_files_preview, len(file_index_map))))
 
         # Phase 3: PREVIEW - Quick look at selected files
-        print(f"{common.PRNT_API} [SearchAgent] Phase 3: Previewing {len(selected_paths)} files", flush=True)
+        print(f"{common.PRNT_API} [SearchAgent] Phase 3: Previewing {len(selected_indices)} files", flush=True)
         previews = []
-        for rel_path in selected_paths[:max_files_preview]:
-            if rel_path not in path_map:
+        preview_index_map: Dict[int, Dict[str, Any]] = {}  # preview_idx -> preview info
+
+        for file_idx in selected_indices[:max_files_preview]:
+            file_info = file_index_map.get(file_idx)
+            if not file_info:
                 continue
-            full_path = path_map[rel_path]
+            full_path = file_info.get("path")
+            rel_path = file_info.get("relative_path", file_info.get("filename", "unknown"))
             try:
                 preview = await self._execute_tool(
                     "file_preview",
@@ -288,13 +299,17 @@ Instructions:
                     max_chars=500,
                     max_lines=20,
                 )
-                previews.append({
+                preview_data = {
+                    "file_index": file_idx,
                     "path": full_path,
                     "relative_path": rel_path,
+                    "filename": file_info.get("filename", rel_path),
                     "preview": preview,
-                })
+                }
+                previews.append(preview_data)
+                preview_index_map[len(previews) - 1] = preview_data
             except Exception as e:
-                print(f"{common.PRNT_API} [SearchAgent] Preview failed for {rel_path}: {e}", flush=True)
+                print(f"{common.PRNT_API} [SearchAgent] Preview failed for [{file_idx}]: {e}", flush=True)
 
         tool_logs.append({
             "phase": "preview",
@@ -304,9 +319,11 @@ Instructions:
 
         # Phase 4: Use LLM to select files for deep parsing
         print(f"{common.PRNT_API} [SearchAgent] Phase 4: Selecting files for deep parse", flush=True)
+
+        # Format previews with indices for LLM (using preview list index)
         preview_summaries = "\n\n".join(
-            f"File: {p['relative_path']}\nRequires Parsing: {p['preview'].get('requires_parsing', False)}\nPreview:\n{p['preview'].get('preview', '[No preview]')[:300]}"
-            for p in previews
+            f"[{idx}] {p['filename']}\nRequires Parsing: {p['preview'].get('requires_parsing', False)}\nPreview:\n{p['preview'].get('preview', '[No preview]')[:300]}"
+            for idx, p in enumerate(previews)
         )
 
         deep_parse_prompt = f"""Based on the file previews, select the most relevant files for full content extraction.
@@ -318,46 +335,57 @@ File Previews:
 
 Instructions:
 1. Select up to {max_files_parse} files that are most likely to answer the user's query
-2. Return the file paths in a JSON object with a "files" array"""
+2. Return ONLY a JSON array of file indices (the numbers in brackets)
+3. Example: [0, 1]"""
 
         try:
             parse_selection = await self._llm_completion(
                 prompt=deep_parse_prompt,
-                system_message="You are a file selection assistant.",
+                system_message="You are a file selection assistant. Return only a JSON array of integers.",
                 constrain_json=FILE_SELECTION_SCHEMA,
             )
 
             # Parse - with constrained output this should always succeed
             try:
-                result = json.loads(parse_selection)
-                files_to_parse = result.get("files", [])
+                parse_indices = json.loads(parse_selection)
+                # Handle if LLM still wraps in object
+                if isinstance(parse_indices, dict):
+                    parse_indices = parse_indices.get("files", [])
             except json.JSONDecodeError:
                 # Fallback to regex parsing
                 json_match = re.search(r'\[.*\]', parse_selection, re.DOTALL)
                 if json_match:
-                    files_to_parse = json.loads(json_match.group())
+                    parse_indices = json.loads(json_match.group())
                 else:
-                    files_to_parse = [p["relative_path"] for p in previews[:max_files_parse]]
+                    parse_indices = list(range(min(max_files_parse, len(previews))))
+
+            # Validate indices are within preview list range
+            parse_indices = [
+                idx for idx in parse_indices
+                if isinstance(idx, int) and 0 <= idx < len(previews)
+            ]
+
+            tool_logs.append({
+                "phase": "deep_parse_select",
+                "selected_count": len(parse_indices),
+                "selected_indices": parse_indices,
+            })
         except Exception:
-            files_to_parse = [p["relative_path"] for p in previews[:max_files_parse]]
+            parse_indices = list(range(min(max_files_parse, len(previews))))
 
         # Phase 5: DEEP DIVE - Full parse of selected files
-        print(f"{common.PRNT_API} [SearchAgent] Phase 5: Deep parsing {len(files_to_parse)} files", flush=True)
-        for rel_path in files_to_parse[:max_files_parse]:
-            if rel_path not in path_map:
+        print(f"{common.PRNT_API} [SearchAgent] Phase 5: Deep parsing {len(parse_indices)} files", flush=True)
+        for preview_idx in parse_indices[:max_files_parse]:
+            if preview_idx >= len(previews):
                 continue
-            full_path = path_map[rel_path]
 
-            # Find the preview for this file
-            preview_data = next(
-                (p for p in previews if p["relative_path"] == rel_path), None
-            )
+            preview_data = previews[preview_idx]
+            full_path = preview_data["path"]
+            rel_path = preview_data["relative_path"]
+            filename = preview_data["filename"]
 
             # Decide whether to parse or read based on preview
-            requires_parsing = (
-                preview_data
-                and preview_data["preview"].get("requires_parsing", False)
-            )
+            requires_parsing = preview_data["preview"].get("requires_parsing", False)
 
             try:
                 if requires_parsing:
@@ -379,7 +407,7 @@ Instructions:
                     tool_used = "file_read"
 
                 collected_context.append({
-                    "source": rel_path,
+                    "source": filename,
                     "content": extracted_text[:5000],  # Limit context size
                 })
                 sources.append(rel_path)
@@ -387,14 +415,14 @@ Instructions:
                 tool_logs.append({
                     "phase": "parse",
                     "tool": tool_used,
-                    "file": rel_path,
+                    "file": filename,
                     "content_length": len(extracted_text),
                 })
             except Exception as e:
-                print(f"{common.PRNT_API} [SearchAgent] Parse failed for {rel_path}: {e}", flush=True)
+                print(f"{common.PRNT_API} [SearchAgent] Parse failed for [{preview_idx}] {filename}: {e}", flush=True)
                 tool_logs.append({
                     "phase": "parse",
-                    "file": rel_path,
+                    "file": filename,
                     "error": str(e),
                 })
 
