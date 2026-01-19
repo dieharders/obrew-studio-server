@@ -1,0 +1,13 @@
+{
+  "query": "What are the key findings and recommendations from the research documents?",
+  "collection": "research_papers",
+  "allowed_collections": [
+    "research_papers",
+    "literature_review",
+    "technical_docs"
+  ],
+  "top_k": 50,
+  "max_preview": 10,
+  "max_extract": 3,
+  "auto_expand": true
+}

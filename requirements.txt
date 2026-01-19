@@ -54,3 +54,6 @@ Pillow>=10.0.0
 pyobjc-framework-Cocoa==10.3.1; sys_platform == 'darwin'  # macOS only - for AppKit screen resolution
 # Excel spreadsheet parsing for agentic file search
 openpyxl>=3.1.0
+# Web search (agentic search)
+duckduckgo-search>=6.0.0
+beautifulsoup4>=4.12.0
