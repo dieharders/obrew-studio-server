@@ -1,7 +1,7 @@
 """
-SearchAgent - Agentic file search with multi-phase strategy.
+SearchFS - File system search with multi-phase strategy.
 
-This agent orchestrates file search tools to explore directories and find
+This agent orchestrates file system search tools to explore directories and find
 relevant information using a multi-phase approach:
 1. SCAN: Get an overview of available files
 2. PREVIEW: Quick look at potentially relevant files
@@ -26,7 +26,7 @@ FILE_SELECTION_SCHEMA = {
 }
 
 
-class SearchAgent:
+class SearchFS:
     """
     Agentic file search with multi-phase strategy and directory whitelisting.
 
@@ -40,7 +40,7 @@ class SearchAgent:
         allowed_directories: List[str],
     ):
         """
-        Initialize the SearchAgent.
+        Initialize the SearchFS.
 
         Args:
             app: FastAPI application instance with LLM access
@@ -183,9 +183,7 @@ class SearchAgent:
         sources = []
 
         # Phase 1: SCAN - Get directory overview
-        print(
-            f"{common.PRNT_API} [SearchAgent] Phase 1: Scanning directory", flush=True
-        )
+        print(f"{common.PRNT_API} [SearchFS] Phase 1: Scanning directory", flush=True)
         try:
             scan_result = await self._execute_tool(
                 "file_scan",
@@ -222,7 +220,7 @@ class SearchAgent:
 
         # Phase 2: Use LLM to select files to preview based on query
         print(
-            f"{common.PRNT_API} [SearchAgent] Phase 2: Selecting files to preview",
+            f"{common.PRNT_API} [SearchFS] Phase 2: Selecting files to preview",
             flush=True,
         )
 
@@ -284,14 +282,14 @@ Instructions:
             )
         except Exception as e:
             print(
-                f"{common.PRNT_API} [SearchAgent] Selection failed, using fallback: {e}",
+                f"{common.PRNT_API} [SearchFS] Selection failed, using fallback: {e}",
                 flush=True,
             )
             selected_indices = list(range(min(max_files_preview, len(file_index_map))))
 
         # Phase 3: PREVIEW - Quick look at selected files
         print(
-            f"{common.PRNT_API} [SearchAgent] Phase 3: Previewing {len(selected_indices)} files",
+            f"{common.PRNT_API} [SearchFS] Phase 3: Previewing {len(selected_indices)} files",
             flush=True,
         )
         previews = []
@@ -323,7 +321,7 @@ Instructions:
                 preview_index_map[len(previews) - 1] = preview_data
             except Exception as e:
                 print(
-                    f"{common.PRNT_API} [SearchAgent] Preview failed for [{file_idx}]: {e}",
+                    f"{common.PRNT_API} [SearchFS] Preview failed for [{file_idx}]: {e}",
                     flush=True,
                 )
 
@@ -337,7 +335,7 @@ Instructions:
 
         # Phase 4: Use LLM to select files for deep parsing
         print(
-            f"{common.PRNT_API} [SearchAgent] Phase 4: Selecting files for deep parse",
+            f"{common.PRNT_API} [SearchFS] Phase 4: Selecting files for deep parse",
             flush=True,
         )
 
@@ -399,7 +397,7 @@ Instructions:
 
         # Phase 5: DEEP DIVE - Full parse of selected files
         print(
-            f"{common.PRNT_API} [SearchAgent] Phase 5: Deep parsing {len(parse_indices)} files",
+            f"{common.PRNT_API} [SearchFS] Phase 5: Deep parsing {len(parse_indices)} files",
             flush=True,
         )
         for preview_idx in parse_indices[:max_files_parse]:
@@ -451,7 +449,7 @@ Instructions:
                 )
             except Exception as e:
                 print(
-                    f"{common.PRNT_API} [SearchAgent] Parse failed for [{preview_idx}] {filename}: {e}",
+                    f"{common.PRNT_API} [SearchFS] Parse failed for [{preview_idx}] {filename}: {e}",
                     flush=True,
                 )
                 tool_logs.append(
@@ -463,9 +461,7 @@ Instructions:
                 )
 
         # Phase 6: SYNTHESIZE - Generate final answer
-        print(
-            f"{common.PRNT_API} [SearchAgent] Phase 6: Synthesizing answer", flush=True
-        )
+        print(f"{common.PRNT_API} [SearchFS] Phase 6: Synthesizing answer", flush=True)
         if not collected_context:
             return {
                 "answer": "Could not extract relevant content from the files. Please try a different query or directory.",

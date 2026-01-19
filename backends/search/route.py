@@ -1,7 +1,7 @@
 from pathlib import Path
 from fastapi import APIRouter, Request
 from core import classes, common
-from .search_agent import SearchAgent
+from .search_fs import SearchFS
 from .agentic_search import AgenticSearchAgent
 from .classes import (
     FileSearchRequest,
@@ -58,7 +58,7 @@ async def file_search(
                 }
 
         # Create and run search agent
-        agent = SearchAgent(
+        agent = SearchFS(
             app=app,
             allowed_directories=payload.allowed_directories,
         )

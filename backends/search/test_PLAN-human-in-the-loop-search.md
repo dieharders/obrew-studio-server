@@ -206,7 +206,7 @@ Define when to request input:
 | File                                   | Action                              |
 | -------------------------------------- | ----------------------------------- |
 | `backends/retrieval/search_session.py` | Create                              |
-| `backends/retrieval/search_agent.py`   | Modify (add input_required support) |
+| `backends/retrieval/search_fs.py`      | Modify (add input_required support) |
 | `backends/retrieval/agentic_search.py` | Modify (add input_required support) |
 | `backends/inference/classes.py`        | Modify (add response models)        |
 | `backends/inference/route.py`          | Modify (add /resume endpoint)       |
