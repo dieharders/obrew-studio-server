@@ -1,6 +1,0 @@
-{
-  "query": "I am the supply officer and I must know expected deliveries and current aircraft needs, what components will be delivered by which vendor at what time. A report must be created to inform specific stakeholders and any involved vendors. This report details the main points and flags any shortages and includes a list of possible solutions. This report is expected to be emailed to all interested individuals.",
-  "directory": "C:\\Project Files\\FileBuff\\public\\examples\\projects\\air-force\\files\\inventory-reports",
-  "allowed_directories": ["C:\\Project Files\\FileBuff\\public\\examples\\projects\\air-force\\files\\inventory-reports"],
-  "max_iterations": 8
-}

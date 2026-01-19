@@ -5,6 +5,3 @@ curl -X POST "http://localhost:8008/v1/text/load" -H "Content-Type: application/
 
 Search FS Agent:
 curl -X POST "http://localhost:8008/v1/search/fs" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\test_search-fs_request.json"
-
-Agentic Search:
-curl -X POST "http://localhost:8008/v1/search/agentic-fs" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\test_agentic_request.json"
