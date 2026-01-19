@@ -170,7 +170,7 @@ async def search(self, query, directory, ..., session_state=None):
 
 ```python
 @router.post("/search")
-async def file_search(request: SearchRequest):
+async def search_file_system(request: SearchRequest):
     session = SearchSession(app=request.app)
     result = await session.run(
         query=request.query,

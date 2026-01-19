@@ -10,7 +10,7 @@ router = APIRouter()
 
 # Structured file system search (scan, preview, deep dive)
 @router.post("/fs")
-async def file_search(
+async def search_file_system(
     request: Request,
     payload: FileSystemSearchRequest,
 ) -> FileSystemSearchResponse:
