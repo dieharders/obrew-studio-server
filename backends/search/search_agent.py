@@ -8,6 +8,7 @@ relevant information using a multi-phase approach:
 3. DEEP DIVE: Full parse of the most relevant files
 4. SYNTHESIZE: LLM generates final answer from collected context
 """
+
 import json
 import re
 import importlib
@@ -47,9 +48,7 @@ class SearchAgent:
         """
         self.app = app
         self.llm = app.state.llm
-        self.allowed_directories = [
-            Path(d).resolve() for d in allowed_directories
-        ]
+        self.allowed_directories = [Path(d).resolve() for d in allowed_directories]
         self._tool_cache: Dict[str, Any] = {}
 
     def _validate_path(self, path: str) -> bool:
@@ -85,9 +84,7 @@ class SearchAgent:
             return self._tool_cache[tool_name]
 
         try:
-            module = importlib.import_module(
-                f"tools.built_in_functions.{tool_name}"
-            )
+            module = importlib.import_module(f"tools.built_in_functions.{tool_name}")
             self._tool_cache[tool_name] = module
             return module
         except ImportError as e:
@@ -150,6 +147,7 @@ class SearchAgent:
 
         # Parse response
         from inference.helpers import read_event_data
+
         data = read_event_data(content)
         return data.get("text", "")
 
@@ -185,7 +183,9 @@ class SearchAgent:
         sources = []
 
         # Phase 1: SCAN - Get directory overview
-        print(f"{common.PRNT_API} [SearchAgent] Phase 1: Scanning directory", flush=True)
+        print(
+            f"{common.PRNT_API} [SearchAgent] Phase 1: Scanning directory", flush=True
+        )
         try:
             scan_result = await self._execute_tool(
                 "file_scan",
@@ -193,11 +193,13 @@ class SearchAgent:
                 file_patterns=file_patterns,
                 recursive=True,
             )
-            tool_logs.append({
-                "phase": "scan",
-                "tool": "file_scan",
-                "result_count": len(scan_result),
-            })
+            tool_logs.append(
+                {
+                    "phase": "scan",
+                    "tool": "file_scan",
+                    "result_count": len(scan_result),
+                }
+            )
         except Exception as e:
             return {
                 "answer": f"Failed to scan directory: {e}",
@@ -219,7 +221,10 @@ class SearchAgent:
             file_index_map[idx] = file_info
 
         # Phase 2: Use LLM to select files to preview based on query
-        print(f"{common.PRNT_API} [SearchAgent] Phase 2: Selecting files to preview", flush=True)
+        print(
+            f"{common.PRNT_API} [SearchAgent] Phase 2: Selecting files to preview",
+            flush=True,
+        )
 
         # Format files with indices for LLM (no full paths exposed)
         file_list_str = "\n".join(
@@ -255,29 +260,40 @@ Instructions:
                     selected_indices = selected_indices.get("files", [])
             except json.JSONDecodeError:
                 # Fallback to regex parsing
-                json_match = re.search(r'\[.*\]', selection_response, re.DOTALL)
+                json_match = re.search(r"\[.*\]", selection_response, re.DOTALL)
                 if json_match:
                     selected_indices = json.loads(json_match.group())
                 else:
-                    selected_indices = list(range(min(max_files_preview, len(file_index_map))))
+                    selected_indices = list(
+                        range(min(max_files_preview, len(file_index_map)))
+                    )
 
             # Validate indices are within range
             selected_indices = [
-                idx for idx in selected_indices
+                idx
+                for idx in selected_indices
                 if isinstance(idx, int) and idx in file_index_map
             ]
 
-            tool_logs.append({
-                "phase": "select",
-                "selected_count": len(selected_indices),
-                "selected_indices": selected_indices,
-            })
+            tool_logs.append(
+                {
+                    "phase": "select",
+                    "selected_count": len(selected_indices),
+                    "selected_indices": selected_indices,
+                }
+            )
         except Exception as e:
-            print(f"{common.PRNT_API} [SearchAgent] Selection failed, using fallback: {e}", flush=True)
+            print(
+                f"{common.PRNT_API} [SearchAgent] Selection failed, using fallback: {e}",
+                flush=True,
+            )
             selected_indices = list(range(min(max_files_preview, len(file_index_map))))
 
         # Phase 3: PREVIEW - Quick look at selected files
-        print(f"{common.PRNT_API} [SearchAgent] Phase 3: Previewing {len(selected_indices)} files", flush=True)
+        print(
+            f"{common.PRNT_API} [SearchAgent] Phase 3: Previewing {len(selected_indices)} files",
+            flush=True,
+        )
         previews = []
         preview_index_map: Dict[int, Dict[str, Any]] = {}  # preview_idx -> preview info
 
@@ -286,7 +302,9 @@ Instructions:
             if not file_info:
                 continue
             full_path = file_info.get("path")
-            rel_path = file_info.get("relative_path", file_info.get("filename", "unknown"))
+            rel_path = file_info.get(
+                "relative_path", file_info.get("filename", "unknown")
+            )
             try:
                 preview = await self._execute_tool(
                     "file_preview",
@@ -304,16 +322,24 @@ Instructions:
                 previews.append(preview_data)
                 preview_index_map[len(previews) - 1] = preview_data
             except Exception as e:
-                print(f"{common.PRNT_API} [SearchAgent] Preview failed for [{file_idx}]: {e}", flush=True)
+                print(
+                    f"{common.PRNT_API} [SearchAgent] Preview failed for [{file_idx}]: {e}",
+                    flush=True,
+                )
 
-        tool_logs.append({
-            "phase": "preview",
-            "tool": "file_preview",
-            "previewed_count": len(previews),
-        })
+        tool_logs.append(
+            {
+                "phase": "preview",
+                "tool": "file_preview",
+                "previewed_count": len(previews),
+            }
+        )
 
         # Phase 4: Use LLM to select files for deep parsing
-        print(f"{common.PRNT_API} [SearchAgent] Phase 4: Selecting files for deep parse", flush=True)
+        print(
+            f"{common.PRNT_API} [SearchAgent] Phase 4: Selecting files for deep parse",
+            flush=True,
+        )
 
         # Format previews with indices for LLM (using preview list index)
         preview_summaries = "\n\n".join(
@@ -348,7 +374,7 @@ Instructions:
                     parse_indices = parse_indices.get("files", [])
             except json.JSONDecodeError:
                 # Fallback to regex parsing
-                json_match = re.search(r'\[.*\]', parse_selection, re.DOTALL)
+                json_match = re.search(r"\[.*\]", parse_selection, re.DOTALL)
                 if json_match:
                     parse_indices = json.loads(json_match.group())
                 else:
@@ -356,20 +382,26 @@ Instructions:
 
             # Validate indices are within preview list range
             parse_indices = [
-                idx for idx in parse_indices
+                idx
+                for idx in parse_indices
                 if isinstance(idx, int) and 0 <= idx < len(previews)
             ]
 
-            tool_logs.append({
-                "phase": "deep_parse_select",
-                "selected_count": len(parse_indices),
-                "selected_indices": parse_indices,
-            })
+            tool_logs.append(
+                {
+                    "phase": "deep_parse_select",
+                    "selected_count": len(parse_indices),
+                    "selected_indices": parse_indices,
+                }
+            )
         except Exception:
             parse_indices = list(range(min(max_files_parse, len(previews))))
 
         # Phase 5: DEEP DIVE - Full parse of selected files
-        print(f"{common.PRNT_API} [SearchAgent] Phase 5: Deep parsing {len(parse_indices)} files", flush=True)
+        print(
+            f"{common.PRNT_API} [SearchAgent] Phase 5: Deep parsing {len(parse_indices)} files",
+            flush=True,
+        )
         for preview_idx in parse_indices[:max_files_parse]:
             if preview_idx >= len(previews):
                 continue
@@ -401,28 +433,39 @@ Instructions:
                     extracted_text = content.get("content", "")
                     tool_used = "file_read"
 
-                collected_context.append({
-                    "source": filename,
-                    "content": extracted_text[:5000],  # Limit context size
-                })
+                collected_context.append(
+                    {
+                        "source": filename,
+                        "content": extracted_text[:5000],  # Limit context size
+                    }
+                )
                 sources.append(rel_path)
 
-                tool_logs.append({
-                    "phase": "parse",
-                    "tool": tool_used,
-                    "file": filename,
-                    "content_length": len(extracted_text),
-                })
+                tool_logs.append(
+                    {
+                        "phase": "parse",
+                        "tool": tool_used,
+                        "file": filename,
+                        "content_length": len(extracted_text),
+                    }
+                )
             except Exception as e:
-                print(f"{common.PRNT_API} [SearchAgent] Parse failed for [{preview_idx}] {filename}: {e}", flush=True)
-                tool_logs.append({
-                    "phase": "parse",
-                    "file": filename,
-                    "error": str(e),
-                })
+                print(
+                    f"{common.PRNT_API} [SearchAgent] Parse failed for [{preview_idx}] {filename}: {e}",
+                    flush=True,
+                )
+                tool_logs.append(
+                    {
+                        "phase": "parse",
+                        "file": filename,
+                        "error": str(e),
+                    }
+                )
 
         # Phase 6: SYNTHESIZE - Generate final answer
-        print(f"{common.PRNT_API} [SearchAgent] Phase 6: Synthesizing answer", flush=True)
+        print(
+            f"{common.PRNT_API} [SearchAgent] Phase 6: Synthesizing answer", flush=True
+        )
         if not collected_context:
             return {
                 "answer": "Could not extract relevant content from the files. Please try a different query or directory.",
@@ -431,8 +474,7 @@ Instructions:
             }
 
         context_str = "\n\n---\n\n".join(
-            f"Source: {c['source']}\n\n{c['content']}"
-            for c in collected_context
+            f"Source: {c['source']}\n\n{c['content']}" for c in collected_context
         )
 
         synthesis_prompt = f"""Based on the following document contents, answer the user's query.

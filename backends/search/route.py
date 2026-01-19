@@ -1,8 +1,8 @@
 from pathlib import Path
 from fastapi import APIRouter, Request
 from core import classes, common
-from retrieval.search_agent import SearchAgent
-from retrieval.agentic_search import AgenticSearchAgent
+from .search_agent import SearchAgent
+from .agentic_search import AgenticSearchAgent
 from .classes import (
     FileSearchRequest,
     FileSearchResponse,
