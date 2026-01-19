@@ -194,35 +194,37 @@ async def resume_search(request: ResumeSearchRequest):
 
 Define when to request input:
 
-| Condition | Input Type | Prompt |
-|-----------|------------|--------|
-| No files found in scan | `directory` | "No files found. Try a different path?" |
-| No relevant files after preview | `directory` | "No relevant files. Look elsewhere?" |
-| Max iterations without answer | `text` | "Couldn't find answer. More context?" |
-| Ambiguous query | `choice` | "Which topic: A, B, or C?" |
+| Condition                       | Input Type  | Prompt                                  |
+| ------------------------------- | ----------- | --------------------------------------- |
+| No files found in scan          | `directory` | "No files found. Try a different path?" |
+| No relevant files after preview | `directory` | "No relevant files. Look elsewhere?"    |
+| Max iterations without answer   | `text`      | "Couldn't find answer. More context?"   |
+| Ambiguous query                 | `choice`    | "Which topic: A, B, or C?"              |
 
 ## Files to Create/Modify
 
-| File | Action |
-|------|--------|
-| `backends/retrieval/search_session.py` | Create |
-| `backends/retrieval/search_agent.py` | Modify (add input_required support) |
+| File                                   | Action                              |
+| -------------------------------------- | ----------------------------------- |
+| `backends/retrieval/search_session.py` | Create                              |
+| `backends/retrieval/search_agent.py`   | Modify (add input_required support) |
 | `backends/retrieval/agentic_search.py` | Modify (add input_required support) |
-| `backends/inference/classes.py` | Modify (add response models) |
-| `backends/inference/route.py` | Modify (add /resume endpoint) |
+| `backends/inference/classes.py`        | Modify (add response models)        |
+| `backends/inference/route.py`          | Modify (add /resume endpoint)       |
 
 ## Verification Plan
 
 1. **Test no-files scenario:**
+
    ```bash
-   curl -X POST /v1/text/search -d '{"query": "...", "directory": "/empty/path"}'
+   curl -X POST /v1/search/fs -d '{"query": "...", "directory": "/empty/path"}'
    # Should return status: "input_required"
    ```
 
 2. **Test resume flow:**
+
    ```bash
    # Get state from input_required response
-   curl -X POST /v1/text/search/resume -d '{
+   curl -X POST /v1/search/fs/resume -d '{
      "session_state": {...},
      "user_input": "/new/path",
      "input_type": "directory"

@@ -22,6 +22,7 @@ from inference.route import router as text_inference
 from vision.route import router as vision_inference
 from storage.route import router as storage
 from downloads.route import router as downloads
+from search.route import router as search
 
 
 class ApiServer:
@@ -291,6 +292,9 @@ class ApiServer:
         )
         endpoint_router.include_router(
             downloads, prefix="/v1/downloads", tags=["downloads"]
+        )
+        endpoint_router.include_router(
+            search, prefix="/v1/search", tags=["search"]
         )
         app.include_router(endpoint_router)
 
