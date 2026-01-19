@@ -2,7 +2,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from core import classes, common
 from .search_fs import SearchFS
-from .classes import FileSearchRequest, FileSearchResponse
+from .classes import FileSystemSearchRequest, FileSystemSearchResponse
 
 
 router = APIRouter()
@@ -12,8 +12,8 @@ router = APIRouter()
 @router.post("/fs")
 async def file_search(
     request: Request,
-    payload: FileSearchRequest,
-) -> FileSearchResponse:
+    payload: FileSystemSearchRequest,
+) -> FileSystemSearchResponse:
     """
     Perform agentic file search with multi-phase strategy.
 

@@ -2,14 +2,16 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 
-# Agentic File Search classes
-class FileSearchRequest(BaseModel):
-    """Request for agentic file search."""
+# Agentic File System Search classes
+class FileSystemSearchRequest(BaseModel):
+    """Request for agentic file system search."""
 
     query: str  # The search query
     directory: str  # Directory to search in
     allowed_directories: List[str]  # Whitelist of directories the agent can access
-    file_patterns: Optional[List[str]] = None  # File extensions to filter (e.g., [".pdf", ".docx"])
+    file_patterns: Optional[List[str]] = (
+        None  # File extensions to filter (e.g., [".pdf", ".docx"])
+    )
     max_files_preview: Optional[int] = 10  # Max files to preview
     max_files_parse: Optional[int] = 3  # Max files to fully parse
 
@@ -19,7 +21,10 @@ class FileSearchRequest(BaseModel):
                 {
                     "query": "Find all documents about quarterly sales reports",
                     "directory": "/documents/reports",
-                    "allowed_directories": ["/documents/reports", "/documents/archives"],
+                    "allowed_directories": [
+                        "/documents/reports",
+                        "/documents/archives",
+                    ],
                     "file_patterns": [".pdf", ".docx"],
                     "max_files_preview": 10,
                     "max_files_parse": 3,
@@ -29,8 +34,8 @@ class FileSearchRequest(BaseModel):
     }
 
 
-class FileSearchResponse(BaseModel):
-    """Response from agentic file search."""
+class FileSystemSearchResponse(BaseModel):
+    """Response from agentic file system search."""
 
     success: bool
     message: str
