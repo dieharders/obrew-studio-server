@@ -8,7 +8,6 @@ relevant information using a multi-phase approach:
 3. DEEP DIVE: Full parse of the most relevant files
 4. SYNTHESIZE: LLM generates final answer from collected context
 """
-import hashlib
 import json
 import re
 import importlib
@@ -161,8 +160,6 @@ class SearchAgent:
         max_files_preview: int = 10,
         max_files_parse: int = 3,
         file_patterns: Optional[List[str]] = None,
-        cache_results: bool = False,
-        collection_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Execute a multi-phase agentic search.
@@ -173,8 +170,6 @@ class SearchAgent:
             max_files_preview: Maximum number of files to preview
             max_files_parse: Maximum number of files to fully parse
             file_patterns: Optional list of file extensions to filter
-            cache_results: Whether to cache parsed documents in ChromaDB
-            collection_name: Collection name for caching (required if cache_results=True)
 
         Returns:
             Dict with: answer, sources, tool_logs
@@ -461,21 +456,6 @@ Instructions:
         except Exception as e:
             answer = f"Failed to synthesize answer: {e}"
 
-        # Optional: Cache results in ChromaDB
-        if cache_results and collection_name:
-            try:
-                await self._cache_documents(
-                    documents=collected_context,
-                    collection_name=collection_name,
-                )
-                tool_logs.append({
-                    "phase": "cache",
-                    "collection": collection_name,
-                    "documents_cached": len(collected_context),
-                })
-            except Exception as e:
-                print(f"{common.PRNT_API} [SearchAgent] Caching failed: {e}", flush=True)
-
         return {
             "answer": answer,
             "sources": sources,
@@ -484,43 +464,3 @@ Instructions:
             "files_previewed": len(previews),
             "files_parsed": len(collected_context),
         }
-
-    async def _cache_documents(
-        self,
-        documents: List[Dict[str, str]],
-        collection_name: str,
-    ):
-        """
-        Cache parsed documents in ChromaDB for future RAG queries.
-
-        Args:
-            documents: List of {"source": path, "content": text}
-            collection_name: Target collection name
-        """
-        from embeddings.vector_storage import Vector_Storage
-        from embeddings.embedder import Embedder
-
-        vector_storage = Vector_Storage(app=self.app)
-        embedder = Embedder(app=self.app)
-
-        # Get or create collection
-        try:
-            collection = vector_storage.db_client.get_collection(name=collection_name)
-        except Exception:
-            collection = vector_storage.db_client.create_collection(
-                name=collection_name,
-                metadata={"type": "search_agent_cache"},
-            )
-
-        # Add documents
-        for doc in documents:
-            # embed_text is synchronous
-            embedding = embedder.embed_text(doc["content"][:2000])  # Limit for embedding
-            # Use deterministic hash for document ID
-            doc_id = hashlib.sha256(doc["source"].encode()).hexdigest()[:16]
-            collection.add(
-                embeddings=[embedding],
-                documents=[doc["content"]],
-                metadatas=[{"source": doc["source"]}],
-                ids=[f"search_{doc_id}"],
-            )

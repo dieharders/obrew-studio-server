@@ -7,7 +7,6 @@ Unlike the orchestrated SearchAgent, this implementation lets the LLM:
 3. Receive results and decide the next action
 4. Loop until it has enough information to answer
 """
-import hashlib
 import json
 import re
 import importlib
@@ -318,8 +317,6 @@ class AgenticSearchAgent:
         directory: str,
         max_iterations: int = 10,
         file_patterns: Optional[List[str]] = None,
-        cache_results: bool = False,
-        collection_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Execute an agentic search where the LLM decides which tools to use.
@@ -329,8 +326,6 @@ class AgenticSearchAgent:
             directory: The starting directory to search in
             max_iterations: Maximum number of tool calls before stopping
             file_patterns: Optional hint about file types to focus on
-            cache_results: Whether to cache parsed documents in ChromaDB
-            collection_name: Collection name for caching
 
         Returns:
             Dict with: answer, sources, tool_logs, iterations
@@ -628,53 +623,9 @@ Instructions:
         except Exception as e:
             answer = f"Failed to synthesize answer: {e}"
 
-        # Optional caching
-        if cache_results and collection_name:
-            try:
-                await self._cache_results(context_history, collection_name)
-                tool_logs.append({
-                    "phase": "cache",
-                    "collection": collection_name,
-                })
-            except Exception as e:
-                print(f"{common.PRNT_API} [AgenticSearch] Caching failed: {e}", flush=True)
-
         return {
             "answer": answer,
             "sources": list(sources),
             "tool_logs": tool_logs,
             "iterations": len([l for l in tool_logs if "tool" in l]),
         }
-
-    async def _cache_results(
-        self,
-        context_history: List[Dict],
-        collection_name: str,
-    ):
-        """Cache gathered content in ChromaDB."""
-        from embeddings.vector_storage import Vector_Storage
-        from embeddings.embedder import Embedder
-
-        vector_storage = Vector_Storage(app=self.app)
-        embedder = Embedder(app=self.app)
-
-        try:
-            collection = vector_storage.db_client.get_collection(name=collection_name)
-        except Exception:
-            collection = vector_storage.db_client.create_collection(
-                name=collection_name,
-                metadata={"type": "agentic_search_cache"},
-            )
-
-        for entry in context_history:
-            if entry["tool"] in ["file_read", "file_parse"]:
-                content = entry.get("result", "")[:2000]
-                if content and not content.startswith("Error:"):
-                    embedding = embedder.embed_text(content)
-                    doc_id = hashlib.sha256(content[:100].encode()).hexdigest()[:16]
-                    collection.add(
-                        embeddings=[embedding],
-                        documents=[content],
-                        metadatas=[{"tool": entry["tool"], "args": str(entry["args"])}],
-                        ids=[f"agentic_{doc_id}"],
-                    )

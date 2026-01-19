@@ -425,8 +425,6 @@ class FileSearchRequest(BaseModel):
     file_patterns: Optional[List[str]] = None  # File extensions to filter (e.g., [".pdf", ".docx"])
     max_files_preview: Optional[int] = 10  # Max files to preview
     max_files_parse: Optional[int] = 3  # Max files to fully parse
-    cache_results: Optional[bool] = False  # Cache parsed docs in ChromaDB
-    collection_name: Optional[str] = None  # Collection for caching (required if cache_results=True)
 
     model_config = {
         "json_schema_extra": {
@@ -438,7 +436,6 @@ class FileSearchRequest(BaseModel):
                     "file_patterns": [".pdf", ".docx"],
                     "max_files_preview": 10,
                     "max_files_parse": 3,
-                    "cache_results": False,
                 }
             ]
         }
@@ -462,8 +459,6 @@ class AgenticSearchRequest(BaseModel):
     allowed_directories: List[str]  # Whitelist of directories the agent can access
     max_iterations: Optional[int] = 10  # Maximum tool calls before stopping
     file_patterns: Optional[List[str]] = None  # Hints about file types to focus on
-    cache_results: Optional[bool] = False  # Cache results in ChromaDB
-    collection_name: Optional[str] = None  # Collection for caching
 
     model_config = {
         "json_schema_extra": {

@@ -867,14 +867,6 @@ async def file_search(
                     "data": None,
                 }
 
-        # Validate cache settings
-        if payload.cache_results and not payload.collection_name:
-            return {
-                "success": False,
-                "message": "collection_name is required when cache_results is True.",
-                "data": None,
-            }
-
         # Create and run search agent
         agent = SearchAgent(
             app=app,
@@ -887,8 +879,6 @@ async def file_search(
             max_files_preview=payload.max_files_preview or 10,
             max_files_parse=payload.max_files_parse or 3,
             file_patterns=payload.file_patterns,
-            cache_results=payload.cache_results or False,
-            collection_name=payload.collection_name,
         )
 
         return {
@@ -950,14 +940,6 @@ async def agentic_file_search(
                 "data": None,
             }
 
-        # Validate cache settings
-        if payload.cache_results and not payload.collection_name:
-            return {
-                "success": False,
-                "message": "collection_name is required when cache_results is True.",
-                "data": None,
-            }
-
         # Create and run agentic search agent
         agent = AgenticSearchAgent(
             app=app,
@@ -969,8 +951,6 @@ async def agentic_file_search(
             directory=payload.directory,
             max_iterations=payload.max_iterations or 10,
             file_patterns=payload.file_patterns,
-            cache_results=payload.cache_results or False,
-            collection_name=payload.collection_name,
         )
 
         return {
