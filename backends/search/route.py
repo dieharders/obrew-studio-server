@@ -6,8 +6,9 @@ from .classes import (
     FileSystemSearchRequest,
     VectorSearchRequest,
     WebSearchRequest,
+    StructuredSearchRequest,
 )
-from .providers import FileSystemProvider, VectorProvider, WebProvider
+from .providers import FileSystemProvider, VectorProvider, WebProvider, StructuredProvider
 
 
 router = APIRouter()
@@ -221,5 +222,79 @@ async def search_file_system(
         return SearchResult(
             success=False,
             message=f"File search failed: {e}",
+            data=None,
+        )
+
+
+# Structured data search using AgenticSearch with StructuredProvider
+@router.post("/structured")
+async def search_structured(
+    request: Request,
+    payload: StructuredSearchRequest,
+) -> SearchResult:
+    """
+    Perform agentic search over client-provided structured data.
+
+    The agent searches over ephemeral data sent in the request,
+    selects relevant items, and synthesizes an answer using the LLM.
+
+    Use cases:
+    - Searching conversation history
+    - Finding relevant project metadata
+    - Searching workflow data
+    - Any data the frontend has that the server cannot access
+
+    Requires:
+    - A loaded LLM model
+    - At least one item in the items array
+    """
+    app: classes.FastAPIApp = request.app
+
+    try:
+        # Verify LLM is loaded
+        if not app.state.llm:
+            return SearchResult(
+                success=False,
+                message="No LLM loaded. Load a model first.",
+                data=None,
+            )
+
+        # Validate items exist
+        if not payload.items:
+            return SearchResult(
+                success=False,
+                message="No items provided. Include at least one item to search.",
+                data=None,
+            )
+
+        # Create provider with the provided items
+        provider = StructuredProvider(
+            app=app,
+            items=payload.items,
+            item_type=payload.item_type or "item",
+        )
+
+        orchestrator = AgenticSearch(
+            provider=provider,
+            llm=app.state.llm,
+            search_type="structured",
+        )
+
+        # Run the search
+        result = await orchestrator.search(
+            query=payload.query,
+            initial_scope=None,  # Not used for structured data
+            max_preview=payload.max_preview or 10,
+            max_extract=payload.max_extract or 3,
+            auto_expand=False,  # Structured data doesn't support expansion
+        )
+
+        return result
+
+    except Exception as e:
+        print(f"{common.PRNT_API} Structured search error: {e}", flush=True)
+        return SearchResult(
+            success=False,
+            message=f"Structured search failed: {e}",
             data=None,
         )

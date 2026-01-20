@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
 # Import unified response types from base
@@ -98,12 +98,63 @@ class WebSearchRequest(BaseModel):
     }
 
 
+# Structured Search classes
+class StructuredItem(BaseModel):
+    """Individual item in a structured search request."""
+
+    id: Optional[str] = None  # Auto-generated if not provided
+    name: Optional[str] = None  # Defaults to "Item {index}"
+    content: str  # Required: The searchable text content
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class StructuredSearchRequest(BaseModel):
+    """Request for structured data search.
+
+    Enables searching over ephemeral data sent by frontend applications.
+    The data exists only for the duration of the request.
+    """
+
+    query: str  # The search query
+    items: List[StructuredItem]  # The data to search over
+    item_type: Optional[str] = "item"  # Type label (e.g., "conversation", "memo")
+    max_preview: Optional[int] = 10  # Max items to preview
+    max_extract: Optional[int] = 3  # Max items to extract from
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "query": "What did we decide about authentication?",
+                    "items": [
+                        {
+                            "id": "msg-001",
+                            "name": "Alice",
+                            "content": "I think we should use JWT tokens for authentication.",
+                        },
+                        {
+                            "id": "msg-002",
+                            "name": "Bob",
+                            "content": "Agreed. We can use the jose library for JWT handling.",
+                        },
+                    ],
+                    "item_type": "conversation",
+                    "max_preview": 10,
+                    "max_extract": 3,
+                }
+            ]
+        }
+    }
+
+
 # Export unified response type for all endpoints
 # All search endpoints should return SearchResult
 __all__ = [
     "FileSystemSearchRequest",
     "VectorSearchRequest",
     "WebSearchRequest",
+    "StructuredItem",
+    "StructuredSearchRequest",
     "SearchResult",
     "SearchResultData",
     "SearchSource",

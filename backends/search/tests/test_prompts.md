@@ -42,6 +42,12 @@ curl -X POST "http://localhost:8008/v1/search/vector" -H "Content-Type: applicat
 curl -X POST "http://localhost:8008/v1/search/web" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_search-web_request.json"
 ```
 
+### Structured Data Search
+
+```bash
+curl -X POST "http://localhost:8008/v1/search/structured" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_search-structured_request.json"
+```
+
 ## Quick Test Examples
 
 ### Web Search - No Domain Restrictions
@@ -54,4 +60,10 @@ curl -X POST "http://localhost:8008/v1/search/web" -H "Content-Type: application
 
 ```bash
 curl -X POST "http://localhost:8008/v1/search/web" -H "Content-Type: application/json" -d '{"query": "async await tutorial", "website": "docs.python.org", "max_extract": 2}'
+```
+
+### Structured Search - Inline Data
+
+```bash
+curl -X POST "http://localhost:8008/v1/search/structured" -H "Content-Type: application/json" -d '{"query": "What is the project status?", "items": [{"content": "Project is on track for Q1 release"}, {"content": "Backend API is 80% complete"}, {"content": "Frontend needs more work on the dashboard"}], "item_type": "memo", "max_extract": 2}'
 ```

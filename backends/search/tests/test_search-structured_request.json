@@ -1,0 +1,38 @@
+{
+  "query": "What did we decide about authentication?",
+  "items": [
+    {
+      "id": "msg-001",
+      "name": "Alice",
+      "content": "I think we should use JWT tokens for authentication. They're stateless and work well with our microservices architecture.",
+      "metadata": { "timestamp": "2024-01-15T10:00:00Z", "channel": "dev-backend" }
+    },
+    {
+      "id": "msg-002",
+      "name": "Bob",
+      "content": "Agreed on JWT. We can use the python-jose library for token handling. It has good support for RS256 signing.",
+      "metadata": { "timestamp": "2024-01-15T10:05:00Z", "channel": "dev-backend" }
+    },
+    {
+      "id": "msg-003",
+      "name": "Alice",
+      "content": "Let's also add refresh token support. Short-lived access tokens (15 min) with longer refresh tokens (7 days) for better security.",
+      "metadata": { "timestamp": "2024-01-15T10:10:00Z", "channel": "dev-backend" }
+    },
+    {
+      "id": "msg-004",
+      "name": "Charlie",
+      "content": "Don't forget we need to handle token revocation. Maybe a Redis blacklist for invalidated tokens?",
+      "metadata": { "timestamp": "2024-01-15T10:15:00Z", "channel": "dev-backend" }
+    },
+    {
+      "id": "msg-005",
+      "name": "Bob",
+      "content": "Good point Charlie. We should also implement rate limiting on the auth endpoints to prevent brute force attacks.",
+      "metadata": { "timestamp": "2024-01-15T10:20:00Z", "channel": "dev-backend" }
+    }
+  ],
+  "item_type": "conversation",
+  "max_preview": 10,
+  "max_extract": 3
+}
