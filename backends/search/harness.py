@@ -8,11 +8,10 @@ The search loop follows these phases:
 1. DISCOVER - Find items in scope (directory, collection, search query)
 2. LLM SELECT - Use LLM to select relevant items for preview
 3. PREVIEW - Get preview content for selected items
-4. RERANK - (Optional) Re-rank items by relevance
-5. LLM DEEP SELECT - Use LLM to select items for full extraction
-6. EXTRACT - Get full content for selected items
-7. EXPAND - Search additional scopes if needed
-8. SYNTHESIZE - Generate final answer from context
+4. LLM DEEP SELECT - Use LLM to select items for full extraction
+5. EXTRACT - Get full content for selected items
+6. EXPAND - Search additional scopes if needed
+7. SYNTHESIZE - Generate final answer from context
 """
 
 import json
@@ -130,23 +129,6 @@ class SearchProvider(ABC):
             List of additional scope strings to search
         """
         pass
-
-    async def rerank(self, items: List[SearchItem], query: str) -> List[SearchItem]:
-        """
-        Optional: Re-rank items by relevance to the query.
-
-        Default implementation is a no-op (returns items as-is).
-        Override in subclass to implement re-ranking (e.g., cross-encoder,
-        LLM-based scoring, reciprocal rank fusion).
-
-        Args:
-            items: List of items to re-rank
-            query: The search query
-
-        Returns:
-            Re-ranked list of items
-        """
-        return items
 
 
 class AgenticSearch:
@@ -494,24 +476,13 @@ Instructions:
             if await self._check_abort(request):
                 return self._cancelled_result(query, "preview", tool_logs)
 
-            # Phase 4: RERANK (optional)
+            # Phase 4: LLM SELECT for extraction
             print(
-                f"{common.PRNT_API} [AgenticSearch] Phase 4: Re-ranking (if implemented)",
-                flush=True,
-            )
-            reranked = await self.provider.rerank(previewed, query)
-
-            # Check for abort after Phase 4
-            if await self._check_abort(request):
-                return self._cancelled_result(query, "rerank", tool_logs)
-
-            # Phase 5: LLM SELECT for extraction
-            print(
-                f"{common.PRNT_API} [AgenticSearch] Phase 5: Selecting items for extraction",
+                f"{common.PRNT_API} [AgenticSearch] Phase 4: Selecting items for extraction",
                 flush=True,
             )
             selected_for_extract = await self._llm_select(
-                reranked, query, max_extract, "extract"
+                previewed, query, max_extract, "extract"
             )
             tool_logs.append(
                 {
@@ -520,13 +491,13 @@ Instructions:
                 }
             )
 
-            # Check for abort after Phase 5
+            # Check for abort after Phase 4
             if await self._check_abort(request):
                 return self._cancelled_result(query, "select_extract", tool_logs)
 
-            # Phase 6: EXTRACT
+            # Phase 5: EXTRACT
             print(
-                f"{common.PRNT_API} [AgenticSearch] Phase 6: Extracting content",
+                f"{common.PRNT_API} [AgenticSearch] Phase 5: Extracting content",
                 flush=True,
             )
             context = await self.provider.extract(selected_for_extract)
@@ -538,14 +509,14 @@ Instructions:
                 }
             )
 
-            # Check for abort after Phase 6
+            # Check for abort after Phase 5
             if await self._check_abort(request):
                 return self._cancelled_result(query, "extract", tool_logs)
 
-            # Phase 7: EXPAND (optional)
+            # Phase 6: EXPAND (optional)
             if auto_expand and len(all_context) < max_extract:
                 print(
-                    f"{common.PRNT_API} [AgenticSearch] Phase 7: Expanding search scope",
+                    f"{common.PRNT_API} [AgenticSearch] Phase 6: Expanding search scope",
                     flush=True,
                 )
                 additional_scopes = self.provider.get_expandable_scopes(initial_scope)
@@ -589,9 +560,9 @@ Instructions:
             if await self._check_abort(request):
                 return self._cancelled_result(query, "pre_synthesize", tool_logs)
 
-            # Phase 8: SYNTHESIZE
+            # Phase 7: SYNTHESIZE
             print(
-                f"{common.PRNT_API} [AgenticSearch] Phase 8: Synthesizing answer",
+                f"{common.PRNT_API} [AgenticSearch] Phase 7: Synthesizing answer",
                 flush=True,
             )
             result_data = await self._synthesize(all_context, query)
