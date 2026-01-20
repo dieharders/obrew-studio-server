@@ -106,7 +106,7 @@ class StructuredItem(BaseModel):
 
     id: Optional[str] = None  # Auto-generated if not provided
     name: Optional[str] = None  # Defaults to "Item {index}"
-    content: str  # Required: The searchable text content
+    content: Any  # Required: Can be string or nested object structure
     metadata: Optional[Dict[str, Any]] = None
 
 
@@ -119,9 +119,10 @@ class StructuredSearchRequest(BaseModel):
 
     query: str  # The search query
     items: List[StructuredItem]  # The data to search over
-    item_type: Optional[str] = "item"  # Type label (e.g., "conversation", "memo")
     max_preview: Optional[int] = 10  # Max items to preview
     max_extract: Optional[int] = 3  # Max items to extract from
+    group_by: Optional[str] = None  # Metadata field to group items by for expansion
+    auto_expand: Optional[bool] = False  # Whether to search additional groups
 
     model_config = {
         "json_schema_extra": {
@@ -133,16 +134,19 @@ class StructuredSearchRequest(BaseModel):
                             "id": "msg-001",
                             "name": "Alice",
                             "content": "I think we should use JWT tokens for authentication.",
+                            "metadata": {"channel": "engineering"},
                         },
                         {
                             "id": "msg-002",
                             "name": "Bob",
-                            "content": "Agreed. We can use the jose library for JWT handling.",
+                            "content": {"text": "Agreed. We can use jose library.", "attachments": []},
+                            "metadata": {"channel": "engineering"},
                         },
                     ],
-                    "item_type": "conversation",
                     "max_preview": 10,
                     "max_extract": 3,
+                    "group_by": "channel",
+                    "auto_expand": True,
                 }
             ]
         }

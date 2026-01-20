@@ -351,8 +351,13 @@ async def search_structured(
         provider = StructuredProvider(
             app=app,
             items=payload.items,
-            item_type=payload.item_type or "item",
+            group_by=payload.group_by,
         )
+
+        # Determine initial scope from first group if grouping enabled
+        initial_scope = None
+        if payload.group_by and provider._groups:
+            initial_scope = list(provider._groups.keys())[0]
 
         search_id = str(uuid.uuid4())
         active_searches = _get_active_searches(app)
@@ -369,10 +374,10 @@ async def search_structured(
             # Run the search
             result = await orchestrator.search(
                 query=payload.query,
-                initial_scope=None,  # Not used for structured data
+                initial_scope=initial_scope,
                 max_preview=payload.max_preview or 10,
                 max_extract=payload.max_extract or 3,
-                auto_expand=False,  # Structured data doesn't support expansion
+                auto_expand=payload.auto_expand if payload.auto_expand is not None else False,
                 request=request,
             )
 
