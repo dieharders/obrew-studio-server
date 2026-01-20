@@ -18,8 +18,22 @@ curl -X POST "http://localhost:8008/v1/search/fs/v2" -H "Content-Type: applicati
 
 ### Vector/Embedding Search
 
+Text request passing collection names:
+
 ```bash
 curl -X POST "http://localhost:8008/v1/search/vector" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_search-vector_request.json"
+```
+
+Text request passing no name:
+
+```bash
+curl -X POST "http://localhost:8008/v1/search/vector" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_search-vector_discovery_request.json"
+```
+
+Image Request:
+
+```bash
+curl -X POST "http://localhost:8008/v1/search/vector" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_search-vector_image_request.json"
 ```
 
 ### Web Search (DuckDuckGo)
@@ -40,10 +54,4 @@ curl -X POST "http://localhost:8008/v1/search/web" -H "Content-Type: application
 
 ```bash
 curl -X POST "http://localhost:8008/v1/search/web" -H "Content-Type: application/json" -d '{"query": "async await tutorial", "website": "docs.python.org", "max_extract": 2}'
-```
-
-### Vector Search - Single Collection
-
-```bash
-curl -X POST "http://localhost:8008/v1/search/vector" -H "Content-Type: application/json" -d '{"query": "main concepts", "collection": "my_collection", "allowed_collections": ["my_collection"], "max_extract": 3}'
 ```

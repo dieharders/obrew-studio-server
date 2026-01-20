@@ -44,11 +44,10 @@ class VectorSearchRequest(BaseModel):
     """Request for vector/embedding collection search."""
 
     query: str  # The search query
-    collection: str  # Initial collection to search
-    allowed_collections: List[str]  # Whitelist of collections for expansion
+    collections: Optional[List[str]] = None  # Optional - if None/empty, discover all
     top_k: Optional[int] = 50  # Max chunks to retrieve per collection
-    max_preview: Optional[int] = 10  # Max chunks to preview
-    max_extract: Optional[int] = 3  # Max chunks to extract full context from
+    max_preview: Optional[int] = 10  # Max collections/chunks to preview
+    max_extract: Optional[int] = 3  # Max collections/chunks to extract from
     auto_expand: Optional[bool] = True  # Whether to search additional collections
 
     model_config = {
@@ -56,12 +55,17 @@ class VectorSearchRequest(BaseModel):
             "examples": [
                 {
                     "query": "What are the key findings from the research?",
-                    "collection": "research_papers",
-                    "allowed_collections": ["research_papers", "literature_review"],
+                    "collections": ["research_papers", "technical_docs"],
                     "top_k": 50,
                     "max_preview": 10,
                     "max_extract": 3,
-                }
+                },
+                {
+                    "query": "Find information about machine learning",
+                    "top_k": 50,
+                    "max_preview": 10,
+                    "max_extract": 3,
+                },
             ]
         }
     }

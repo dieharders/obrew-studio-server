@@ -25,9 +25,11 @@ async def search_vector(
     The agent queries ChromaDB collections, selects relevant chunks,
     expands context, and synthesizes an answer using the LLM.
 
+    If no collection is specified, operates in discovery mode - listing all
+    available collections and letting the LLM select which to search.
+
     Requires:
     - A loaded LLM model
-    - Valid collection name in allowed_collections
     """
     app: classes.FastAPIApp = request.app
 
@@ -40,18 +42,10 @@ async def search_vector(
                 data=None,
             )
 
-        # Validate that collection is in allowed list
-        if payload.collection not in payload.allowed_collections:
-            return SearchResult(
-                success=False,
-                message=f"Collection '{payload.collection}' is not in allowed collections.",
-                data=None,
-            )
-
-        # Create provider
+        # Create provider with optional collections list
         provider = VectorProvider(
             app=app,
-            allowed_collections=payload.allowed_collections,
+            collections=payload.collections,  # Can be None for discovery mode
             top_k=payload.top_k or 50,
         )
 
@@ -62,10 +56,10 @@ async def search_vector(
                 search_type="vector",
             )
 
-            # Run the search
+            # Run the search - initial_scope not used, collections passed via provider
             result = await orchestrator.search(
                 query=payload.query,
-                initial_scope=payload.collection,
+                initial_scope=None,  # VectorProvider uses self.collections instead
                 max_preview=payload.max_preview or 10,
                 max_extract=payload.max_extract or 3,
                 auto_expand=(

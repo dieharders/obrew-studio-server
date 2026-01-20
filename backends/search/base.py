@@ -355,7 +355,7 @@ Instructions:
     async def search(
         self,
         query: str,
-        initial_scope: str,
+        initial_scope: Optional[str] = None,
         max_preview: int = 10,
         max_extract: int = 3,
         auto_expand: bool = True,
@@ -367,6 +367,7 @@ Instructions:
         Args:
             query: The user's search query
             initial_scope: The initial scope to search (directory, collection, etc.)
+                          If None, provider operates in discovery mode.
             max_preview: Maximum number of items to preview
             max_extract: Maximum number of items to extract full content from
             auto_expand: Whether to automatically search additional scopes if needed
@@ -379,12 +380,13 @@ Instructions:
 
         tool_logs = []
         all_context = []
-        scopes_searched = [initial_scope]
+        scopes_searched = [initial_scope] if initial_scope else []
 
         try:
             # Phase 1: DISCOVER
+            scope_desc = f"'{initial_scope}'" if initial_scope else "all (discovery mode)"
             print(
-                f"{common.PRNT_API} [AgenticSearch] Phase 1: Discovering items in scope",
+                f"{common.PRNT_API} [AgenticSearch] Phase 1: Discovering items in scope {scope_desc}",
                 flush=True,
             )
             items = await self.provider.discover(initial_scope, query=query, **kwargs)

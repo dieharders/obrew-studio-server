@@ -5,7 +5,7 @@ This provider implements the SearchProvider protocol for searching
 the web using DuckDuckGo and extracting content from web pages.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from urllib.parse import urlparse
 
 from ..base import SearchProvider, SearchItem

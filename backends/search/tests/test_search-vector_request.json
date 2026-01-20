@@ -1,10 +1,10 @@
 {
-  "query": "What are the key findings and recommendations from the research documents?",
-  "collection": "research_papers",
-  "allowed_collections": [
-    "research_papers",
-    "literature_review",
-    "technical_docs"
+  "query": "What is the CAGE code for the Flight Control Computer?",
+  "collections": [
+    "file-maintenance-state-airwing",
+    "file-aircraft-checklist-fa18ef",
+    "file-tech-requirements-fa18ef",
+    "file-requisition-vfa143-q4-2024"
   ],
   "top_k": 50,
   "max_preview": 10,
