@@ -67,3 +67,51 @@ curl -X POST "http://localhost:8008/v1/search/web" -H "Content-Type: application
 ```bash
 curl -X POST "http://localhost:8008/v1/search/structured" -H "Content-Type: application/json" -d '{"query": "What is the project status?", "items": [{"content": "Project is on track for Q1 release"}, {"content": "Backend API is 80% complete"}, {"content": "Frontend needs more work on the dashboard"}], "item_type": "memo", "max_extract": 2}'
 ```
+
+## Stop/Cancel Search
+
+### Stop All Active Searches
+
+```bash
+curl -X POST "http://localhost:8008/v1/search/stop"
+```
+
+### Stop Specific Search by ID
+
+```bash
+curl -X POST "http://localhost:8008/v1/search/stop?search_id=<uuid>"
+```
+
+### Test Stop (run search in background, then stop)
+
+Terminal 1 - Start a vector search with collections:
+```bash
+curl -X POST "http://localhost:8008/v1/search/vector" -H "Content-Type: application/json" -d '{"query": "What are the key concepts?", "collections": ["my-collection"], "max_extract": 5}'
+```
+
+Terminal 2 - Stop it while running:
+```bash
+curl -X POST "http://localhost:8008/v1/search/stop"
+```
+
+Expected response from stop:
+```json
+{"success": true, "message": "Stop requested for 1 active searches."}
+```
+
+Expected response from cancelled search:
+```json
+{"success": false, "message": "Search cancelled.", "data": {"answer": "Search was cancelled before completion.", "sources": [], "stats": {"cancelled": true, "cancelled_at_phase": "..."}}}
+```
+
+### Test Stop with Discovery Mode (no collections)
+
+Terminal 1 - Start a discovery mode search:
+```bash
+curl -X POST "http://localhost:8008/v1/search/vector" -H "Content-Type: application/json" -d '{"query": "Find relevant information", "max_extract": 5}'
+```
+
+Terminal 2 - Stop it while running:
+```bash
+curl -X POST "http://localhost:8008/v1/search/stop"
+```

@@ -1,4 +1,6 @@
+import uuid
 from pathlib import Path
+from typing import Optional
 from fastapi import APIRouter, Request
 from core import classes, common
 from .base import AgenticSearch, SearchResult
@@ -12,6 +14,44 @@ from .providers import FileSystemProvider, VectorProvider, WebProvider, Structur
 
 
 router = APIRouter()
+
+
+def _get_active_searches(app: classes.FastAPIApp) -> dict:
+    """Get or initialize the active_searches dict on app state."""
+    if not hasattr(app.state, "active_searches"):
+        app.state.active_searches = {}
+    return app.state.active_searches
+
+
+@router.post("/stop")
+async def stop_search(request: Request, search_id: Optional[str] = None):
+    """
+    Stop an active search by ID, or all active searches if no ID provided.
+
+    Args:
+        search_id: Optional specific search ID to stop. If not provided, stops all.
+
+    Returns:
+        Success status and message.
+    """
+    app: classes.FastAPIApp = request.app
+    active_searches = _get_active_searches(app)
+
+    if search_id:
+        if search_id in active_searches:
+            active_searches[search_id].abort_requested = True
+            print(
+                f"{common.PRNT_API} Stop requested for search {search_id}", flush=True
+            )
+            return {"success": True, "message": f"Stop requested for search {search_id}."}
+        return {"success": False, "message": f"Search {search_id} not found."}
+    else:
+        # Stop all active searches
+        count = len(active_searches)
+        for orchestrator in active_searches.values():
+            orchestrator.abort_requested = True
+        print(f"{common.PRNT_API} Stop requested for {count} active searches", flush=True)
+        return {"success": True, "message": f"Stop requested for {count} active searches."}
 
 
 # Vector/Embedding search using AgenticSearch with VectorProvider
@@ -50,12 +90,17 @@ async def search_vector(
             top_k=payload.top_k or 50,
         )
 
+        search_id = str(uuid.uuid4())
+        active_searches = _get_active_searches(app)
+
         try:
             orchestrator = AgenticSearch(
                 provider=provider,
                 llm=app.state.llm,
                 search_type="vector",
             )
+            orchestrator.search_id = search_id
+            active_searches[search_id] = orchestrator
 
             # Run the search - initial_scope not used, collections passed via provider
             result = await orchestrator.search(
@@ -66,11 +111,14 @@ async def search_vector(
                 auto_expand=(
                     payload.auto_expand if payload.auto_expand is not None else True
                 ),
+                request=request,
             )
 
             return result
 
         finally:
+            # Clean up orchestrator from active searches
+            active_searches.pop(search_id, None)
             # Clean up vision embedder if it was used
             await provider.close()
 
@@ -118,12 +166,17 @@ async def search_web(
             max_pages=payload.max_pages or 10,
         )
 
+        search_id = str(uuid.uuid4())
+        active_searches = _get_active_searches(app)
+
         try:
             orchestrator = AgenticSearch(
                 provider=provider,
                 llm=app.state.llm,
                 search_type="web",
             )
+            orchestrator.search_id = search_id
+            active_searches[search_id] = orchestrator
 
             # Run the search
             result = await orchestrator.search(
@@ -132,11 +185,14 @@ async def search_web(
                 max_preview=payload.max_preview or 10,
                 max_extract=payload.max_extract or 3,
                 auto_expand=False,  # Web search doesn't use scope expansion
+                request=request,
             )
 
             return result
 
         finally:
+            # Clean up orchestrator from active searches
+            active_searches.pop(search_id, None)
             # Clean up HTTP client (runs even if exception occurs)
             await provider.close()
 
@@ -198,24 +254,35 @@ async def search_file_system(
             file_patterns=payload.file_patterns,
         )
 
-        orchestrator = AgenticSearch(
-            provider=provider,
-            llm=app.state.llm,
-            search_type="filesystem",
-        )
+        search_id = str(uuid.uuid4())
+        active_searches = _get_active_searches(app)
 
-        # Run the search
-        result = await orchestrator.search(
-            query=payload.query,
-            initial_scope=payload.directory,
-            max_preview=payload.max_files_preview or 10,
-            max_extract=payload.max_files_parse or 3,
-            auto_expand=(
-                payload.auto_expand if payload.auto_expand is not None else True
-            ),
-        )
+        try:
+            orchestrator = AgenticSearch(
+                provider=provider,
+                llm=app.state.llm,
+                search_type="filesystem",
+            )
+            orchestrator.search_id = search_id
+            active_searches[search_id] = orchestrator
 
-        return result
+            # Run the search
+            result = await orchestrator.search(
+                query=payload.query,
+                initial_scope=payload.directory,
+                max_preview=payload.max_files_preview or 10,
+                max_extract=payload.max_files_parse or 3,
+                auto_expand=(
+                    payload.auto_expand if payload.auto_expand is not None else True
+                ),
+                request=request,
+            )
+
+            return result
+
+        finally:
+            # Clean up orchestrator from active searches
+            active_searches.pop(search_id, None)
 
     except Exception as e:
         print(f"{common.PRNT_API} File search error: {e}", flush=True)
@@ -274,22 +341,33 @@ async def search_structured(
             item_type=payload.item_type or "item",
         )
 
-        orchestrator = AgenticSearch(
-            provider=provider,
-            llm=app.state.llm,
-            search_type="structured",
-        )
+        search_id = str(uuid.uuid4())
+        active_searches = _get_active_searches(app)
 
-        # Run the search
-        result = await orchestrator.search(
-            query=payload.query,
-            initial_scope=None,  # Not used for structured data
-            max_preview=payload.max_preview or 10,
-            max_extract=payload.max_extract or 3,
-            auto_expand=False,  # Structured data doesn't support expansion
-        )
+        try:
+            orchestrator = AgenticSearch(
+                provider=provider,
+                llm=app.state.llm,
+                search_type="structured",
+            )
+            orchestrator.search_id = search_id
+            active_searches[search_id] = orchestrator
 
-        return result
+            # Run the search
+            result = await orchestrator.search(
+                query=payload.query,
+                initial_scope=None,  # Not used for structured data
+                max_preview=payload.max_preview or 10,
+                max_extract=payload.max_extract or 3,
+                auto_expand=False,  # Structured data doesn't support expansion
+                request=request,
+            )
+
+            return result
+
+        finally:
+            # Clean up orchestrator from active searches
+            active_searches.pop(search_id, None)
 
     except Exception as e:
         print(f"{common.PRNT_API} Structured search error: {e}", flush=True)

@@ -170,6 +170,41 @@ class AgenticSearch:
         self.provider = provider
         self.llm = llm
         self.search_type = search_type
+        self.abort_requested = False
+        self.search_id: Optional[str] = None
+
+    async def _check_abort(self, request=None) -> bool:
+        """
+        Check if search should be aborted.
+
+        Args:
+            request: Optional FastAPI Request object for disconnect detection
+
+        Returns:
+            True if search should be aborted, False otherwise
+        """
+        if self.abort_requested:
+            return True
+        if request:
+            return await request.is_disconnected()
+        return False
+
+    def _cancelled_result(
+        self, query: str, phase: str, tool_logs: list
+    ) -> SearchResult:
+        """Create a cancelled search result."""
+        return SearchResult(
+            success=False,
+            message="Search cancelled.",
+            data=SearchResultData(
+                answer="Search was cancelled before completion.",
+                sources=[],
+                query=query,
+                search_type=self.search_type,
+                stats={"cancelled": True, "cancelled_at_phase": phase},
+                tool_logs=tool_logs,
+            ),
+        )
 
     async def _llm_completion(
         self,
@@ -359,6 +394,7 @@ Instructions:
         max_preview: int = 10,
         max_extract: int = 3,
         auto_expand: bool = True,
+        request=None,
         **kwargs,
     ) -> SearchResult:
         """
@@ -371,12 +407,16 @@ Instructions:
             max_preview: Maximum number of items to preview
             max_extract: Maximum number of items to extract full content from
             auto_expand: Whether to automatically search additional scopes if needed
+            request: Optional FastAPI Request for client disconnect detection
             **kwargs: Additional arguments passed to provider methods
 
         Returns:
             SearchResult with answer, sources, and stats
         """
         from core import common
+
+        # Reset abort flag at start of each search
+        self.abort_requested = False
 
         tool_logs = []
         all_context = []
@@ -412,6 +452,10 @@ Instructions:
                     ),
                 )
 
+            # Check for abort after Phase 1
+            if await self._check_abort(request):
+                return self._cancelled_result(query, "discover", tool_logs)
+
             # Phase 2: LLM SELECT for preview
             print(
                 f"{common.PRNT_API} [AgenticSearch] Phase 2: Selecting items for preview",
@@ -427,6 +471,10 @@ Instructions:
                 }
             )
 
+            # Check for abort after Phase 2
+            if await self._check_abort(request):
+                return self._cancelled_result(query, "select_preview", tool_logs)
+
             # Phase 3: PREVIEW
             print(
                 f"{common.PRNT_API} [AgenticSearch] Phase 3: Getting previews",
@@ -440,12 +488,20 @@ Instructions:
                 }
             )
 
+            # Check for abort after Phase 3
+            if await self._check_abort(request):
+                return self._cancelled_result(query, "preview", tool_logs)
+
             # Phase 4: RERANK (optional)
             print(
                 f"{common.PRNT_API} [AgenticSearch] Phase 4: Re-ranking (if implemented)",
                 flush=True,
             )
             reranked = await self.provider.rerank(previewed, query)
+
+            # Check for abort after Phase 4
+            if await self._check_abort(request):
+                return self._cancelled_result(query, "rerank", tool_logs)
 
             # Phase 5: LLM SELECT for extraction
             print(
@@ -462,6 +518,10 @@ Instructions:
                 }
             )
 
+            # Check for abort after Phase 5
+            if await self._check_abort(request):
+                return self._cancelled_result(query, "select_extract", tool_logs)
+
             # Phase 6: EXTRACT
             print(
                 f"{common.PRNT_API} [AgenticSearch] Phase 6: Extracting content",
@@ -476,6 +536,10 @@ Instructions:
                 }
             )
 
+            # Check for abort after Phase 6
+            if await self._check_abort(request):
+                return self._cancelled_result(query, "extract", tool_logs)
+
             # Phase 7: EXPAND (optional)
             if auto_expand and len(all_context) < max_extract:
                 print(
@@ -487,6 +551,10 @@ Instructions:
                 for scope in additional_scopes[:2]:  # Limit expansion
                     if len(all_context) >= max_extract:
                         break
+
+                    # Check for abort during expansion
+                    if await self._check_abort(request):
+                        return self._cancelled_result(query, "expand", tool_logs)
 
                     scopes_searched.append(scope)
                     more_items = await self.provider.discover(
@@ -514,6 +582,10 @@ Instructions:
                         "total_context": len(all_context),
                     }
                 )
+
+            # Check for abort before synthesis
+            if await self._check_abort(request):
+                return self._cancelled_result(query, "pre_synthesize", tool_logs)
 
             # Phase 8: SYNTHESIZE
             print(
