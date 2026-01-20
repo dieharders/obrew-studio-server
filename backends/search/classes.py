@@ -94,20 +94,10 @@ class WebSearchRequest(BaseModel):
     }
 
 
-# Keep legacy response type for backwards compatibility
-class FileSystemSearchResponse(BaseModel):
-    """Response from agentic file system search."""
-
-    success: bool
-    message: str
-    data: Optional[dict] = None  # Contains: answer, sources, tool_logs, etc.
-
-
 # Export unified response type for all endpoints
 # All search endpoints should return SearchResult
 __all__ = [
     "FileSystemSearchRequest",
-    "FileSystemSearchResponse",
     "VectorSearchRequest",
     "WebSearchRequest",
     "SearchResult",

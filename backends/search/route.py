@@ -1,11 +1,9 @@
 from pathlib import Path
 from fastapi import APIRouter, Request
 from core import classes, common
-from .search_fs import SearchFS
 from .base import AgenticSearch, SearchResult
 from .classes import (
     FileSystemSearchRequest,
-    FileSystemSearchResponse,
     VectorSearchRequest,
     WebSearchRequest,
 )
@@ -13,78 +11,6 @@ from .providers import FileSystemProvider, VectorProvider, WebProvider
 
 
 router = APIRouter()
-
-
-# Structured file system search (scan, preview, deep dive)
-@router.post("/fs")
-async def search_file_system(
-    request: Request,
-    payload: FileSystemSearchRequest,
-) -> FileSystemSearchResponse:
-    """
-    Perform agentic file search with multi-phase strategy.
-
-    The agent scans directories, previews files, parses relevant documents,
-    and synthesizes an answer using the LLM.
-
-    Requires:
-    - A loaded LLM model
-    - allowed_directories must include the search directory
-    """
-    app: classes.FastAPIApp = request.app
-
-    try:
-        # Verify LLM is loaded
-        if not app.state.llm:
-            return {
-                "success": False,
-                "message": "No LLM loaded. Load a model first.",
-                "data": None,
-            }
-
-        # Validate that search directory is in allowed list
-        if payload.directory not in payload.allowed_directories:
-            # Check if it's a subdirectory of an allowed directory
-            search_path = Path(payload.directory).resolve()
-            is_allowed = any(
-                search_path == Path(d).resolve()
-                or search_path.is_relative_to(Path(d).resolve())
-                for d in payload.allowed_directories
-            )
-            if not is_allowed:
-                return {
-                    "success": False,
-                    "message": f"Search directory '{payload.directory}' is not in allowed directories.",
-                    "data": None,
-                }
-
-        # Create and run search agent
-        agent = SearchFS(
-            app=app,
-            allowed_directories=payload.allowed_directories,
-        )
-
-        result = await agent.search(
-            query=payload.query,
-            directory=payload.directory,
-            max_files_preview=payload.max_files_preview or 10,
-            max_files_parse=payload.max_files_parse or 3,
-            file_patterns=payload.file_patterns,
-        )
-
-        return {
-            "success": True,
-            "message": "Search completed.",
-            "data": result,
-        }
-
-    except Exception as e:
-        print(f"{common.PRNT_API} File search error: {e}", flush=True)
-        return {
-            "success": False,
-            "message": f"File search failed: {e}",
-            "data": None,
-        }
 
 
 # Vector/Embedding search using AgenticSearch with VectorProvider
@@ -141,7 +67,9 @@ async def search_vector(
             initial_scope=payload.collection,
             max_preview=payload.max_preview or 10,
             max_extract=payload.max_extract or 3,
-            auto_expand=payload.auto_expand if payload.auto_expand is not None else True,
+            auto_expand=(
+                payload.auto_expand if payload.auto_expand is not None else True
+            ),
         )
 
         return result
@@ -221,18 +149,17 @@ async def search_web(
         )
 
 
-# New unified file system search endpoint using AgenticSearch
-@router.post("/fs/v2")
-async def search_file_system_v2(
+# File system search endpoint using AgenticSearch
+@router.post("/fs")
+async def search_file_system(
     request: Request,
     payload: FileSystemSearchRequest,
 ) -> SearchResult:
     """
     Perform agentic file search with the unified multi-phase strategy.
 
-    This is the new version using the AgenticSearch orchestrator
-    with FileSystemProvider. The original /fs endpoint is preserved
-    for backwards compatibility.
+    The agent scans directories, previews files, parses relevant documents,
+    and synthesizes an answer using the LLM.
 
     Requires:
     - A loaded LLM model
@@ -283,13 +210,15 @@ async def search_file_system_v2(
             initial_scope=payload.directory,
             max_preview=payload.max_files_preview or 10,
             max_extract=payload.max_files_parse or 3,
-            auto_expand=payload.auto_expand if payload.auto_expand is not None else True,
+            auto_expand=(
+                payload.auto_expand if payload.auto_expand is not None else True
+            ),
         )
 
         return result
 
     except Exception as e:
-        print(f"{common.PRNT_API} File search v2 error: {e}", flush=True)
+        print(f"{common.PRNT_API} File search error: {e}", flush=True)
         return SearchResult(
             success=False,
             message=f"File search failed: {e}",

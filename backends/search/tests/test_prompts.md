@@ -10,13 +10,7 @@ curl -X POST "http://localhost:8008/v1/text/load" -H "Content-Type: application/
 
 ## Search Endpoints
 
-### File System Search (Original)
-
-```bash
-curl -X POST "http://localhost:8008/v1/search/fs" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_search-fs_request.json"
-```
-
-### File System Search (v2 - Unified Architecture)
+### File System Search
 
 ```bash
 curl -X POST "http://localhost:8008/v1/search/fs/v2" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_search-fs_request.json"
