@@ -12,7 +12,7 @@ Supports two modes:
 import asyncio
 from typing import List, Dict, Optional
 
-from ..base import SearchProvider, SearchItem
+from ..harness import SearchProvider, SearchItem
 
 
 def _create_vision_embed_fn(vision_embedder):

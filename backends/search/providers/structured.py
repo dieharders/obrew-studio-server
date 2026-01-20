@@ -14,7 +14,7 @@ Use cases:
 
 from typing import List, Dict, Optional
 
-from ..base import SearchProvider, SearchItem
+from ..harness import SearchProvider, SearchItem
 from ..classes import StructuredItem
 
 

@@ -8,7 +8,7 @@ the web using DuckDuckGo and extracting content from web pages.
 from typing import List, Dict, Optional
 from urllib.parse import urlparse
 
-from ..base import SearchProvider, SearchItem
+from ..harness import SearchProvider, SearchItem
 
 
 class WebProvider(SearchProvider):

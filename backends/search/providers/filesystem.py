@@ -9,7 +9,7 @@ import importlib
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from ..base import SearchProvider, SearchItem
+from ..harness import SearchProvider, SearchItem
 
 
 class FileSystemProvider(SearchProvider):
@@ -179,7 +179,9 @@ class FileSystemProvider(SearchProvider):
                 if isinstance(preview_text, dict):
                     preview_text = str(preview_text)
 
-                item.preview = preview_text[:500] if preview_text else "[No preview available]"
+                item.preview = (
+                    preview_text[:500] if preview_text else "[No preview available]"
+                )
 
                 # Check if file requires parsing (binary documents)
                 item.requires_extraction = preview_result.get("requires_parsing", False)
