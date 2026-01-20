@@ -1,8 +1,8 @@
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
-# Import unified response types from base
-from .base import SearchResult, SearchResultData, SearchSource
+# Import response types from the harness
+from .harness import SearchResult, SearchResultData, SearchSource
 
 
 # Agentic File System Search classes
@@ -77,7 +77,9 @@ class WebSearchRequest(BaseModel):
 
     query: str  # The search query
     website: Optional[str] = None  # Optional specific website to search
-    allowed_domains: Optional[List[str]] = None  # Whitelist of domains (None = allow all)
+    allowed_domains: Optional[List[str]] = (
+        None  # Whitelist of domains (None = allow all)
+    )
     max_pages: Optional[int] = 10  # Max pages to fetch content from
     max_preview: Optional[int] = 10  # Max URLs to preview
     max_extract: Optional[int] = 3  # Max pages to extract full content from

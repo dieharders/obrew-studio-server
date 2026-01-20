@@ -3,14 +3,19 @@ from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, Request
 from core import classes, common
-from .base import AgenticSearch, SearchResult
+from .harness import AgenticSearch, SearchResult
 from .classes import (
     FileSystemSearchRequest,
     VectorSearchRequest,
     WebSearchRequest,
     StructuredSearchRequest,
 )
-from .providers import FileSystemProvider, VectorProvider, WebProvider, StructuredProvider
+from .providers import (
+    FileSystemProvider,
+    VectorProvider,
+    WebProvider,
+    StructuredProvider,
+)
 
 
 router = APIRouter()
@@ -43,15 +48,23 @@ async def stop_search(request: Request, search_id: Optional[str] = None):
             print(
                 f"{common.PRNT_API} Stop requested for search {search_id}", flush=True
             )
-            return {"success": True, "message": f"Stop requested for search {search_id}."}
+            return {
+                "success": True,
+                "message": f"Stop requested for search {search_id}.",
+            }
         return {"success": False, "message": f"Search {search_id} not found."}
     else:
         # Stop all active searches
         count = len(active_searches)
         for orchestrator in active_searches.values():
             orchestrator.abort_requested = True
-        print(f"{common.PRNT_API} Stop requested for {count} active searches", flush=True)
-        return {"success": True, "message": f"Stop requested for {count} active searches."}
+        print(
+            f"{common.PRNT_API} Stop requested for {count} active searches", flush=True
+        )
+        return {
+            "success": True,
+            "message": f"Stop requested for {count} active searches.",
+        }
 
 
 # Vector/Embedding search using AgenticSearch with VectorProvider

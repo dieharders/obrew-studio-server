@@ -1,5 +1,5 @@
 """
-Base classes for the unified search architecture.
+Base classes for the search harness.
 
 This module provides the core abstractions for a generalized multi-phase search loop
 that works across different context types (file system, vector/embedding, web).
@@ -424,7 +424,9 @@ Instructions:
 
         try:
             # Phase 1: DISCOVER
-            scope_desc = f"'{initial_scope}'" if initial_scope else "all (discovery mode)"
+            scope_desc = (
+                f"'{initial_scope}'" if initial_scope else "all (discovery mode)"
+            )
             print(
                 f"{common.PRNT_API} [AgenticSearch] Phase 1: Discovering items in scope {scope_desc}",
                 flush=True,
