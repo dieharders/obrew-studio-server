@@ -56,4 +56,5 @@ pyobjc-framework-Cocoa==10.3.1; sys_platform == 'darwin'  # macOS only - for App
 openpyxl>=3.1.0
 # Web search (agentic search)
 duckduckgo-search>=6.0.0
+# Parse html into structured data
 beautifulsoup4>=4.12.0
