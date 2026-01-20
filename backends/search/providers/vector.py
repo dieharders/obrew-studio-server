@@ -6,12 +6,23 @@ ChromaDB vector collections using semantic similarity.
 """
 
 import asyncio
-from typing import List, Dict
+from typing import List, Dict, Callable, Union, Awaitable
 
 from ..base import SearchProvider, SearchItem
 
 
-# @TODO This needs to know what embedder and vector length to use (look to RAG.py).
+def _create_vision_embed_fn(vision_embedder):
+    """
+    Create an async embed function for the vision embedder.
+    Defined outside class to avoid closure issues.
+    """
+
+    async def vision_embed_fn(text: str) -> List[float]:
+        return await vision_embedder.embed_query_text(text, auto_unload=False)
+
+    return vision_embed_fn
+
+
 class VectorProvider(SearchProvider):
     """
     Search provider for vector/embedding collections.
@@ -38,6 +49,7 @@ class VectorProvider(SearchProvider):
         self.allowed_collections = allowed_collections
         self.top_k = top_k
         self._embedder = None
+        self._vision_embedder = None
         self._vector_storage = None
 
     def _get_vector_storage(self):
@@ -48,20 +60,29 @@ class VectorProvider(SearchProvider):
             self._vector_storage = Vector_Storage(app=self.app)
         return self._vector_storage
 
-    def _get_embedder(self, collection):
+    def _get_embed_fn(self, collection):
         """
-        Get or create an embedder for the collection.
+        Get appropriate embed function based on collection type.
 
-        Uses the embedding model specified in the collection metadata.
+        Returns a text or vision embed function depending on collection metadata.
         """
-        if self._embedder is None:
-            from embeddings.embedder import Embedder
+        collection_type = collection.metadata.get("type", "")
 
-            # Get the embedding model from collection metadata
-            embed_model = collection.metadata.get("embedding_model")
-            self._embedder = Embedder(app=self.app, embed_model=embed_model)
+        if collection_type == "image_embeddings":
+            # Use vision embedder for image collections
+            if self._vision_embedder is None:
+                from vision.image_embedder import ImageEmbedder
 
-        return self._embedder
+                self._vision_embedder = ImageEmbedder(self.app)
+            return _create_vision_embed_fn(self._vision_embedder)
+        else:
+            # Use text embedder for text collections
+            if self._embedder is None:
+                from embeddings.embedder import Embedder
+
+                embed_model = collection.metadata.get("embedding_model")
+                self._embedder = Embedder(app=self.app, embed_model=embed_model)
+            return self._embedder.embed_text
 
     def _validate_collection(self, collection_name: str) -> bool:
         """
@@ -75,19 +96,19 @@ class VectorProvider(SearchProvider):
         """
         return collection_name in self.allowed_collections
 
-    async def _get_embedding(self, text: str, embedder) -> List[float]:
+    async def _get_embedding(self, text: str, embed_fn) -> List[float]:
         """
-        Get embedding for text, handling both sync and async embedders.
+        Get embedding for text, handling both sync and async embed functions.
 
         Args:
             text: Text to embed
-            embedder: Embedder instance
+            embed_fn: Embed function (sync or async)
 
         Returns:
             Embedding vector
         """
-        result = embedder.embed_model.embed_text(text)
-        # If embed_text returned a coroutine, await it
+        result = embed_fn(text)
+        # If embed_fn returned a coroutine, await it
         if asyncio.iscoroutine(result):
             return await result
         return result
@@ -120,11 +141,11 @@ class VectorProvider(SearchProvider):
             vector_storage = self._get_vector_storage()
             collection = vector_storage.get_collection(scope)
 
-            # Get embedder for this collection
-            embedder = self._get_embedder(collection)
+            # Get embed function for this collection (text or vision based on type)
+            embed_fn = self._get_embed_fn(collection)
 
             # Create query embedding
-            query_embedding = await self._get_embedding(query, embedder)
+            query_embedding = await self._get_embedding(query, embed_fn)
 
             # Validate embedding dimensions
             query_dim = len(query_embedding)
@@ -256,3 +277,14 @@ class VectorProvider(SearchProvider):
             List of other allowed collection names
         """
         return [c for c in self.allowed_collections if c != current_scope]
+
+    async def close(self):
+        """
+        Clean up resources, especially vision embedder if used.
+
+        Should be called when done with the provider to ensure
+        proper cleanup of GPU/memory resources.
+        """
+        if self._vision_embedder is not None:
+            await self._vision_embedder.unload()
+            self._vision_embedder = None

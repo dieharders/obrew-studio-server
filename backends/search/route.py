@@ -48,31 +48,36 @@ async def search_vector(
                 data=None,
             )
 
-        # Create provider and orchestrator
+        # Create provider
         provider = VectorProvider(
             app=app,
             allowed_collections=payload.allowed_collections,
             top_k=payload.top_k or 50,
         )
 
-        orchestrator = AgenticSearch(
-            provider=provider,
-            llm=app.state.llm,
-            search_type="vector",
-        )
+        try:
+            orchestrator = AgenticSearch(
+                provider=provider,
+                llm=app.state.llm,
+                search_type="vector",
+            )
 
-        # Run the search
-        result = await orchestrator.search(
-            query=payload.query,
-            initial_scope=payload.collection,
-            max_preview=payload.max_preview or 10,
-            max_extract=payload.max_extract or 3,
-            auto_expand=(
-                payload.auto_expand if payload.auto_expand is not None else True
-            ),
-        )
+            # Run the search
+            result = await orchestrator.search(
+                query=payload.query,
+                initial_scope=payload.collection,
+                max_preview=payload.max_preview or 10,
+                max_extract=payload.max_extract or 3,
+                auto_expand=(
+                    payload.auto_expand if payload.auto_expand is not None else True
+                ),
+            )
 
-        return result
+            return result
+
+        finally:
+            # Clean up vision embedder if it was used
+            await provider.close()
 
     except Exception as e:
         print(f"{common.PRNT_API} Vector search error: {e}", flush=True)

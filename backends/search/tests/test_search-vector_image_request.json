@@ -1,0 +1,11 @@
+{
+  "query": "Find images showing charts or graphs with data trends",
+  "collection": "image_collection",
+  "allowed_collections": [
+    "image_collection"
+  ],
+  "top_k": 20,
+  "max_preview": 5,
+  "max_extract": 3,
+  "auto_expand": false
+}
