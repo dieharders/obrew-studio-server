@@ -4,8 +4,12 @@ This project deploys several servers/processes (databases, inference, etc.) expo
 
 A complete list of endpoint documentation can be found at [http://localhost:8000/docs](http://localhost:8000/docs) after the Obrew Server is started.
 
+## API Documentation
+
+- [Search API](./search-api.md) - Agentic multi-phase search across vector collections, web, filesystem, and structured data
+
 ## Client api library
 
-There is currently a javascript library under development and being used by the Obrew Studio WebUI located [here](https://github.com/dieharders/obrew-api-js).
+There is currently a javascript library under development and being used to build Obrew apps located [here](https://github.com/dieharders/obrew-api-js).
 
 [Back to README](../README.md)
