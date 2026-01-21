@@ -15,8 +15,7 @@ class FileSystemSearchRequest(BaseModel):
     """Request for agentic file system search."""
 
     query: str  # The search query
-    directory: str  # Directory to search in
-    allowed_directories: List[str]  # Whitelist of directories the agent can access
+    directories: List[str]  # Directories to search in (also serves as whitelist)
     file_patterns: Optional[List[str]] = (
         None  # File extensions to filter (e.g., [".pdf", ".docx"])
     )
@@ -30,8 +29,7 @@ class FileSystemSearchRequest(BaseModel):
             "examples": [
                 {
                     "query": "Find all documents about quarterly sales reports",
-                    "directory": "/documents/reports",
-                    "allowed_directories": [
+                    "directories": [
                         "/documents/reports",
                         "/documents/archives",
                     ],

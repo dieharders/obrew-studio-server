@@ -231,7 +231,7 @@ async def search_file_system(
 
     Requires:
     - A loaded LLM model
-    - allowed_directories must include the search directory
+    - At least one directory in the directories list
     """
     app: classes.FastAPIApp = request.app
 
@@ -244,25 +244,19 @@ async def search_file_system(
                 data=None,
             )
 
-        # Validate that search directory is in allowed list
-        if payload.directory not in payload.allowed_directories:
-            search_path = Path(payload.directory).resolve()
-            is_allowed = any(
-                search_path == Path(d).resolve()
-                or search_path.is_relative_to(Path(d).resolve())
-                for d in payload.allowed_directories
+        # Validate that at least one directory is provided
+        if not payload.directories:
+            return SearchResult(
+                success=False,
+                message="No directories provided. Specify at least one directory to search.",
+                data=None,
             )
-            if not is_allowed:
-                return SearchResult(
-                    success=False,
-                    message=f"Search directory '{payload.directory}' is not in allowed directories.",
-                    data=None,
-                )
 
         # Create provider and orchestrator
+        # directories serves as both the search scope and the allowed list
         provider = FileSystemProvider(
             app=app,
-            allowed_directories=payload.allowed_directories,
+            allowed_directories=payload.directories,
             file_patterns=payload.file_patterns,
         )
 
@@ -278,10 +272,10 @@ async def search_file_system(
             orchestrator.search_id = search_id
             active_searches[search_id] = orchestrator
 
-            # Run the search
+            # Run the search - use first directory as initial scope
             result = await orchestrator.search(
                 query=payload.query,
-                initial_scope=payload.directory,
+                initial_scope=payload.directories[0],
                 max_preview=payload.max_files_preview or 10,
                 max_extract=payload.max_files_parse or 3,
                 auto_expand=(
