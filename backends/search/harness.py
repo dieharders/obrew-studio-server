@@ -19,6 +19,7 @@ import re
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
+from core import common
 
 
 # JSON Schema for constrained selection output - just an array of indices
@@ -191,8 +192,8 @@ class AgenticSearch:
     async def _llm_completion(
         self,
         prompt: str,
-        system_message: str = None,
-        constrain_json: dict = None,
+        system_message: Optional[str] = None,
+        constrain_json: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         Get a completion from the LLM.
@@ -301,8 +302,12 @@ Instructions:
 
             return [items[idx] for idx in selected_indices[:max_select]]
 
-        except Exception:
-            # Fallback: return first max_select items
+        except Exception as e:
+            # Log the error and fallback to first max_select items
+            print(
+                f"{common.PRNT_API} [AgenticSearch] LLM selection failed in {phase_name} phase: {e}",
+                flush=True,
+            )
             return items[:max_select]
 
     async def _synthesize(
@@ -581,6 +586,10 @@ Instructions:
             )
 
         except Exception as e:
+            print(
+                f"{common.PRNT_API} [AgenticSearch] Search failed with error: {e}",
+                flush=True,
+            )
             return SearchResult(
                 success=False,
                 message=f"Search failed: {str(e)}",

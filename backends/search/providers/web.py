@@ -5,10 +5,14 @@ This provider implements the SearchProvider protocol for searching
 the web using DuckDuckGo and extracting content from web pages.
 """
 
+import asyncio
 from typing import List, Dict, Optional
 from urllib.parse import urlparse
-
 from ..harness import SearchProvider, SearchItem
+
+# Rate limiting constants
+DEFAULT_REQUEST_DELAY = 0.5  # Seconds between requests
+MAX_CONCURRENT_REQUESTS = 3  # Maximum concurrent page fetches
 
 
 class WebProvider(SearchProvider):
@@ -41,6 +45,8 @@ class WebProvider(SearchProvider):
         self.max_pages = max_pages
         self._ddgs = None
         self._http_client = None
+        self._request_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+        self._last_request_time = 0.0
 
     def _get_ddgs(self):
         """Lazy-load the DuckDuckGo search client."""
@@ -167,9 +173,25 @@ class WebProvider(SearchProvider):
         # URLs already have preview (body/snippet) from DuckDuckGo results
         return items
 
+    async def _rate_limit(self):
+        """
+        Apply rate limiting by waiting if necessary.
+
+        Ensures minimum delay between requests to avoid overwhelming servers.
+        """
+        import time
+
+        current_time = time.time()
+        elapsed = current_time - self._last_request_time
+
+        if elapsed < DEFAULT_REQUEST_DELAY:
+            await asyncio.sleep(DEFAULT_REQUEST_DELAY - elapsed)
+
+        self._last_request_time = time.time()
+
     async def _fetch_page_content(self, url: str) -> str:
         """
-        Fetch and extract text content from a webpage.
+        Fetch and extract text content from a webpage with rate limiting.
 
         Args:
             url: URL to fetch
@@ -179,9 +201,13 @@ class WebProvider(SearchProvider):
         """
         from bs4 import BeautifulSoup
 
-        client = await self._get_http_client()
-        response = await client.get(url)
-        response.raise_for_status()
+        # Apply rate limiting with semaphore for concurrency control
+        async with self._request_semaphore:
+            await self._rate_limit()
+
+            client = await self._get_http_client()
+            response = await client.get(url)
+            response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")
 

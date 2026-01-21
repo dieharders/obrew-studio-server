@@ -1,0 +1,19 @@
+{
+  "modelId": "mradermacher/Qwen2-VL-2B-Instruct-GGUF",
+  "modelPath": "C:\\Project Files\\brain-dump-ai\\obrew-studio-server\\vision_embed_models\\models--mradermacher--Qwen2-VL-2B-Instruct-GGUF\\blobs\\05cc3ae461a7b6aa4023312ccab549ecab77cf8677efee04f049fcbab55b8bc3",
+  "mmprojPath": "C:\\Project Files\\brain-dump-ai\\obrew-studio-server\\vision_embed_models\\models--mradermacher--Qwen2-VL-2B-Instruct-GGUF\\blobs\\44885a6734ad22f7334c1dd48957dbb3b59a5631998cbd1cc733eb722e1505a0",
+  "init": {
+    "n_gpu_layers": 99,
+    "use_mmap": true,
+    "use_mlock": false,
+    "n_ctx": 4096,
+    "n_batch": 512,
+    "verbose": false
+  },
+  "call": {
+    "temperature": 0.7,
+    "max_tokens": 2048,
+    "top_p": 0.95,
+    "top_k": 40
+  }
+}

@@ -1,6 +1,6 @@
 {
-  "query": "Find images showing charts or graphs with data trends",
-  "collections": ["image_collection"],
+  "query": "Give me a short explanation of what information is being conveyed",
+  "collections": ["resolve15wachs"],
   "top_k": 20,
   "max_preview": 5,
   "max_extract": 3,

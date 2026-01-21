@@ -1,6 +1,8 @@
 """Item read tool for reading full content or navigating into nested structures."""
+
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
+from .._item_utils import find_item_by_id
 
 
 class Params(BaseModel):
@@ -38,27 +40,6 @@ class Params(BaseModel):
     }
 
 
-def _find_item_by_id(item_id: str, items: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Find an item by ID or index."""
-    # Try exact ID match first
-    for item in items:
-        if item.get("id") == item_id:
-            return item
-
-    # Try index-based lookup (e.g., "item_0", "0")
-    try:
-        if item_id.startswith("item_"):
-            idx = int(item_id.split("_")[1])
-        else:
-            idx = int(item_id)
-        if 0 <= idx < len(items):
-            return items[idx]
-    except (ValueError, IndexError):
-        pass
-
-    return None
-
-
 def _navigate_path(obj: Any, path: str) -> Any:
     """
     Navigate into an object using a dot/bracket path.
@@ -70,14 +51,15 @@ def _navigate_path(obj: Any, path: str) -> Any:
     current = obj
     # Split on dots, but handle array indices
     import re
-    parts = re.split(r'\.(?![^\[]*\])', path)
+
+    parts = re.split(r"\.(?![^\[]*\])", path)
 
     for part in parts:
         if not part:
             continue
 
         # Check for array index: key[0] or just [0]
-        array_match = re.match(r'^(\w*)?\[(\d+)\]$', part)
+        array_match = re.match(r"^(\w*)?\[(\d+)\]$", part)
         if array_match:
             key = array_match.group(1)
             idx = int(array_match.group(2))
@@ -99,7 +81,9 @@ def _navigate_path(obj: Any, path: str) -> Any:
                     raise KeyError(f"Key not found: {part}")
                 current = current[part]
             else:
-                raise TypeError(f"Cannot access key '{part}' on {type(current).__name__}")
+                raise TypeError(
+                    f"Cannot access key '{part}' on {type(current).__name__}"
+                )
 
     return current
 
@@ -119,7 +103,7 @@ async def main(**kwargs) -> Dict[str, Any]:
     if not items:
         raise ValueError("items list is empty")
 
-    item = _find_item_by_id(item_id, items)
+    item = find_item_by_id(item_id, items)
     if not item:
         raise ValueError(f"Item not found: {item_id}")
 

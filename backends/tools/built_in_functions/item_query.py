@@ -1,7 +1,9 @@
 """Object query tool for advanced navigation and querying into nested object structures."""
+
 import re
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from pydantic import BaseModel, Field
+from .._item_utils import find_item_by_id
 
 
 class Params(BaseModel):
@@ -44,25 +46,6 @@ class Params(BaseModel):
     }
 
 
-def _find_item_by_id(item_id: str, items: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Find an item by ID or index."""
-    for item in items:
-        if item.get("id") == item_id:
-            return item
-
-    try:
-        if item_id.startswith("item_"):
-            idx = int(item_id.split("_")[1])
-        else:
-            idx = int(item_id)
-        if 0 <= idx < len(items):
-            return items[idx]
-    except (ValueError, IndexError):
-        pass
-
-    return None
-
-
 def _query_path(obj: Any, path: str) -> Dict[str, Any]:
     """
     Query into an object using an advanced path with wildcard support.
@@ -84,22 +67,22 @@ def _query_path(obj: Any, path: str) -> Dict[str, Any]:
 
     while remaining:
         # Match array access: [0] or [*]
-        array_match = re.match(r'^\[(\d+|\*)\]', remaining)
+        array_match = re.match(r"^\[(\d+|\*)\]", remaining)
         if array_match:
             idx = array_match.group(1)
             segments.append(("index", idx))
-            remaining = remaining[array_match.end():]
-            if remaining.startswith('.'):
+            remaining = remaining[array_match.end() :]
+            if remaining.startswith("."):
                 remaining = remaining[1:]
             continue
 
         # Match key followed by array access or dot
-        key_match = re.match(r'^([^.\[\]]+)', remaining)
+        key_match = re.match(r"^([^.\[\]]+)", remaining)
         if key_match:
             key = key_match.group(1)
             segments.append(("key", key))
-            remaining = remaining[key_match.end():]
-            if remaining.startswith('.'):
+            remaining = remaining[key_match.end() :]
+            if remaining.startswith("."):
                 remaining = remaining[1:]
             continue
 
@@ -120,7 +103,9 @@ def _query_path(obj: Any, path: str) -> Dict[str, Any]:
                         new_results.extend(current.values())
                         is_multiple = True
                     else:
-                        raise TypeError(f"Cannot use wildcard key on {type(current).__name__}")
+                        raise TypeError(
+                            f"Cannot use wildcard key on {type(current).__name__}"
+                        )
                 else:
                     # Regular key access
                     if isinstance(current, dict):
@@ -129,7 +114,9 @@ def _query_path(obj: Any, path: str) -> Dict[str, Any]:
                         else:
                             raise KeyError(f"Key not found: {seg_value}")
                     else:
-                        raise TypeError(f"Cannot access key '{seg_value}' on {type(current).__name__}")
+                        raise TypeError(
+                            f"Cannot access key '{seg_value}' on {type(current).__name__}"
+                        )
 
             elif seg_type == "index":
                 if seg_value == "*":
@@ -180,7 +167,7 @@ async def main(**kwargs) -> Dict[str, Any]:
     if not items:
         raise ValueError("items list is empty")
 
-    item = _find_item_by_id(item_id, items)
+    item = find_item_by_id(item_id, items)
     if not item:
         raise ValueError(f"Item not found: {item_id}")
 
@@ -199,7 +186,11 @@ async def main(**kwargs) -> Dict[str, Any]:
         "name": item.get("name") or "Unnamed",
         "path": path,
         "result": result,
-        "type": type(result).__name__ if not is_multiple else f"list[{type(result[0]).__name__}]" if result else "list",
+        "type": (
+            type(result).__name__
+            if not is_multiple
+            else f"list[{type(result[0]).__name__}]" if result else "list"
+        ),
         "is_multiple": is_multiple,
     }
 

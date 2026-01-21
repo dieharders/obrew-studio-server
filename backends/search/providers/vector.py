@@ -11,7 +11,6 @@ Supports two modes:
 
 import asyncio
 from typing import List, Dict, Optional
-
 from ..harness import SearchProvider, SearchItem
 
 
@@ -455,11 +454,17 @@ class VectorProvider(SearchProvider):
 
     async def close(self):
         """
-        Clean up resources, especially vision embedder if used.
+        Clean up resources and reset state.
 
         Should be called when done with the provider to ensure
-        proper cleanup of GPU/memory resources.
+        proper cleanup of GPU/memory resources. Also resets internal
+        state in case the provider instance is reused.
         """
         if self._vision_embedder is not None:
             await self._vision_embedder.unload()
             self._vision_embedder = None
+
+        # Reset state for potential reuse
+        self._searched_collections = []
+        self._current_query = None
+        self._embedder = None

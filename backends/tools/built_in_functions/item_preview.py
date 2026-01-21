@@ -1,6 +1,8 @@
 """Item preview tool for showing item structure and metadata."""
-from typing import List, Dict, Any, Optional
+
+from typing import List, Dict, Any
 from pydantic import BaseModel, Field
+from .._item_utils import find_item_by_id
 
 
 class Params(BaseModel):
@@ -43,27 +45,6 @@ class Params(BaseModel):
     }
 
 
-def _find_item_by_id(item_id: str, items: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """Find an item by ID or index."""
-    # Try exact ID match first
-    for item in items:
-        if item.get("id") == item_id:
-            return item
-
-    # Try index-based lookup (e.g., "item_0", "0")
-    try:
-        if item_id.startswith("item_"):
-            idx = int(item_id.split("_")[1])
-        else:
-            idx = int(item_id)
-        if 0 <= idx < len(items):
-            return items[idx]
-    except (ValueError, IndexError):
-        pass
-
-    return None
-
-
 def _summarize_object(obj: Any, max_depth: int, current_depth: int = 0) -> Any:
     """Create a summary of an object structure up to max_depth."""
     if current_depth >= max_depth:
@@ -82,10 +63,15 @@ def _summarize_object(obj: Any, max_depth: int, current_depth: int = 0) -> Any:
         }
     elif isinstance(obj, list):
         if len(obj) <= 3:
-            return [_summarize_object(item, max_depth, current_depth + 1) for item in obj]
+            return [
+                _summarize_object(item, max_depth, current_depth + 1) for item in obj
+            ]
         else:
             # Show first 2 and indicate more
-            preview = [_summarize_object(item, max_depth, current_depth + 1) for item in obj[:2]]
+            preview = [
+                _summarize_object(item, max_depth, current_depth + 1)
+                for item in obj[:2]
+            ]
             preview.append(f"...+{len(obj) - 2} more items")
             return preview
     elif isinstance(obj, str):
@@ -110,8 +96,7 @@ def _get_structure_info(content: Any) -> Dict[str, Any]:
             "keys": list(content.keys()),
             "key_count": len(content),
             "nested_types": {
-                key: type(value).__name__
-                for key, value in list(content.items())[:10]
+                key: type(value).__name__ for key, value in list(content.items())[:10]
             },
         }
     elif isinstance(content, list):
@@ -147,7 +132,7 @@ async def main(**kwargs) -> Dict[str, Any]:
     if not items:
         raise ValueError("items list is empty")
 
-    item = _find_item_by_id(item_id, items)
+    item = find_item_by_id(item_id, items)
     if not item:
         raise ValueError(f"Item not found: {item_id}")
 

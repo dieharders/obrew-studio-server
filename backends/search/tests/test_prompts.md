@@ -2,10 +2,34 @@ Go over your work and verify all implementations have taken place and are featur
 
 ## Prerequisites
 
-Load model:
+Unload text model:
 
 ```bash
-curl -X POST "http://localhost:8008/v1/text/load" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_load_model.json"
+curl -X POST "http://localhost:8008/v1/text/unload"
+```
+
+Unload vision model:
+
+```bash
+curl -X POST http://localhost:8008/v1/vision/unload
+```
+
+Unload vision embed model:
+
+```bash
+curl -X POST http://localhost:8008/v1/vision/embed/unload
+```
+
+Load text model:
+
+```bash
+curl -X POST "http://localhost:8008/v1/text/load" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_load_text_model.json"
+```
+
+Load vision model:
+
+```bash
+curl -X POST "http://localhost:8008/v1/vision/load" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_load_vision_model.json"
 ```
 
 ## Search Endpoints
@@ -13,7 +37,7 @@ curl -X POST "http://localhost:8008/v1/text/load" -H "Content-Type: application/
 ### File System Search
 
 ```bash
-curl -X POST "http://localhost:8008/v1/search/fs/v2" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_search-fs_request.json"
+curl -X POST "http://localhost:8008/v1/search/fs" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_search-fs_request.json"
 ```
 
 ### Vector/Embedding Search
@@ -30,7 +54,7 @@ Text request passing no name:
 curl -X POST "http://localhost:8008/v1/search/vector" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_search-vector_discovery_request.json"
 ```
 
-Image Request:
+Image request:
 
 ```bash
 curl -X POST "http://localhost:8008/v1/search/vector" -H "Content-Type: application/json" -d @"c:\Project Files\brain-dump-ai\obrew-studio-server\backends\search\tests\test_search-vector_image_request.json"
