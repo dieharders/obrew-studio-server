@@ -8,6 +8,7 @@ the web using DuckDuckGo and extracting content from web pages.
 import asyncio
 from typing import List, Dict, Optional
 from urllib.parse import urlparse
+from ddgs import DDGS
 from ..harness import SearchProvider, SearchItem
 
 # Rate limiting constants
@@ -51,8 +52,6 @@ class WebProvider(SearchProvider):
     def _get_ddgs(self):
         """Lazy-load the DuckDuckGo search client."""
         if self._ddgs is None:
-            from duckduckgo_search import DDGS
-
             self._ddgs = DDGS()
         return self._ddgs
 

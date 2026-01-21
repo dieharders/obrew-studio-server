@@ -1,11 +1,7 @@
 {
-  "query": "Python asyncio best practices for handling concurrent HTTP requests",
+  "query": "What is FastAPI?",
   "website": null,
-  "allowed_domains": [
-    "docs.python.org",
-    "stackoverflow.com",
-    "realpython.com"
-  ],
+  "allowed_domains": ["docs.python.org", "stackoverflow.com", "realpython.com"],
   "max_pages": 10,
   "max_preview": 10,
   "max_extract": 3
