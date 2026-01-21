@@ -81,10 +81,7 @@ class WebSearchRequest(BaseModel):
     """Request for web search using DuckDuckGo."""
 
     query: str  # The search query
-    website: Optional[str] = None  # Optional specific website to search
-    allowed_domains: Optional[List[str]] = (
-        None  # Whitelist of domains (None = allow all)
-    )
+    website: Optional[List[str]] = None  # Domain filter: None/[] = all, [one] = single site, [many] = whitelist
     max_pages: Optional[int] = 10  # Max pages to fetch content from
     max_preview: Optional[int] = 10  # Max URLs to preview
     max_extract: Optional[int] = 3  # Max pages to extract full content from
@@ -94,8 +91,7 @@ class WebSearchRequest(BaseModel):
             "examples": [
                 {
                     "query": "Python asyncio best practices",
-                    "website": "docs.python.org",
-                    "allowed_domains": ["docs.python.org", "stackoverflow.com"],
+                    "website": ["docs.python.org", "stackoverflow.com"],
                     "max_pages": 10,
                     "max_preview": 10,
                     "max_extract": 3,

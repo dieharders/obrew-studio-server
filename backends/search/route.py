@@ -174,7 +174,6 @@ async def search_web(
         # Create provider and orchestrator
         provider = WebProvider(
             app=app,
-            allowed_domains=payload.allowed_domains,
             website=payload.website,
             max_pages=payload.max_pages or 10,
         )

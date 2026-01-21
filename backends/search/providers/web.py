@@ -27,8 +27,7 @@ class WebProvider(SearchProvider):
     def __init__(
         self,
         app,
-        allowed_domains: Optional[List[str]] = None,
-        website: Optional[str] = None,
+        website: Optional[List[str]] = None,
         max_pages: int = 10,
     ):
         """
@@ -36,13 +35,11 @@ class WebProvider(SearchProvider):
 
         Args:
             app: FastAPI application instance
-            allowed_domains: List of allowed domains (None = allow all)
-            website: Optional specific website to search (e.g., "docs.python.org")
+            website: Domain filter - None/[] = search all, [one] = single site, [many] = whitelist
             max_pages: Maximum number of pages to fetch content from
         """
         self.app = app
-        self.allowed_domains = allowed_domains or []
-        self.website = website
+        self.website = website or []
         self.max_pages = max_pages
         self._ddgs = None
         self._http_client = None
@@ -79,14 +76,14 @@ class WebProvider(SearchProvider):
         Returns:
             True if URL is allowed, False otherwise
         """
-        if not self.allowed_domains:
+        if not self.website:
             return True  # No whitelist = allow all
 
         try:
             domain = urlparse(url).netloc.lower()
             return any(
                 domain == allowed.lower() or domain.endswith(f".{allowed.lower()}")
-                for allowed in self.allowed_domains
+                for allowed in self.website
             )
         except Exception:
             return False
@@ -109,12 +106,12 @@ class WebProvider(SearchProvider):
         max_results = kwargs.get("max_results", 20)
 
         # Build search query with site filter
-        if self.website:
-            # If specific website provided, search only that site
-            search_query = f"site:{self.website} {query}"
-        elif self.allowed_domains:
-            # If whitelist provided, search across allowed domains
-            domain_filter = " OR ".join(f"site:{d}" for d in self.allowed_domains)
+        if len(self.website) == 1:
+            # Single website - search only that site
+            search_query = f"site:{self.website[0]} {query}"
+        elif len(self.website) > 1:
+            # Multiple domains - search across whitelist
+            domain_filter = " OR ".join(f"site:{d}" for d in self.website)
             search_query = f"{query} ({domain_filter})"
         else:
             # No restrictions
