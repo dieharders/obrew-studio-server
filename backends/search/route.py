@@ -278,6 +278,7 @@ async def search_file_system(
                 initial_scope=payload.directories[0],
                 max_preview=payload.max_files_preview or 10,
                 max_extract=payload.max_files_parse or 3,
+                max_expand=payload.max_iterations or 3,
                 auto_expand=(
                     payload.auto_expand if payload.auto_expand is not None else True
                 ),

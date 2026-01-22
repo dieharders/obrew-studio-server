@@ -380,6 +380,7 @@ Instructions:
         initial_scope: Optional[str] = None,
         max_preview: int = 10,
         max_extract: int = 3,
+        max_expand: int = 2,
         auto_expand: bool = True,
         request=None,
         **kwargs,
@@ -393,6 +394,7 @@ Instructions:
                           If None, provider operates in discovery mode.
             max_preview: Maximum number of items to preview
             max_extract: Maximum number of items to extract full content from
+            max_expand: Maximum number of additional scopes to search during expansion
             auto_expand: Whether to automatically search additional scopes if needed
             request: Optional FastAPI Request for client disconnect detection
             **kwargs: Additional arguments passed to provider methods
@@ -526,7 +528,7 @@ Instructions:
                 )
                 additional_scopes = self.provider.get_expandable_scopes(initial_scope)
 
-                for scope in additional_scopes[:2]:  # Limit expansion
+                for scope in additional_scopes[:max_expand]:
                     if len(all_context) >= max_extract:
                         break
 

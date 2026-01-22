@@ -102,18 +102,42 @@ class FileSystemProvider(SearchProvider):
 
     async def discover(self, scope: str, **kwargs) -> List[SearchItem]:
         """
-        Discover files in the given directory.
+        Discover files in the given directory or return a single file.
 
         Args:
-            scope: Directory path to scan
+            scope: Directory path to scan OR individual file path
             **kwargs: Additional arguments (query is ignored for file scan)
 
         Returns:
             List of SearchItem objects representing discovered files
         """
-        # Validate directory
+        # Validate path
         if not self._validate_path(scope):
             raise ValueError(f"Access denied: '{scope}' is outside allowed directories")
+
+        scope_path = Path(scope)
+
+        # Handle individual file
+        if scope_path.is_file():
+            return [
+                SearchItem(
+                    id=str(scope_path),
+                    name=scope_path.name,
+                    type="file",
+                    preview=f"file - {scope_path.stat().st_size} bytes",
+                    metadata={
+                        "relative_path": scope_path.name,
+                        "extension": scope_path.suffix,
+                        "size_bytes": scope_path.stat().st_size,
+                        "file_type": "file",
+                    },
+                    requires_extraction=False,
+                )
+            ]
+
+        # Handle directory
+        if not scope_path.is_dir():
+            raise ValueError(f"Path is not a file or directory: {scope}")
 
         try:
             scan_result = await self._execute_tool(
