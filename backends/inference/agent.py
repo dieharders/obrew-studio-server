@@ -58,11 +58,32 @@ class Agent:
             tool = Tool(app=self.app, request=request)
             assigned_tool: ToolDefinition = None
             all_installed_tool_defs: List[ToolDefinition] = (
-                get_all_tool_definitions().get("data")
+                get_all_tool_definitions().get("data") or []
             )
             assigned_tool_defs = [
                 item for item in all_installed_tool_defs if item["name"] in self.tools
             ]
+
+            # Fallback: Load unregistered tools directly from built_in_functions
+            found_names = {t["name"] for t in assigned_tool_defs}
+            for tool_name in self.tools:
+                if tool_name not in found_names:
+                    try:
+                        schema = tool.read_function(f"{tool_name}.py", tool_name)
+                        if schema:
+                            assigned_tool_defs.append(
+                                {"name": tool_name, "path": f"{tool_name}.py", **schema}
+                            )
+                            print(
+                                f"{common.PRNT_API} Loaded built-in tool: {tool_name}",
+                                flush=True,
+                            )
+                    except Exception as e:
+                        print(
+                            f"{common.PRNT_API} Could not load built-in tool '{tool_name}': {e}",
+                            flush=True,
+                        )
+
             # Use native tool calling, choose tool from list of schemas and output args in one-shot
             if curr_func_calling == TOOL_USE_MODES.NATIVE.value:
                 tool_call_result = await tool.native_call(
