@@ -57,6 +57,7 @@ class SearchResultData(BaseModel):
     sources: List[SearchSource]
     query: str
     search_type: str  # "filesystem" | "vector" | "web"
+    total_results: int = 0  # Number of sources used to generate the answer
     stats: Optional[Dict[str, Any]] = None
     tool_logs: Optional[List[Dict[str, Any]]] = None
 
@@ -184,6 +185,7 @@ class AgenticSearch:
                 sources=[],
                 query=query,
                 search_type=self.search_type,
+                total_results=0,
                 stats={"cancelled": True, "cancelled_at_phase": phase},
                 tool_logs=tool_logs,
             ),
@@ -329,6 +331,7 @@ Instructions:
                 sources=[],
                 query=query,
                 search_type=self.search_type,
+                total_results=0,
             )
 
         context_str = "\n\n---\n\n".join(
@@ -372,6 +375,7 @@ Instructions:
             sources=sources,
             query=query,
             search_type=self.search_type,
+            total_results=len(sources),
         )
 
     async def search(
@@ -438,6 +442,7 @@ Instructions:
                         sources=[],
                         query=query,
                         search_type=self.search_type,
+                        total_results=0,
                         stats={"scopes_searched": scopes_searched, "items_found": 0},
                         tool_logs=tool_logs,
                     ),
