@@ -55,8 +55,9 @@ async def stop_search(request: Request, search_id: Optional[str] = None):
         return {"success": False, "message": f"Search {search_id} not found."}
     else:
         # Stop all active searches
+        # Copy values to avoid RuntimeError if dict changes during iteration (prevent race condition)
         count = len(active_searches)
-        for orchestrator in active_searches.values():
+        for orchestrator in list(active_searches.values()):
             orchestrator.abort_requested = True
         print(
             f"{common.PRNT_API} Stop requested for {count} active searches", flush=True
@@ -371,7 +372,9 @@ async def search_structured(
                 initial_scope=initial_scope,
                 max_preview=payload.max_preview or 10,
                 max_extract=payload.max_extract or 3,
-                auto_expand=payload.auto_expand if payload.auto_expand is not None else False,
+                auto_expand=(
+                    payload.auto_expand if payload.auto_expand is not None else False
+                ),
                 request=request,
             )
 
