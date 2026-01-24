@@ -1,13 +1,21 @@
+import json
 from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, field_validator, model_validator
-
-# Import response types from the harness
-from .harness import SearchResult, SearchResultData, SearchSource
+from .harness import (
+    SearchResult,
+    SearchResultData,
+    SearchSource,
+    DEFAULT_MAX_PREVIEW,
+    DEFAULT_MAX_EXTRACT,
+    DEFAULT_MAX_EXPAND,
+    DEFAULT_MAX_DISCOVER_ITEMS,
+)
 
 # Limits for structured search to prevent abuse
 MAX_STRUCTURED_ITEMS = 1000  # Maximum number of items
 MAX_CONTENT_DEPTH = 10  # Maximum nesting depth for content
 MAX_TOTAL_PAYLOAD_SIZE_MB = 50  # Maximum total payload size in MB
+MAX_DEPTH_CHECK_ITERATIONS = 100  # Max items to check during depth validation
 
 
 # Agentic File System Search classes
@@ -19,9 +27,9 @@ class FileSystemSearchRequest(BaseModel):
     file_patterns: Optional[List[str]] = (
         None  # File extensions to filter (e.g., [".pdf", ".docx"])
     )
-    max_files_preview: Optional[int] = 10  # Max files to preview
-    max_files_parse: Optional[int] = 3  # Max files to fully parse
-    max_iterations: Optional[int] = 3  # Max directories to search (for expansion)
+    max_files_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max files to preview
+    max_files_parse: Optional[int] = DEFAULT_MAX_EXTRACT  # Max files to fully parse
+    max_iterations: Optional[int] = DEFAULT_MAX_EXPAND  # Max directories to search (for expansion)
     auto_expand: Optional[bool] = True  # Whether to search additional directories
 
     model_config = {
@@ -48,9 +56,9 @@ class VectorSearchRequest(BaseModel):
 
     query: str  # The search query
     collections: Optional[List[str]] = None  # Optional - if None/empty, discover all
-    top_k: Optional[int] = 50  # Max chunks to retrieve per collection
-    max_preview: Optional[int] = 10  # Max collections/chunks to preview
-    max_extract: Optional[int] = 3  # Max collections/chunks to extract from
+    top_k: Optional[int] = DEFAULT_MAX_DISCOVER_ITEMS  # Max chunks to retrieve per collection
+    max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max collections/chunks to preview
+    max_extract: Optional[int] = DEFAULT_MAX_EXTRACT  # Max collections/chunks to extract from
     auto_expand: Optional[bool] = True  # Whether to search additional collections
 
     model_config = {
@@ -79,10 +87,12 @@ class WebSearchRequest(BaseModel):
     """Request for web search using DuckDuckGo."""
 
     query: str  # The search query
-    website: Optional[List[str]] = None  # Domain filter: None/[] = all, [one] = single site, [many] = whitelist
-    max_pages: Optional[int] = 10  # Max pages to fetch content from
-    max_preview: Optional[int] = 10  # Max URLs to preview
-    max_extract: Optional[int] = 3  # Max pages to extract full content from
+    website: Optional[List[str]] = (
+        None  # Domain filter: None/[] = all, [one] = single site, [many] = whitelist
+    )
+    max_pages: Optional[int] = DEFAULT_MAX_PREVIEW  # Max pages to fetch content from
+    max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max URLs to preview
+    max_extract: Optional[int] = DEFAULT_MAX_EXTRACT  # Max pages to extract full content from
 
     model_config = {
         "json_schema_extra": {
@@ -113,14 +123,13 @@ def _check_content_depth(obj: Any, current_depth: int = 0) -> int:
     if isinstance(obj, dict):
         if not obj:
             return current_depth
-        return max(
-            _check_content_depth(v, current_depth + 1) for v in obj.values()
-        )
+        return max(_check_content_depth(v, current_depth + 1) for v in obj.values())
     elif isinstance(obj, list):
         if not obj:
             return current_depth
         return max(
-            _check_content_depth(item, current_depth + 1) for item in obj[:100]  # Limit iteration
+            _check_content_depth(item, current_depth + 1)
+            for item in obj[:MAX_DEPTH_CHECK_ITERATIONS]
         )
     else:
         return current_depth
@@ -131,8 +140,6 @@ def _estimate_content_size(obj: Any) -> int:
     if isinstance(obj, str):
         return len(obj.encode("utf-8", errors="ignore"))
     elif isinstance(obj, (dict, list)):
-        import json
-
         try:
             return len(json.dumps(obj, default=str).encode("utf-8", errors="ignore"))
         except (TypeError, ValueError):
@@ -147,7 +154,9 @@ class StructuredItem(BaseModel):
 
     id: Optional[str] = None  # Auto-generated if not provided
     name: Optional[str] = None  # Defaults to "Item {index}"
-    content: Union[str, Dict[str, Any], List[Any], int, float, bool, None]  # Explicit types
+    content: Union[
+        str, Dict[str, Any], List[Any], int, float, bool, None
+    ]  # Explicit types
     metadata: Optional[Dict[str, Any]] = None
 
     @field_validator("content")
@@ -175,8 +184,8 @@ class StructuredSearchRequest(BaseModel):
 
     query: str  # The search query
     items: List[StructuredItem]  # The data to search over
-    max_preview: Optional[int] = 10  # Max items to preview
-    max_extract: Optional[int] = 3  # Max items to extract from
+    max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max items to preview
+    max_extract: Optional[int] = DEFAULT_MAX_EXTRACT  # Max items to extract from
     group_by: Optional[str] = None  # Metadata field to group items by for expansion
     auto_expand: Optional[bool] = False  # Whether to search additional groups
 
@@ -222,7 +231,10 @@ class StructuredSearchRequest(BaseModel):
                         {
                             "id": "msg-002",
                             "name": "Bob",
-                            "content": {"text": "Agreed. We can use jose library.", "attachments": []},
+                            "content": {
+                                "text": "Agreed. We can use jose library.",
+                                "attachments": [],
+                            },
                             "metadata": {"channel": "engineering"},
                         },
                     ],

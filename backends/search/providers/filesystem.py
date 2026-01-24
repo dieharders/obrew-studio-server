@@ -9,7 +9,12 @@ import importlib
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from ..harness import SearchProvider, SearchItem
+from ..harness import (
+    SearchProvider,
+    SearchItem,
+    DEFAULT_MAX_DISCOVER_ITEMS,
+    DEFAULT_CONTENT_EXTRACT_LENGTH,
+)
 
 
 class FileSystemProvider(SearchProvider):
@@ -152,9 +157,9 @@ class FileSystemProvider(SearchProvider):
         if not scan_result:
             return []
 
-        # Convert to SearchItem format (limit to first 50)
+        # Convert to SearchItem format (limit to first x items)
         items = []
-        for idx, file_info in enumerate(scan_result[:50]):
+        for idx, file_info in enumerate(scan_result[:DEFAULT_MAX_DISCOVER_ITEMS]):
             items.append(
                 SearchItem(
                     id=file_info.get("path", ""),
@@ -264,7 +269,9 @@ class FileSystemProvider(SearchProvider):
                 context.append(
                     {
                         "source": item.name,
-                        "content": content[:5000],  # Limit context size
+                        "content": content[
+                            :DEFAULT_CONTENT_EXTRACT_LENGTH
+                        ],  # Limit context size
                     }
                 )
 

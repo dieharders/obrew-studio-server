@@ -9,7 +9,12 @@ import asyncio
 from typing import List, Dict, Optional
 from urllib.parse import urlparse
 from ddgs import DDGS
-from ..harness import SearchProvider, SearchItem
+from ..harness import (
+    SearchProvider,
+    SearchItem,
+    DEFAULT_CONTENT_EXTRACT_LENGTH,
+    DEFAULT_CONTENT_SNIPPET_LENGTH,
+)
 
 # Rate limiting constants
 DEFAULT_REQUEST_DELAY = 0.5  # Seconds between requests
@@ -134,7 +139,7 @@ class WebProvider(SearchProvider):
                         id=url,
                         name=r.get("title", f"Result {i}"),
                         type="url",
-                        preview=r.get("body", "")[:300],
+                        preview=r.get("body", "")[:DEFAULT_CONTENT_SNIPPET_LENGTH],
                         metadata={
                             "href": url,
                             "title": r.get("title", ""),
@@ -241,7 +246,7 @@ class WebProvider(SearchProvider):
                 context.append(
                     {
                         "source": f"[{item.name}]({item.id})",
-                        "content": content[:5000],  # Limit content size
+                        "content": content[:DEFAULT_CONTENT_EXTRACT_LENGTH],
                     }
                 )
 

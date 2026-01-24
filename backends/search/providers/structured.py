@@ -14,11 +14,16 @@ Use cases:
 
 from typing import List, Dict, Optional, Any
 
-from ..harness import SearchProvider, SearchItem
+from ..harness import (
+    SearchProvider,
+    SearchItem,
+    DEFAULT_CONTENT_EXTRACT_LENGTH,
+    DEFAULT_CONTENT_SNIPPET_LENGTH,
+)
 from ..classes import StructuredItem
 
 
-def _get_content_preview(content: Any, max_length: int = 300) -> str:
+def _get_content_preview(content: Any, max_length: int = DEFAULT_CONTENT_SNIPPET_LENGTH) -> str:
     """Generate a preview string from content based on its type."""
     if isinstance(content, str):
         if len(content) > max_length:
@@ -51,7 +56,7 @@ def _get_content_length(content: Any) -> int:
         return len(str(content))
 
 
-def _content_to_string(content: Any, max_length: int = 5000) -> str:
+def _content_to_string(content: Any, max_length: int = DEFAULT_CONTENT_EXTRACT_LENGTH) -> str:
     """Convert content to a string representation for extraction."""
     if isinstance(content, str):
         return content[:max_length]
@@ -180,7 +185,7 @@ class StructuredProvider(SearchProvider):
                     "content_type": type(item.content).__name__,
                     **(item.metadata or {}),
                 },
-                requires_extraction=content_length > 300,
+                requires_extraction=content_length > DEFAULT_CONTENT_SNIPPET_LENGTH,
             )
             search_items.append(search_item)
 

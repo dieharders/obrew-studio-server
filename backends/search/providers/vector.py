@@ -10,8 +10,14 @@ Supports two modes:
 """
 
 import asyncio
-from typing import List, Dict, Optional
-from ..harness import SearchProvider, SearchItem
+from typing import List, Dict, Optional, Tuple, Any
+from ..harness import (
+    SearchProvider,
+    SearchItem,
+    DEFAULT_CONTENT_EXTRACT_LENGTH,
+    DEFAULT_CONTENT_SNIPPET_LENGTH,
+)
+from core import common
 
 
 def _create_vision_embed_fn(vision_embedder):
@@ -105,6 +111,59 @@ class VectorProvider(SearchProvider):
             return await result
         return result
 
+    async def _execute_collection_query(
+        self, collection_name: str, query: str
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+        """
+        Execute a query against a collection and return raw results.
+
+        This is the shared logic for both _query_collection and _search_collection.
+
+        Args:
+            collection_name: Name of the collection to query
+            query: Search query text
+
+        Returns:
+            Tuple of (results dict, error message) - results is None if error occurred
+        """
+        vector_storage = self._get_vector_storage()
+
+        try:
+            collection = vector_storage.get_collection(collection_name)
+
+            # Get embed function for this collection
+            embed_fn = self._get_embed_fn(collection)
+            query_embedding = await self._get_embedding(query, embed_fn)
+
+            # Validate embedding dimensions
+            query_dim = len(query_embedding)
+            expected_dim = collection.metadata.get("embedding_dim")
+            if expected_dim and expected_dim != query_dim:
+                error_msg = (
+                    f"dimension mismatch (expected {expected_dim}, got {query_dim})"
+                )
+                print(
+                    f"{common.PRNT_API} [VectorProvider] Skipping collection '{collection_name}': {error_msg}",
+                    flush=True,
+                )
+                return None, error_msg
+
+            # Query the collection
+            results = collection.query(
+                query_embeddings=[query_embedding],
+                n_results=self.top_k,
+            )
+
+            return results, None
+
+        except Exception as e:
+            error_msg = str(e)
+            print(
+                f"{common.PRNT_API} [VectorProvider] Error querying '{collection_name}': {error_msg}",
+                flush=True,
+            )
+            return None, error_msg
+
     async def _query_collection(
         self, collection_name: str, query: str
     ) -> List[Dict[str, str]]:
@@ -118,31 +177,9 @@ class VectorProvider(SearchProvider):
         Returns:
             List of context dicts with 'source' and 'content' keys
         """
-        from core import common
-
-        vector_storage = self._get_vector_storage()
-        collection = vector_storage.get_collection(collection_name)
-
-        # Get embed function for this collection
-        embed_fn = self._get_embed_fn(collection)
-        query_embedding = await self._get_embedding(query, embed_fn)
-
-        # Validate embedding dimensions
-        query_dim = len(query_embedding)
-        expected_dim = collection.metadata.get("embedding_dim")
-        if expected_dim and expected_dim != query_dim:
-            print(
-                f"{common.PRNT_API} [VectorProvider] Skipping collection '{collection_name}': "
-                f"dimension mismatch (expected {expected_dim}, got {query_dim})",
-                flush=True,
-            )
+        results, error = await self._execute_collection_query(collection_name, query)
+        if results is None:
             return []
-
-        # Query the collection
-        results = collection.query(
-            query_embeddings=[query_embedding],
-            n_results=self.top_k,
-        )
 
         documents = results.get("documents", [[]])[0]
         metadatas = results.get("metadatas", [[]])[0]
@@ -161,7 +198,7 @@ class VectorProvider(SearchProvider):
             context.append(
                 {
                     "source": f"[{collection_name}] {source_id}",
-                    "content": content[:5000],
+                    "content": content[:DEFAULT_CONTENT_EXTRACT_LENGTH],
                 }
             )
 
@@ -185,86 +222,51 @@ class VectorProvider(SearchProvider):
         Returns:
             List of SearchItem objects (chunks)
         """
-        from core import common
-
-        vector_storage = self._get_vector_storage()
-
-        try:
-            collection = vector_storage.get_collection(collection_name)
-
-            # Get embed function for this collection (text or vision based on type)
-            embed_fn = self._get_embed_fn(collection)
-
-            # Create query embedding
-            query_embedding = await self._get_embedding(query, embed_fn)
-
-            # Validate embedding dimensions
-            query_dim = len(query_embedding)
-            expected_dim = collection.metadata.get("embedding_dim")
-            if expected_dim and expected_dim != query_dim:
-                print(
-                    f"{common.PRNT_API} [VectorProvider] Skipping collection '{collection_name}': "
-                    f"dimension mismatch (expected {expected_dim}, got {query_dim})",
-                    flush=True,
-                )
-                return []
-
-            # Query the collection
-            results = collection.query(
-                query_embeddings=[query_embedding],
-                n_results=self.top_k,
-            )
-
-            documents = results.get("documents", [[]])[0]
-            metadatas = results.get("metadatas", [[]])[0]
-            ids = results.get("ids", [[]])[0]
-            distances = results.get("distances", [[]])[0]
-
-            # Convert to SearchItem format
-            items = []
-            for i, (doc, meta, chunk_id, distance) in enumerate(
-                zip(documents, metadatas, ids, distances)
-            ):
-                # Convert distance to similarity score
-                similarity = 1 - distance if distance else 0
-
-                items.append(
-                    SearchItem(
-                        id=chunk_id,
-                        name=f"chunk_{i}",
-                        type="chunk",
-                        preview=doc[:300] if doc else "",
-                        metadata={
-                            "full_text": doc,
-                            "original_text": (
-                                meta.get("original_text") if meta else None
-                            ),
-                            "source_id": meta.get("sourceId") if meta else None,
-                            "similarity": similarity,
-                            "collection": collection_name,
-                            **({k: v for k, v in meta.items()} if meta else {}),
-                        },
-                        requires_extraction=bool(
-                            meta
-                            and meta.get("original_text")
-                            and meta.get("original_text") != doc
-                        ),
-                    )
-                )
-
-            print(
-                f"{common.PRNT_API} [VectorProvider] Found {len(items)} chunks in '{collection_name}'",
-                flush=True,
-            )
-
-            return items
-
-        except Exception as e:
-            print(
-                f"{common.PRNT_API} [VectorProvider] Error searching '{collection_name}': {e}",
-                flush=True,
-            )
+        results, error = await self._execute_collection_query(collection_name, query)
+        if results is None:
             return []
+
+        documents = results.get("documents", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
+        ids = results.get("ids", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+
+        # Convert to SearchItem format
+        items = []
+        for i, (doc, meta, chunk_id, distance) in enumerate(
+            zip(documents, metadatas, ids, distances)
+        ):
+            # Convert distance to similarity score
+            similarity = 1 - distance if distance else 0
+
+            items.append(
+                SearchItem(
+                    id=chunk_id,
+                    name=f"chunk_{i}",
+                    type="chunk",
+                    preview=doc[:DEFAULT_CONTENT_SNIPPET_LENGTH] if doc else "",
+                    metadata={
+                        "full_text": doc,
+                        "original_text": (meta.get("original_text") if meta else None),
+                        "source_id": meta.get("sourceId") if meta else None,
+                        "similarity": similarity,
+                        "collection": collection_name,
+                        **({k: v for k, v in meta.items()} if meta else {}),
+                    },
+                    requires_extraction=bool(
+                        meta
+                        and meta.get("original_text")
+                        and meta.get("original_text") != doc
+                    ),
+                )
+            )
+
+        print(
+            f"{common.PRNT_API} [VectorProvider] Found {len(items)} chunks in '{collection_name}'",
+            flush=True,
+        )
+
+        return items
 
     async def discover(self, scope: Optional[str] = None, **kwargs) -> List[SearchItem]:
         """
@@ -429,7 +431,7 @@ class VectorProvider(SearchProvider):
                 context.append(
                     {
                         "source": f"[{collection}] {source_id} (similarity: {similarity:.2f})",
-                        "content": content[:5000],  # Limit context size
+                        "content": content[:DEFAULT_CONTENT_EXTRACT_LENGTH],
                     }
                 )
 

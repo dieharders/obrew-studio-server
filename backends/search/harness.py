@@ -17,9 +17,40 @@ The search loop follows these phases:
 import json
 import re
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Protocol, AsyncIterator, runtime_checkable
 from pydantic import BaseModel
 from core import common
+
+
+# =============================================================================
+# Default limits (used as defaults for configurable parameters)
+# =============================================================================
+DEFAULT_MAX_PREVIEW = 10  # Max items to preview in LLM selection
+DEFAULT_MAX_EXTRACT = 3  # Max items to extract full content from
+DEFAULT_MAX_EXPAND = 2  # Max additional scopes to search during expansion
+DEFAULT_MAX_DISCOVER_ITEMS = 50  # Max items to return from discover phase
+DEFAULT_CONTENT_PREVIEW_LENGTH = 100  # Preview length in LLM selection prompt
+DEFAULT_CONTENT_SNIPPET_LENGTH = 200  # Snippet length for source citations
+DEFAULT_CONTENT_EXTRACT_LENGTH = 5000  # Max content length per extracted item
+
+
+# =============================================================================
+# LLM Protocol - defines the interface expected by AgenticSearch
+# =============================================================================
+@runtime_checkable
+class LLMProtocol(Protocol):
+    """Protocol defining the LLM interface required by AgenticSearch."""
+
+    async def text_completion(
+        self,
+        prompt: str,
+        system_message: str,
+        stream: bool,
+        request: Any,
+        constrain_json_output: Optional[Dict[str, Any]] = None,
+    ) -> AsyncIterator[Any]:
+        """Generate text completion from the LLM."""
+        ...
 
 
 # JSON Schema for constrained selection output - just an array of indices
@@ -142,22 +173,27 @@ class AgenticSearch:
     stages to progressively narrow down the search results.
     """
 
-    def __init__(self, provider: SearchProvider, llm, search_type: str):
+    def __init__(
+        self,
+        provider: SearchProvider,
+        llm: LLMProtocol,
+        search_type: str,
+    ):
         """
         Initialize the AgenticSearch orchestrator.
 
         Args:
             provider: The SearchProvider implementation to use
-            llm: The LLM instance for selection and synthesis
+            llm: The LLM instance for selection and synthesis (must implement LLMProtocol)
             search_type: Type identifier for results (e.g., "filesystem", "vector", "web")
         """
-        self.provider = provider
-        self.llm = llm
-        self.search_type = search_type
-        self.abort_requested = False
+        self.provider: SearchProvider = provider
+        self.llm: LLMProtocol = llm
+        self.search_type: str = search_type
+        self.abort_requested: bool = False
         self.search_id: Optional[str] = None
 
-    async def _check_abort(self, request=None) -> bool:
+    async def _check_abort(self, request: Optional[Any] = None) -> bool:
         """
         Check if search should be aborted.
 
@@ -174,7 +210,7 @@ class AgenticSearch:
         return False
 
     def _cancelled_result(
-        self, query: str, phase: str, tool_logs: list
+        self, query: str, phase: str, tool_logs: List[Dict[str, Any]]
     ) -> SearchResult:
         """Create a cancelled search result."""
         return SearchResult(
@@ -258,7 +294,7 @@ class AgenticSearch:
         # Format items with indices for LLM (no sensitive info exposed)
         item_list_str = "\n".join(
             f"[{idx}] {item.name} ({item.type})"
-            + (f" - {item.preview[:100]}..." if item.preview else "")
+            + (f" - {item.preview[:DEFAULT_CONTENT_PREVIEW_LENGTH]}..." if item.preview else "")
             for idx, item in enumerate(items)
         )
 
@@ -365,7 +401,7 @@ Instructions:
                 id=c.get("source", "unknown"),
                 type=self.search_type,
                 name=c.get("source", "unknown"),
-                snippet=c.get("content", "")[:200] if c.get("content") else None,
+                snippet=c.get("content", "")[:DEFAULT_CONTENT_SNIPPET_LENGTH] if c.get("content") else None,
             )
             for c in context
         ]
@@ -382,12 +418,12 @@ Instructions:
         self,
         query: str,
         initial_scope: Optional[str] = None,
-        max_preview: int = 10,
-        max_extract: int = 3,
-        max_expand: int = 2,
+        max_preview: int = DEFAULT_MAX_PREVIEW,
+        max_extract: int = DEFAULT_MAX_EXTRACT,
+        max_expand: int = DEFAULT_MAX_EXPAND,
         auto_expand: bool = True,
-        request=None,
-        **kwargs,
+        request: Optional[Any] = None,
+        **kwargs: Any,
     ) -> SearchResult:
         """
         Execute the multi-phase agentic search.
