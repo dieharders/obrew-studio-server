@@ -21,7 +21,7 @@ huggingface-hub==1.2.3
 # For servers
 fastapi==0.115.0
 uvicorn==0.29.0
-httpx==0.27.0
+httpx==0.28.1
 sse-starlette==1.6.5
 starlette-context==0.3.6
 # HTML templating
@@ -54,3 +54,7 @@ Pillow>=10.0.0
 pyobjc-framework-Cocoa==10.3.1; sys_platform == 'darwin'  # macOS only - for AppKit screen resolution
 # Excel spreadsheet parsing for agentic file search
 openpyxl>=3.1.0
+# Web search (agentic search)
+ddgs>=9.10.0
+# Parse html into structured data
+beautifulsoup4>=4.12.0

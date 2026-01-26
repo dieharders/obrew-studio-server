@@ -378,6 +378,45 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
     }
     data.append(downloads_api)
 
+    # Return search services (agentic search over various data sources)
+    search_api = {
+        "name": "search",
+        "port": app.state.api.SERVER_PORT,
+        "endpoints": [
+            # Stop an active search by ID or all active searches
+            {
+                "name": "stop",
+                "urlPath": "/v1/search/stop",
+                "method": "POST",
+            },
+            # Perform agentic vector/embedding search over ChromaDB collections
+            {
+                "name": "vector",
+                "urlPath": "/v1/search/vector",
+                "method": "POST",
+            },
+            # Perform agentic web search using DuckDuckGo
+            {
+                "name": "web",
+                "urlPath": "/v1/search/web",
+                "method": "POST",
+            },
+            # Perform agentic file system search over local directories
+            {
+                "name": "fs",
+                "urlPath": "/v1/search/fs",
+                "method": "POST",
+            },
+            # Perform agentic search over client-provided structured data
+            {
+                "name": "structured",
+                "urlPath": "/v1/search/structured",
+                "method": "POST",
+            },
+        ],
+    }
+    data.append(search_api)
+
     return {
         "success": True,
         "message": "These are the currently available service api's",

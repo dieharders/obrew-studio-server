@@ -1,0 +1,129 @@
+{
+  "query": "What did we decide about authentication?",
+  "items": [
+    {
+      "id": "msg-001",
+      "name": "Alice",
+      "content": "I think we should use JWT tokens for authentication. They're stateless and work well with our microservices architecture.",
+      "metadata": { "timestamp": "2024-01-15T10:00:00Z", "channel": "dev-backend" }
+    },
+    {
+      "id": "msg-002",
+      "name": "Bob",
+      "content": "Agreed on JWT. We can use the python-jose library for token handling. It has good support for RS256 signing.",
+      "metadata": { "timestamp": "2024-01-15T10:05:00Z", "channel": "dev-backend" }
+    },
+    {
+      "id": "msg-003",
+      "name": "Alice",
+      "content": "Let's also add refresh token support. Short-lived access tokens (15 min) with longer refresh tokens (7 days) for better security.",
+      "metadata": { "timestamp": "2024-01-15T10:10:00Z", "channel": "dev-backend" }
+    },
+    {
+      "id": "msg-004",
+      "name": "Charlie",
+      "content": "Don't forget we need to handle token revocation. Maybe a Redis blacklist for invalidated tokens?",
+      "metadata": { "timestamp": "2024-01-15T10:15:00Z", "channel": "dev-backend" }
+    },
+    {
+      "id": "msg-005",
+      "name": "Bob",
+      "content": "Good point Charlie. We should also implement rate limiting on the auth endpoints to prevent brute force attacks.",
+      "metadata": { "timestamp": "2024-01-15T10:20:00Z", "channel": "dev-backend" }
+    },
+    {
+      "id": "msg-006",
+      "name": "Diana",
+      "content": "Hey team, the new coffee machine is installed in the break room. It has an espresso option now!",
+      "metadata": { "timestamp": "2024-01-15T10:25:00Z", "channel": "general" }
+    },
+    {
+      "id": "msg-007",
+      "name": "Eve",
+      "content": "Has anyone seen the latest deployment metrics? The response times look a bit high.",
+      "metadata": { "timestamp": "2024-01-15T10:30:00Z", "channel": "dev-ops" }
+    },
+    {
+      "id": "msg-008",
+      "name": "Frank",
+      "content": "I'm working on the new dashboard UI. Should be ready for review by Friday.",
+      "metadata": { "timestamp": "2024-01-15T10:35:00Z", "channel": "dev-frontend" }
+    },
+    {
+      "id": "msg-009",
+      "name": "Grace",
+      "content": "Reminder: Team lunch tomorrow at noon. Please RSVP in the calendar invite.",
+      "metadata": { "timestamp": "2024-01-15T10:40:00Z", "channel": "general" }
+    },
+    {
+      "id": "msg-010",
+      "name": "Henry",
+      "content": "The database migration script is ready. We should schedule downtime for next week.",
+      "metadata": { "timestamp": "2024-01-15T10:45:00Z", "channel": "dev-backend" }
+    },
+    {
+      "id": "msg-011",
+      "name": "Ivy",
+      "content": "Can someone review PR #234? It's been open for 3 days now.",
+      "metadata": { "timestamp": "2024-01-15T10:50:00Z", "channel": "dev-backend" }
+    },
+    {
+      "id": "msg-012",
+      "name": "Jack",
+      "content": "The CI pipeline is failing on the main branch. Looking into it now.",
+      "metadata": { "timestamp": "2024-01-15T10:55:00Z", "channel": "dev-ops" }
+    },
+    {
+      "id": "msg-013",
+      "name": "Karen",
+      "content": "New feature request from the product team: dark mode support for the mobile app.",
+      "metadata": { "timestamp": "2024-01-15T11:00:00Z", "channel": "dev-frontend" }
+    },
+    {
+      "id": "msg-014",
+      "name": "Leo",
+      "content": "Anyone up for a game of ping pong during lunch break?",
+      "metadata": { "timestamp": "2024-01-15T11:05:00Z", "channel": "general" }
+    },
+    {
+      "id": "msg-015",
+      "name": "Mike",
+      "content": "The load balancer config has been updated. Traffic should be more evenly distributed now.",
+      "metadata": { "timestamp": "2024-01-15T11:10:00Z", "channel": "dev-ops" }
+    },
+    {
+      "id": "msg-016",
+      "name": "Nancy",
+      "content": "I found a bug in the search functionality. Creating a ticket now.",
+      "metadata": { "timestamp": "2024-01-15T11:15:00Z", "channel": "dev-backend" }
+    },
+    {
+      "id": "msg-017",
+      "name": "Oscar",
+      "content": "The new intern starts Monday. Can someone prepare the onboarding docs?",
+      "metadata": { "timestamp": "2024-01-15T11:20:00Z", "channel": "general" }
+    },
+    {
+      "id": "msg-018",
+      "name": "Paula",
+      "content": "Sprint retrospective meeting moved to 3pm. Please update your calendars.",
+      "metadata": { "timestamp": "2024-01-15T11:25:00Z", "channel": "general" }
+    },
+    {
+      "id": "msg-019",
+      "name": "Quinn",
+      "content": "The API documentation needs updating. Some endpoints are missing descriptions.",
+      "metadata": { "timestamp": "2024-01-15T11:30:00Z", "channel": "dev-backend" }
+    },
+    {
+      "id": "msg-020",
+      "name": "Rachel",
+      "content": "Just pushed the new error handling code. Tests are passing locally.",
+      "metadata": { "timestamp": "2024-01-15T11:35:00Z", "channel": "dev-backend" }
+    }
+  ],
+  "max_preview": 6,
+  "max_extract": 3,
+  "group_by": "channel",
+  "auto_expand": false
+}

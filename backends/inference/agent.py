@@ -58,11 +58,61 @@ class Agent:
             tool = Tool(app=self.app, request=request)
             assigned_tool: ToolDefinition = None
             all_installed_tool_defs: List[ToolDefinition] = (
-                get_all_tool_definitions().get("data")
+                get_all_tool_definitions().get("data") or []
             )
             assigned_tool_defs = [
                 item for item in all_installed_tool_defs if item["name"] in self.tools
             ]
+
+            # Fallback: Load unregistered tools directly from built_in_functions
+            found_names = {t["name"] for t in assigned_tool_defs}
+            failed_tools = []
+            for tool_name in self.tools:
+                if tool_name not in found_names:
+                    try:
+                        schema = tool.read_function(f"{tool_name}.py", tool_name)
+                        if schema:
+                            assigned_tool_defs.append(
+                                {"name": tool_name, "path": f"{tool_name}.py", **schema}
+                            )
+                            print(
+                                f"{common.PRNT_API} Loaded built-in tool: {tool_name}",
+                                flush=True,
+                            )
+                        else:
+                            # Schema was None - tool module exists but has no valid schema
+                            failed_tools.append(tool_name)
+                            print(
+                                f"{common.PRNT_API} Warning: Built-in tool '{tool_name}' returned no schema - check tool has valid Params class",
+                                flush=True,
+                            )
+                    except FileNotFoundError:
+                        failed_tools.append(tool_name)
+                        print(
+                            f"{common.PRNT_API} Error: Built-in tool '{tool_name}' not found - verify tool file exists at tools/built_in_functions/{tool_name}.py",
+                            flush=True,
+                        )
+                    except ImportError as e:
+                        failed_tools.append(tool_name)
+                        print(
+                            f"{common.PRNT_API} Error: Failed to import built-in tool '{tool_name}' - {e}",
+                            flush=True,
+                        )
+                    except Exception as e:
+                        failed_tools.append(tool_name)
+                        print(
+                            f"{common.PRNT_API} Error: Unexpected error loading built-in tool '{tool_name}': {type(e).__name__}: {e}",
+                            flush=True,
+                        )
+
+            # Log summary if any tools failed to load
+            if failed_tools:
+                print(
+                    f"{common.PRNT_API} Warning: {len(failed_tools)} tool(s) failed to load: {failed_tools}. "
+                    f"Agent will proceed with {len(assigned_tool_defs)} available tool(s).",
+                    flush=True,
+                )
+
             # Use native tool calling, choose tool from list of schemas and output args in one-shot
             if curr_func_calling == TOOL_USE_MODES.NATIVE.value:
                 tool_call_result = await tool.native_call(
