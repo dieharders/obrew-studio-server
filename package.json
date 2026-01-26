@@ -1,6 +1,6 @@
 {
   "name": "obrew-studio-server",
-  "version": "0.12.17",
+  "version": "0.12.18",
   "author": "OpenBrewAi",
   "license": "MIT",
   "productName": "Obrew Studio Engine",
@@ -11,11 +11,6 @@
       "title": "FileBuff",
       "url": "https://filebuff.openbrew.ai",
       "description": "File management and knowledge base interface for your documents."
-    },
-    {
-      "title": "Obrew Studio",
-      "url": "https://studio.openbrew.ai",
-      "description": "The main Obrew Studio interface for AI chat, agents, and workflows."
     }
   ],
   "llamacpp_tag": "b7087",

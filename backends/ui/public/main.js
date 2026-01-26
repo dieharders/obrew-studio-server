@@ -518,11 +518,8 @@ function createAppCards(hostedApps) {
         <div class="app-card-actions">
           ${qrSection}
           <div class="app-buttons">
-            <button type="button" class="btn btn-secondary btn-app" onclick="openInBrowser(this, event)">
-              Launch in Browser
-            </button>
             <button type="button" class="btn btn-secondary btn-app" onclick="launchSelectedApp(this, event)">
-              Open
+              Launch
             </button>
           </div>
         </div>
