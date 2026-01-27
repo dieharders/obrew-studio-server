@@ -34,17 +34,18 @@ numpy<2
 # Required by chromadb's dependencies (pandas, etc.)
 python-dateutil>=2.8.0
 distro>=1.8.0
-# Optional file format support (lazy imports)
+# File format parsing support
 python-docx==1.1.0  # .docx files
 python-pptx==0.6.23  # .pptx files
 striprtf==0.0.26  # .rtf files
+openpyxl>=3.1.0 # Excel spreadsheet
 # Sentence boundary detection (no runtime downloads required, unlike NLTK)
 pysbd==0.3.4
 # LlamaParse cloud service (optional, requires API key)
 # llama-parse==0.4.9
 # For building single exe python
 pyinstaller==6.11.1
-python-multipart==0.0.18
+python-multipart>=0.0.22
 # GPU Profiling
 WMI==1.5.1; sys_platform == 'win32'  # Windows only
 GPUtil==1.4.0
@@ -52,8 +53,6 @@ GPUtil==1.4.0
 Pillow>=10.0.0
 # macOS Platform Support
 pyobjc-framework-Cocoa==10.3.1; sys_platform == 'darwin'  # macOS only - for AppKit screen resolution
-# Excel spreadsheet parsing for agentic file search
-openpyxl>=3.1.0
 # Web search (agentic search)
 ddgs>=9.10.0
 # Parse html into structured data
