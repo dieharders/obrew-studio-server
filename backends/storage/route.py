@@ -1,9 +1,8 @@
 import os
 import glob
 import json
-from typing import Optional
 from fastapi import APIRouter, Depends
-from tools.helpers import get_built_in_functions
+from tools.built_in_functions import TOOLS as BUILT_IN_TOOLS
 from tools.tool import Tool
 from core import classes, common
 from storage import classes as storage_classes
@@ -81,23 +80,51 @@ def save_tool_definition(
 # Get all tool settings
 @router.get("/tool-settings")
 def get_all_tool_definitions() -> classes.GetToolSettingsResponse:
+    tools = []
+    user_tool_names = set()
+
+    # 1. Load user-installed tools from tools/defs/*.json
     try:
-        # Load tools from file
-        tools = common.store_tool_definition(
+        user_tools = common.store_tool_definition(
             operation="r",
             folderpath=common.TOOL_DEFS_PATH,
         )
-        numTools = len(tools)
+        if user_tools:
+            tools.extend(user_tools)
+            user_tool_names = {t.get("name") for t in user_tools if t.get("name")}
     except Exception as err:
-        return {
-            "success": False,
-            "message": f"Failed to return any tools.\n{err}",
-            "data": None,
-        }
+        print(f"{common.PRNT_API} Failed to load user tools: {err}", flush=True)
+
+    # 2. Generate definitions for built-in tools (skip if user override exists)
+    try:
+        tool_reader = Tool()
+        for filename in BUILT_IN_TOOLS.keys():
+            tool_name = filename.replace(".py", "")
+            # Skip if user has installed a custom version
+            if tool_name in user_tool_names:
+                continue
+            try:
+                schema = tool_reader.read_function(
+                    filename=filename, tool_name=tool_name
+                )
+                tool_def = {
+                    "name": tool_name,
+                    "path": filename,
+                    "id": f"builtin_{tool_name}",
+                    **schema,
+                }
+                tools.append(tool_def)
+            except Exception as err:
+                print(
+                    f"{common.PRNT_API} Failed to load built-in tool {tool_name}: {err}",
+                    flush=True,
+                )
+    except Exception as err:
+        print(f"{common.PRNT_API} Failed to load built-in tools: {err}", flush=True)
 
     return {
         "success": True,
-        "message": f"Returned {numTools} tool(s) definitions.",
+        "message": f"Returned {len(tools)} tool(s) definitions.",
         "data": tools,
     }
 
@@ -151,10 +178,8 @@ def get_tool_functions() -> classes.ListToolFunctionsResponse:
     built_in_file_names = []
 
     try:
-        # Check in internal dev path for built-in tool funcs
-        prebuilt_func = get_built_in_functions()
-        if prebuilt_func:
-            built_in_file_names = list(prebuilt_func.keys())
+        # Get built-in tool function names
+        built_in_file_names = list(BUILT_IN_TOOLS.keys())
     except Exception as err:
         print(f"{common.PRNT_API} {err}")
 
