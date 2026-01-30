@@ -14,95 +14,80 @@ router = APIRouter()
 BOT_SETTINGS_FILE_NAME = "bots.json"
 
 
+# TODO Deprecated: User tools are not explicitly installed. Remove this endpoint.
 # Save tool  to disk.
-@router.post("/tool-settings")
-def save_tool_definition(
-    tool_def: classes.ToolDefinition,
-) -> classes.EmptyToolSettingsResponse:
-    name = tool_def.name
-    path = tool_def.path
-    if not name:
-        return {
-            "success": False,
-            "message": f'Please add a "name" value.',
-            "data": None,
-        }
-    if not path:
-        return {
-            "success": False,
-            "message": f'Please add a "path" value.',
-            "data": None,
-        }
-    try:
-        # Check dupes
-        res = get_all_tool_definitions()
-        tools = res.get("data") or []
-        is_dupe = next(
-            (item for item in tools if item["name"] == name),
-            None,
-        )
-        if is_dupe and not tool_def.id:
-            return {
-                "success": False,
-                "message": f'The tool name "{name}" already exists.',
-                "data": None,
-            }
-        # Assign id
-        if tool_def.id:
-            id = tool_def.id
-        else:
-            id = uuid()
-        # Paths - @TODO Check for url or filename and handle accordingly
-        # For urls, make call to endpoint.json to fetch descr, args, example
-        file_name = f"{id}.json"
-        file_path = os.path.join(common.TOOL_DEFS_PATH, file_name)
-        # Save tool to file
-        common.store_tool_definition(
-            operation="w",
-            folderpath=common.TOOL_DEFS_PATH,
-            filepath=file_path,
-            data={**tool_def.model_dump(), "id": id},
-        )
-    except Exception as err:
-        return {
-            "success": False,
-            "message": f"Failed to add tool. Reason: {err}",
-            "data": None,
-        }
-    # Successful
-    return {
-        "success": True,
-        "message": f"Saved tool settings.",
-        "data": None,
-    }
+# @router.post("/tool-settings")
+# def save_tool_definition(
+#     tool_def: classes.ToolDefinition,
+# ) -> classes.EmptyToolSettingsResponse:
+#     name = tool_def.name
+#     path = tool_def.path
+#     if not name:
+#         return {
+#             "success": False,
+#             "message": f'Please add a "name" value.',
+#             "data": None,
+#         }
+#     if not path:
+#         return {
+#             "success": False,
+#             "message": f'Please add a "path" value.',
+#             "data": None,
+#         }
+#     try:
+#         # Check dupes
+#         res = get_all_tool_definitions()
+#         tools = res.get("data") or []
+#         is_dupe = next(
+#             (item for item in tools if item["name"] == name),
+#             None,
+#         )
+#         if is_dupe and not tool_def.id:
+#             return {
+#                 "success": False,
+#                 "message": f'The tool name "{name}" already exists.',
+#                 "data": None,
+#             }
+#         # Assign id
+#         if tool_def.id:
+#             id = tool_def.id
+#         else:
+#             id = uuid()
+#         # Paths - @TODO Check for url or filename and handle accordingly
+#         # For urls, make call to endpoint.json to fetch descr, args, example
+#         file_name = f"{id}.json"
+#         file_path = os.path.join(common.TOOL_DEFS_PATH, file_name)
+#         # Save tool to file
+#         common.store_tool_definition(
+#             operation="w",
+#             folderpath=common.TOOL_DEFS_PATH,
+#             filepath=file_path,
+#             data={**tool_def.model_dump(), "id": id},
+#         )
+#     except Exception as err:
+#         return {
+#             "success": False,
+#             "message": f"Failed to add tool. Reason: {err}",
+#             "data": None,
+#         }
+#     # Successful
+#     return {
+#         "success": True,
+#         "message": f"Saved tool settings.",
+#         "data": None,
+#     }
 
 
 # Get all tool settings
 @router.get("/tool-settings")
 def get_all_tool_definitions() -> classes.GetToolSettingsResponse:
     tools = []
-    user_tool_names = set()
 
-    # 1. Load user-installed tools from tools/defs/*.json
-    try:
-        user_tools = common.store_tool_definition(
-            operation="r",
-            folderpath=common.TOOL_DEFS_PATH,
-        )
-        if user_tools:
-            tools.extend(user_tools)
-            user_tool_names = {t.get("name") for t in user_tools if t.get("name")}
-    except Exception as err:
-        print(f"{common.PRNT_API} Failed to load user tools: {err}", flush=True)
-
-    # 2. Generate definitions for built-in tools (skip if user override exists)
+    # Generate definitions for built-in tools
     try:
         tool_reader = Tool()
         for filename in BUILT_IN_TOOLS.keys():
             tool_name = filename.replace(".py", "")
-            # Skip if user has installed a custom version
-            if tool_name in user_tool_names:
-                continue
             try:
                 schema = tool_reader.read_function(
                     filename=filename, tool_name=tool_name
@@ -129,21 +114,22 @@ def get_all_tool_definitions() -> classes.GetToolSettingsResponse:
     }
 
 
+# TODO Deprecated: User tools are no longer explicitly installed. Remove this endpoint.
 # Delete tool setting
-@router.delete("/tool-settings")
-def delete_tool_definition_by_id(id: str) -> classes.EmptyToolSettingsResponse:
-    # Remove tool file
-    common.store_tool_definition(
-        operation="d",
-        folderpath=common.TOOL_DEFS_PATH,
-        id=id,
-    )
+# @router.delete("/tool-settings")
+# def delete_tool_definition_by_id(id: str) -> classes.EmptyToolSettingsResponse:
+#     # Remove tool file
+#     common.store_tool_definition(
+#         operation="d",
+#         folderpath=common.TOOL_DEFS_PATH,
+#         id=id,
+#     )
 
-    return {
-        "success": True,
-        "message": f"Removed tool definition.",
-        "data": None,
-    }
+#     return {
+#         "success": True,
+#         "message": f"Removed tool definition.",
+#         "data": None,
+#     }
 
 
 # Return a schema from a specified python tool function
@@ -174,7 +160,7 @@ def get_tool_schema(
 @router.get("/tool-funcs")
 def get_tool_functions() -> classes.ListToolFunctionsResponse:
     funcs = []
-    user_file_names = []
+    # user_file_names = []
     built_in_file_names = []
 
     try:
@@ -183,18 +169,20 @@ def get_tool_functions() -> classes.ListToolFunctionsResponse:
     except Exception as err:
         print(f"{common.PRNT_API} {err}")
 
-    try:
-        # Check in /tools/functions Production dir for user added tool funcs
-        base_path = common.app_path()
-        user_funcs_path = os.path.join(
-            base_path, common.TOOL_FOLDER, common.TOOL_FUNCS_FOLDER
-        )
-        user_file_names = common.find_file_names(user_funcs_path)
-    except Exception as err:
-        print(f"{common.PRNT_API} {err}")
+    # TODO Deprecated: User tool functions are no longer supported. Remove this block.
+    # try:
+    #     # Check in /tools/functions Production dir for user added tool funcs
+    #     base_path = common.app_path()
+    #     user_funcs_path = os.path.join(
+    #         base_path, common.TOOL_FOLDER, common.TOOL_FUNCS_FOLDER
+    #     )
+    #     user_file_names = common.find_file_names(user_funcs_path)
+    # except Exception as err:
+    #     print(f"{common.PRNT_API} {err}")
 
     # Get all tool file names
-    funcs = user_file_names + built_in_file_names
+    # funcs = user_file_names + built_in_file_names
+    funcs = built_in_file_names
 
     if len(funcs) == 0:
         return {
