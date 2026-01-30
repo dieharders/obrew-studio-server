@@ -225,7 +225,19 @@ def tool_to_json_schema(params: List[dict]) -> str:
     required = []
     for param in params:
         param_name = param["name"]
-        param_schema = {"type": param["type"]}
+        # Handle complex Pydantic types (Optional, List, etc.)
+        if "type" in param:
+            param_schema = {"type": param["type"]}
+        elif "anyOf" in param:
+            # Optional types have anyOf with null - extract the non-null type
+            non_null_types = [t for t in param["anyOf"] if t.get("type") != "null"]
+            if non_null_types:
+                param_schema = non_null_types[0]
+            else:
+                param_schema = {"type": "string"}
+        else:
+            # Fallback for complex types
+            param_schema = {"type": "object"}
         # Include enum values for Literal types (from options field)
         if param.get("options"):
             param_schema["enum"] = param["options"]
@@ -252,8 +264,16 @@ def tool_to_typescript_schema(name: str, description: str, params: List[dict]) -
         if param.get("llm_not_required"):
             continue
         param_name = param["name"]
-        param_type = param["type"]
-        param_description = param["description"]
+        # Handle complex Pydantic types (Optional, List, etc.)
+        if "type" in param:
+            param_type = param["type"]
+        elif "anyOf" in param:
+            # Optional types - extract the non-null type
+            non_null_types = [t.get("type") for t in param["anyOf"] if t.get("type") != "null"]
+            param_type = non_null_types[0] if non_null_types else "any"
+        else:
+            param_type = "any"
+        param_description = param.get("description", "")
         param_str = f"// {param_description}\n{param_name}: {param_type},"
         properties += f"\n{param_str}"
     # Construct new schema
@@ -332,28 +352,3 @@ def find_tool_in_response(response: str, tools: List[str]) -> Optional[str]:
             print(f"{common.PRNT_API} Found tool:{tool_name}", flush=True)
             return tool_name  # Return first match
     return None  # Explicitly return None if no tool is found
-
-
-def get_built_in_functions() -> dict:
-    """Dynamically import all built-in function modules from tools/built_in_functions."""
-    import pkgutil
-    import importlib
-    from tools import built_in_functions
-
-    functions = {}
-    # Iterate through all modules in the built_in_functions package
-    for _, module_name, ispkg in pkgutil.iter_modules(built_in_functions.__path__):
-        # Skip __init__ and any packages (only import .py files)
-        if ispkg or module_name.startswith("_"):
-            continue
-        try:
-            # Import the module
-            module = importlib.import_module(f"tools.built_in_functions.{module_name}")
-            # Add the module to the functions dict using the module name (assuming .py extension as key)
-            functions[f"{module_name}.py"] = module
-        except Exception as err:
-            print(
-                f"{common.PRNT_API} Failed to import {module_name}: {err}", flush=True
-            )
-
-    return functions

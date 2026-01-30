@@ -1,9 +1,8 @@
 import os
 import glob
 import json
-from typing import Optional
 from fastapi import APIRouter, Depends
-from tools.helpers import get_built_in_functions
+from tools.built_in_functions import TOOLS as BUILT_IN_TOOLS
 from tools.tool import Tool
 from core import classes, common
 from storage import classes as storage_classes
@@ -15,108 +14,122 @@ router = APIRouter()
 BOT_SETTINGS_FILE_NAME = "bots.json"
 
 
+# TODO Deprecated: User tools are not explicitly installed. Remove this endpoint.
 # Save tool  to disk.
-@router.post("/tool-settings")
-def save_tool_definition(
-    tool_def: classes.ToolDefinition,
-) -> classes.EmptyToolSettingsResponse:
-    name = tool_def.name
-    path = tool_def.path
-    if not name:
-        return {
-            "success": False,
-            "message": f'Please add a "name" value.',
-            "data": None,
-        }
-    if not path:
-        return {
-            "success": False,
-            "message": f'Please add a "path" value.',
-            "data": None,
-        }
-    try:
-        # Check dupes
-        res = get_all_tool_definitions()
-        tools = res.get("data") or []
-        is_dupe = next(
-            (item for item in tools if item["name"] == name),
-            None,
-        )
-        if is_dupe and not tool_def.id:
-            return {
-                "success": False,
-                "message": f'The tool name "{name}" already exists.',
-                "data": None,
-            }
-        # Assign id
-        if tool_def.id:
-            id = tool_def.id
-        else:
-            id = uuid()
-        # Paths - @TODO Check for url or filename and handle accordingly
-        # For urls, make call to endpoint.json to fetch descr, args, example
-        file_name = f"{id}.json"
-        file_path = os.path.join(common.TOOL_DEFS_PATH, file_name)
-        # Save tool to file
-        common.store_tool_definition(
-            operation="w",
-            folderpath=common.TOOL_DEFS_PATH,
-            filepath=file_path,
-            data={**tool_def.model_dump(), "id": id},
-        )
-    except Exception as err:
-        return {
-            "success": False,
-            "message": f"Failed to add tool. Reason: {err}",
-            "data": None,
-        }
-    # Successful
-    return {
-        "success": True,
-        "message": f"Saved tool settings.",
-        "data": None,
-    }
+# @router.post("/tool-settings")
+# def save_tool_definition(
+#     tool_def: classes.ToolDefinition,
+# ) -> classes.EmptyToolSettingsResponse:
+#     name = tool_def.name
+#     path = tool_def.path
+#     if not name:
+#         return {
+#             "success": False,
+#             "message": f'Please add a "name" value.',
+#             "data": None,
+#         }
+#     if not path:
+#         return {
+#             "success": False,
+#             "message": f'Please add a "path" value.',
+#             "data": None,
+#         }
+#     try:
+#         # Check dupes
+#         res = get_all_tool_definitions()
+#         tools = res.get("data") or []
+#         is_dupe = next(
+#             (item for item in tools if item["name"] == name),
+#             None,
+#         )
+#         if is_dupe and not tool_def.id:
+#             return {
+#                 "success": False,
+#                 "message": f'The tool name "{name}" already exists.',
+#                 "data": None,
+#             }
+#         # Assign id
+#         if tool_def.id:
+#             id = tool_def.id
+#         else:
+#             id = uuid()
+#         # Paths - @TODO Check for url or filename and handle accordingly
+#         # For urls, make call to endpoint.json to fetch descr, args, example
+#         file_name = f"{id}.json"
+#         file_path = os.path.join(common.TOOL_DEFS_PATH, file_name)
+#         # Save tool to file
+#         common.store_tool_definition(
+#             operation="w",
+#             folderpath=common.TOOL_DEFS_PATH,
+#             filepath=file_path,
+#             data={**tool_def.model_dump(), "id": id},
+#         )
+#     except Exception as err:
+#         return {
+#             "success": False,
+#             "message": f"Failed to add tool. Reason: {err}",
+#             "data": None,
+#         }
+#     # Successful
+#     return {
+#         "success": True,
+#         "message": f"Saved tool settings.",
+#         "data": None,
+#     }
 
 
 # Get all tool settings
 @router.get("/tool-settings")
 def get_all_tool_definitions() -> classes.GetToolSettingsResponse:
+    tools = []
+
+    # Generate definitions for built-in tools
     try:
-        # Load tools from file
-        tools = common.store_tool_definition(
-            operation="r",
-            folderpath=common.TOOL_DEFS_PATH,
-        )
-        numTools = len(tools)
+        tool_reader = Tool()
+        for filename in BUILT_IN_TOOLS.keys():
+            tool_name = filename.replace(".py", "")
+            try:
+                schema = tool_reader.read_function(
+                    filename=filename, tool_name=tool_name
+                )
+                tool_def = {
+                    "name": tool_name,
+                    "path": filename,
+                    "id": f"builtin_{tool_name}",
+                    **schema,
+                }
+                tools.append(tool_def)
+            except Exception as err:
+                print(
+                    f"{common.PRNT_API} Failed to load built-in tool {tool_name}: {err}",
+                    flush=True,
+                )
     except Exception as err:
-        return {
-            "success": False,
-            "message": f"Failed to return any tools.\n{err}",
-            "data": None,
-        }
+        print(f"{common.PRNT_API} Failed to load built-in tools: {err}", flush=True)
 
     return {
         "success": True,
-        "message": f"Returned {numTools} tool(s) definitions.",
+        "message": f"Returned {len(tools)} tool(s) definitions.",
         "data": tools,
     }
 
 
+# TODO Deprecated: User tools are no longer explicitly installed. Remove this endpoint.
 # Delete tool setting
-@router.delete("/tool-settings")
-def delete_tool_definition_by_id(id: str) -> classes.EmptyToolSettingsResponse:
-    # Remove tool file
-    common.store_tool_definition(
-        operation="d",
-        folderpath=common.TOOL_DEFS_PATH,
-        id=id,
-    )
+# @router.delete("/tool-settings")
+# def delete_tool_definition_by_id(id: str) -> classes.EmptyToolSettingsResponse:
+#     # Remove tool file
+#     common.store_tool_definition(
+#         operation="d",
+#         folderpath=common.TOOL_DEFS_PATH,
+#         id=id,
+#     )
 
-    return {
-        "success": True,
-        "message": f"Removed tool definition.",
-        "data": None,
-    }
+#     return {
+#         "success": True,
+#         "message": f"Removed tool definition.",
+#         "data": None,
+#     }
 
 
 # Return a schema from a specified python tool function
@@ -147,29 +160,29 @@ def get_tool_schema(
 @router.get("/tool-funcs")
 def get_tool_functions() -> classes.ListToolFunctionsResponse:
     funcs = []
-    user_file_names = []
+    # user_file_names = []
     built_in_file_names = []
 
     try:
-        # Check in internal dev path for built-in tool funcs
-        prebuilt_func = get_built_in_functions()
-        if prebuilt_func:
-            built_in_file_names = list(prebuilt_func.keys())
+        # Get built-in tool function names
+        built_in_file_names = list(BUILT_IN_TOOLS.keys())
     except Exception as err:
         print(f"{common.PRNT_API} {err}")
 
-    try:
-        # Check in /tools/functions Production dir for user added tool funcs
-        base_path = common.app_path()
-        user_funcs_path = os.path.join(
-            base_path, common.TOOL_FOLDER, common.TOOL_FUNCS_FOLDER
-        )
-        user_file_names = common.find_file_names(user_funcs_path)
-    except Exception as err:
-        print(f"{common.PRNT_API} {err}")
+    # TODO Deprecated: User tool functions are no longer supported. Remove this block.
+    # try:
+    #     # Check in /tools/functions Production dir for user added tool funcs
+    #     base_path = common.app_path()
+    #     user_funcs_path = os.path.join(
+    #         base_path, common.TOOL_FOLDER, common.TOOL_FUNCS_FOLDER
+    #     )
+    #     user_file_names = common.find_file_names(user_funcs_path)
+    # except Exception as err:
+    #     print(f"{common.PRNT_API} {err}")
 
     # Get all tool file names
-    funcs = user_file_names + built_in_file_names
+    # funcs = user_file_names + built_in_file_names
+    funcs = built_in_file_names
 
     if len(funcs) == 0:
         return {

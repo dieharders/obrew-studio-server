@@ -1,1 +1,51 @@
 # Built-in tool functions
+# Static imports for PyInstaller compatibility
+
+from . import (
+    calculator,
+    data_transform,
+    enhance_text,
+    retrieval,
+    extract_array_of_strings,
+    extract_boolean,
+    extract_json,
+    extract_number,
+    extract_object,
+    extract_string,
+    file_glob,
+    file_grep,
+    file_parse,
+    file_preview,
+    file_read,
+    file_scan,
+    item_grep,
+    item_preview,
+    item_query,
+    item_read,
+    item_scan,
+)
+
+# Registry for tool discovery - maps filename to module
+TOOLS = {
+    "calculator.py": calculator,
+    "data_transform.py": data_transform,
+    "enhance_text.py": enhance_text,
+    "retrieval.py": retrieval,
+    "extract_array_of_strings.py": extract_array_of_strings,
+    "extract_boolean.py": extract_boolean,
+    "extract_json.py": extract_json,
+    "extract_number.py": extract_number,
+    "extract_object.py": extract_object,
+    "extract_string.py": extract_string,
+    "file_glob.py": file_glob,
+    "file_grep.py": file_grep,
+    "file_parse.py": file_parse,
+    "file_preview.py": file_preview,
+    "file_read.py": file_read,
+    "file_scan.py": file_scan,
+    "item_grep.py": item_grep,
+    "item_preview.py": item_preview,
+    "item_query.py": item_query,
+    "item_read.py": item_read,
+    "item_scan.py": item_scan,
+}
