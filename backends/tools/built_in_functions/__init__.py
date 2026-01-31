@@ -23,6 +23,14 @@ from . import (
     item_query,
     item_read,
     item_scan,
+    # Agent harness tools
+    agent_task,
+    agent_todo,
+    agent_respond,
+    agent_search,
+    agent_chooser,
+    agent_file,
+    agent_render_widget,
 )
 
 # Registry for tool discovery - maps filename to module
@@ -48,4 +56,12 @@ TOOLS = {
     "item_query.py": item_query,
     "item_read.py": item_read,
     "item_scan.py": item_scan,
+    # Agent harness tools
+    "agent_task.py": agent_task,
+    "agent_todo.py": agent_todo,
+    "agent_respond.py": agent_respond,
+    "agent_search.py": agent_search,
+    "agent_chooser.py": agent_chooser,
+    "agent_file.py": agent_file,
+    "agent_render_widget.py": agent_render_widget,
 }
