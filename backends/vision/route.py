@@ -522,6 +522,7 @@ async def embed_image(
                 collection = app.state.db_client.create_collection(
                     name=collection_name,
                     metadata={
+                        "hnsw:space": "cosine",  # Use cosine distance for semantic similarity
                         "type": "image_embeddings",
                         "embedding_model": stored_model_id,
                         "embedding_dim": embedding_dim,
@@ -1008,11 +1009,12 @@ async def query_image_collection(
 
         for i, doc_id in enumerate(ids):
             # Calculate similarity score from distance
-            # ChromaDB uses L2 (squared Euclidean) distance by default, which is unbounded [0, inf)
-            # Using 1/(1+distance) gives a bounded similarity score in [0, 1]
-            # where 0 distance = 1.0 (identical) and higher distance approaches 0
+            # With "hnsw:space": "cosine" configured, ChromaDB returns cosine distance
+            # where cosine_distance = 1 - cosine_similarity, bounded to [0, 2]
+            # So similarity = 1 - distance recovers the original cosine similarity [−1, 1]
+            # For normalized embeddings, this is typically in [0, 1]
             distance = distances[i] if i < len(distances) else None
-            similarity_score = 1.0 / (1.0 + distance) if distance is not None else None
+            similarity_score = 1.0 - distance if distance is not None else None
 
             result_item = {
                 "id": doc_id,

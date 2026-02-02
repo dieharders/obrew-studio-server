@@ -79,6 +79,7 @@ class SearchSource(BaseModel):
     type: str
     name: str
     snippet: Optional[str] = None
+    score: Optional[float] = None  # Similarity score (0-1) for vector search results
 
 
 class SearchResultData(BaseModel):
@@ -402,6 +403,7 @@ Instructions:
                 type=self.search_type,
                 name=c.get("source", "unknown"),
                 snippet=c.get("content", "")[:DEFAULT_CONTENT_SNIPPET_LENGTH] if c.get("content") else None,
+                score=c.get("score"),  # Pass through similarity score if available
             )
             for c in context
         ]
