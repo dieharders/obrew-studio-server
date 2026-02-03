@@ -66,6 +66,7 @@ def create_memory_collection(
             form.embeddingDim if form.embeddingDim and form.embeddingDim > 0 else None
         )
         metadata = {
+            "hnsw:space": "cosine",  # Use cosine distance for semantic similarity
             "icon": form.icon or "",
             "created_at": datetime.now(timezone.utc).strftime("%B %d %Y - %H:%M:%S"),
             "tags": parsed_tags,

@@ -175,7 +175,7 @@ class VectorProvider(SearchProvider):
             query: Search query text
 
         Returns:
-            List of context dicts with 'source' and 'content' keys
+            List of context dicts with 'source', 'content', and 'score' keys
         """
         results, error = await self._execute_collection_query(collection_name, query)
         if results is None:
@@ -183,10 +183,11 @@ class VectorProvider(SearchProvider):
 
         documents = results.get("documents", [[]])[0]
         metadatas = results.get("metadatas", [[]])[0]
+        distances = results.get("distances", [[]])[0]
 
         # Convert to context format
         context = []
-        for doc, meta in zip(documents, metadatas):
+        for i, (doc, meta) in enumerate(zip(documents, metadatas)):
             original_text = meta.get("original_text") if meta else None
             source_id = meta.get("sourceId", "unknown") if meta else "unknown"
 
@@ -195,10 +196,15 @@ class VectorProvider(SearchProvider):
             else:
                 content = doc or ""
 
+            # Convert distance to similarity score (0-1)
+            distance = distances[i] if i < len(distances) else None
+            similarity = 1 - distance if distance is not None else None
+
             context.append(
                 {
                     "source": f"[{collection_name}] {source_id}",
                     "content": content[:DEFAULT_CONTENT_EXTRACT_LENGTH],
+                    "score": similarity,
                 }
             )
 
@@ -430,8 +436,9 @@ class VectorProvider(SearchProvider):
 
                 context.append(
                     {
-                        "source": f"[{collection}] {source_id} (similarity: {similarity:.2f})",
+                        "source": f"[{collection}] {source_id}",
                         "content": content[:DEFAULT_CONTENT_EXTRACT_LENGTH],
+                        "score": similarity,  # Pass similarity score for frontend display
                     }
                 )
 
