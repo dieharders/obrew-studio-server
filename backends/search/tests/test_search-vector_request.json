@@ -8,6 +8,6 @@
   ],
   "top_k": 50,
   "max_preview": 10,
-  "max_extract": 3,
+  "max_read": 3,
   "auto_expand": true
 }

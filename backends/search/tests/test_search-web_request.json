@@ -1,7 +1,6 @@
 {
   "query": "What is FastAPI?",
   "website": ["docs.python.org", "stackoverflow.com", "realpython.com"],
-  "max_pages": 10,
   "max_preview": 10,
-  "max_extract": 3
+  "max_read": 3
 }

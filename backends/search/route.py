@@ -121,7 +121,7 @@ async def search_vector(
                 query=payload.query,
                 initial_scope=None,  # VectorProvider uses self.collections instead
                 max_preview=payload.max_preview or 10,
-                max_extract=payload.max_extract or 3,
+                max_read=payload.max_read or 3,
                 auto_expand=(
                     payload.auto_expand if payload.auto_expand is not None else True
                 ),
@@ -176,7 +176,6 @@ async def search_web(
         provider = WebProvider(
             app=app,
             website=payload.website,
-            max_pages=payload.max_pages or 10,
         )
 
         search_id = str(uuid.uuid4())
@@ -196,7 +195,7 @@ async def search_web(
                 query=payload.query,
                 initial_scope=payload.query,  # For web search, scope is the query itself
                 max_preview=payload.max_preview or 10,
-                max_extract=payload.max_extract or 3,
+                max_read=payload.max_read or 3,
                 auto_expand=False,  # Web search doesn't use scope expansion
                 request=request,
             )
@@ -277,8 +276,8 @@ async def search_file_system(
             result = await orchestrator.search(
                 query=payload.query,
                 initial_scope=payload.directories[0],
-                max_preview=payload.max_files_preview or 10,
-                max_extract=payload.max_files_parse or 3,
+                max_preview=payload.max_preview or 10,
+                max_read=payload.max_read or 3,
                 max_expand=payload.max_iterations or 3,
                 auto_expand=(
                     payload.auto_expand if payload.auto_expand is not None else True
@@ -371,7 +370,7 @@ async def search_structured(
                 query=payload.query,
                 initial_scope=initial_scope,
                 max_preview=payload.max_preview or 10,
-                max_extract=payload.max_extract or 3,
+                max_read=payload.max_read or 3,
                 auto_expand=(
                     payload.auto_expand if payload.auto_expand is not None else False
                 ),
