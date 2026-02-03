@@ -9,17 +9,17 @@ class Params(BaseModel):
         default="",
         description="The sender's email address (the 'from' field). Extract if the user mentions 'my email is' or 'from me at'. Leave empty if not specified.",
     )
-    to: str = Field(
-        ...,
-        description="Recipient email address(es) - who the email is being sent TO. If multiple, separate with commas. Do NOT include the sender's address here.",
+    to: Optional[str] = Field(
+        default="",
+        description="Recipient email address(es) - who the email is being sent TO. If multiple, separate with commas. Leave empty if not found in context.",
     )
-    subject: str = Field(
-        ...,
+    subject: Optional[str] = Field(
+        default="",
         description="Email subject line summarizing the email purpose. Generate an appropriate subject based on the user's intent.",
     )
-    body: str = Field(
-        ...,
-        description="Email body content in plain text. Generate professional and appropriate content based on the user's request.",
+    body: Optional[str] = Field(
+        default="",
+        description="Email body content in plain text. Generate professional and appropriate content based on the user's request and any provided context.",
     )
     cc: Optional[str] = Field(
         default="",
@@ -49,24 +49,19 @@ class Params(BaseModel):
 
 
 async def main(**kwargs: Params) -> dict:
-    """Return structured email data for widget rendering."""
+    """Return structured email data for widget rendering.
+
+    All fields are optional - the widget UI will handle displaying
+    placeholders for any missing data.
+    """
     sender = kwargs.get("sender", "")
     to = kwargs.get("to", "")
     subject = kwargs.get("subject", "")
     body = kwargs.get("body", "")
     cc = kwargs.get("cc", "")
 
-    if not to:
-        raise ValueError("Recipient (to) is required for composing an email.")
-
-    if not subject:
-        raise ValueError("Subject is required for composing an email.")
-
-    if not body:
-        raise ValueError("Body content is required for composing an email.")
-
-    # Parse comma-separated emails into lists
-    to_list = [email.strip() for email in to.split(",") if email.strip()]
+    # Parse comma-separated emails into lists (handle empty strings gracefully)
+    to_list = [email.strip() for email in to.split(",") if email.strip()] if to else []
     cc_list = [email.strip() for email in cc.split(",") if email.strip()] if cc else []
 
     return {
