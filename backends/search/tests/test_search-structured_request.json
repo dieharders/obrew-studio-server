@@ -123,7 +123,7 @@
     }
   ],
   "max_preview": 6,
-  "max_extract": 3,
+  "max_read": 3,
   "group_by": "channel",
   "auto_expand": false
 }

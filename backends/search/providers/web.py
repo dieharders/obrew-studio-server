@@ -33,7 +33,6 @@ class WebProvider(SearchProvider):
         self,
         app,
         website: Optional[List[str]] = None,
-        max_pages: int = 10,
     ):
         """
         Initialize the WebProvider.
@@ -41,11 +40,9 @@ class WebProvider(SearchProvider):
         Args:
             app: FastAPI application instance
             website: Domain filter - None/[] = search all, [one] = single site, [many] = whitelist
-            max_pages: Maximum number of pages to fetch content from
         """
         self.app = app
         self.website = website or []
-        self.max_pages = max_pages
         self._ddgs = None
         self._http_client = None
         self._request_semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
@@ -239,7 +236,7 @@ class WebProvider(SearchProvider):
 
         context = []
 
-        for item in items[: self.max_pages]:  # Limit to max_pages
+        for item in items:  # Items already limited by orchestrator's max_read
             try:
                 content = await self._fetch_page_content(item.id)
 

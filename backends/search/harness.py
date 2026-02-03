@@ -20,13 +20,13 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional, Protocol, AsyncIterator, runtime_checkable
 from pydantic import BaseModel
 from core import common
-
+from inference.helpers import read_event_data
 
 # =============================================================================
 # Default limits (used as defaults for configurable parameters)
 # =============================================================================
 DEFAULT_MAX_PREVIEW = 10  # Max items to preview in LLM selection
-DEFAULT_MAX_EXTRACT = 3  # Max items to extract full content from
+DEFAULT_MAX_READ = 3  # Max items to read/extract full content from
 DEFAULT_MAX_EXPAND = 2  # Max additional scopes to search during expansion
 DEFAULT_MAX_DISCOVER_ITEMS = 50  # Max items to return from discover phase
 DEFAULT_CONTENT_PREVIEW_LENGTH = 100  # Preview length in LLM selection prompt
@@ -261,8 +261,6 @@ class AgenticSearch:
             content.append(item)
 
         # Parse response
-        from inference.helpers import read_event_data
-
         data = read_event_data(content)
         return data.get("text", "")
 
@@ -294,7 +292,11 @@ class AgenticSearch:
         # Format items with indices for LLM (no sensitive info exposed)
         item_list_str = "\n".join(
             f"[{idx}] {item.name} ({item.type})"
-            + (f" - {item.preview[:DEFAULT_CONTENT_PREVIEW_LENGTH]}..." if item.preview else "")
+            + (
+                f" - {item.preview[:DEFAULT_CONTENT_PREVIEW_LENGTH]}..."
+                if item.preview
+                else ""
+            )
             for idx, item in enumerate(items)
         )
 
@@ -401,7 +403,11 @@ Instructions:
                 id=c.get("source", "unknown"),
                 type=self.search_type,
                 name=c.get("source", "unknown"),
-                snippet=c.get("content", "")[:DEFAULT_CONTENT_SNIPPET_LENGTH] if c.get("content") else None,
+                snippet=(
+                    c.get("content", "")[:DEFAULT_CONTENT_SNIPPET_LENGTH]
+                    if c.get("content")
+                    else None
+                ),
             )
             for c in context
         ]
@@ -419,7 +425,7 @@ Instructions:
         query: str,
         initial_scope: Optional[str] = None,
         max_preview: int = DEFAULT_MAX_PREVIEW,
-        max_extract: int = DEFAULT_MAX_EXTRACT,
+        max_read: int = DEFAULT_MAX_READ,
         max_expand: int = DEFAULT_MAX_EXPAND,
         auto_expand: bool = True,
         request: Optional[Any] = None,
@@ -433,7 +439,7 @@ Instructions:
             initial_scope: The initial scope to search (directory, collection, etc.)
                           If None, provider operates in discovery mode.
             max_preview: Maximum number of items to preview
-            max_extract: Maximum number of items to extract full content from
+            max_read: Maximum number of items to extract full content from
             max_expand: Maximum number of additional scopes to search during expansion
             auto_expand: Whether to automatically search additional scopes if needed
             request: Optional FastAPI Request for client disconnect detection
@@ -442,7 +448,6 @@ Instructions:
         Returns:
             SearchResult with answer, sources, and stats
         """
-        from core import common
 
         # Reset abort flag at start of each search
         self.abort_requested = False
@@ -530,7 +535,7 @@ Instructions:
                 flush=True,
             )
             selected_for_extract = await self._llm_select(
-                previewed, query, max_extract, "extract"
+                previewed, query, max_read, "extract"
             )
             tool_logs.append(
                 {
@@ -562,7 +567,7 @@ Instructions:
                 return self._cancelled_result(query, "extract", tool_logs)
 
             # Phase 6: EXPAND (optional)
-            if auto_expand and len(all_context) < max_extract:
+            if auto_expand and len(all_context) < max_read:
                 print(
                     f"{common.PRNT_API} [AgenticSearch] Phase 6: Expanding search scope",
                     flush=True,
@@ -570,7 +575,7 @@ Instructions:
                 additional_scopes = self.provider.get_expandable_scopes(initial_scope)
 
                 for scope in additional_scopes[:max_expand]:
-                    if len(all_context) >= max_extract:
+                    if len(all_context) >= max_read:
                         break
 
                     # Check for abort during expansion
@@ -590,7 +595,7 @@ Instructions:
                         more_to_extract = await self._llm_select(
                             more_previewed,
                             query,
-                            max_extract - len(all_context),
+                            max_read - len(all_context),
                             "expand_extract",
                         )
                         more_context = await self.provider.extract(more_to_extract)
