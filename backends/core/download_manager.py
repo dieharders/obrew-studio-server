@@ -453,50 +453,105 @@ class DownloadManager:
         2. Removing incomplete/partial download files
         3. Removing lock files
 
+        If this task is linked to another task (primary/secondary relationship),
+        both tasks will be cancelled together.
+
         Args:
             task_id: The task identifier
 
         Returns:
             True if cancellation was successful, False if task not found
         """
+        # Collect info for all tasks to cancel (may include linked tasks)
+        tasks_to_cancel = []
+
         with self._lock:
             if task_id not in self._processes:
                 return False
 
-            process = self._processes[task_id]
-
-            # Get download info for cleanup before modifying state
+            # Capture cleanup info while holding the lock. We extract all needed
+            # data (cache_dir, repo_id, filename) into local variables here so
+            # that file cleanup can safely happen outside the lock. This avoids
+            # blocking other operations during potentially slow I/O, and the
+            # captured values remain valid even if _progress is modified later.
             progress = self._progress.get(task_id)
-            cache_dir = progress.cache_dir if progress else ""
-            repo_id = progress.repo_id if progress else ""
-            filename = progress.filename if progress else ""
+            if progress:
+                tasks_to_cancel.append({
+                    "task_id": task_id,
+                    "process": self._processes.get(task_id),
+                    "cache_dir": progress.cache_dir,
+                    "repo_id": progress.repo_id,
+                    "filename": progress.filename,
+                })
 
-            # Terminate the process if it's still running
-            if process.is_alive():
-                print(f"{PRNT_API} Terminating download process {task_id}", flush=True)
-                process.terminate()
-                # Give it a moment to terminate gracefully
-                process.join(timeout=1.0)
-                # Force kill if still alive
-                if process.is_alive():
-                    print(
-                        f"{PRNT_API} Force killing download process {task_id}",
-                        flush=True,
+                # Check for linked secondary task (e.g., mmproj file)
+                secondary_id = progress.secondary_task_id
+                if secondary_id and secondary_id in self._progress:
+                    secondary_progress = self._progress[secondary_id]
+                    tasks_to_cancel.append({
+                        "task_id": secondary_id,
+                        "process": self._processes.get(secondary_id),
+                        "cache_dir": secondary_progress.cache_dir,
+                        "repo_id": secondary_progress.repo_id,
+                        "filename": secondary_progress.filename,
+                    })
+
+            # Also check if this task IS a secondary task of some primary
+            # (i.e., some other task has this task_id as its secondary_task_id)
+            for other_task_id, other_progress in self._progress.items():
+                if other_task_id == task_id:
+                    continue
+                if other_progress.secondary_task_id == task_id:
+                    # This task is a secondary, so cancel its primary too
+                    already_included = any(
+                        t["task_id"] == other_task_id for t in tasks_to_cancel
                     )
-                    process.kill()
+                    if not already_included:
+                        tasks_to_cancel.append({
+                            "task_id": other_task_id,
+                            "process": self._processes.get(other_task_id),
+                            "cache_dir": other_progress.cache_dir,
+                            "repo_id": other_progress.repo_id,
+                            "filename": other_progress.filename,
+                        })
+                    break  # There should only be one primary per secondary
+
+            # Terminate all processes and update their status
+            for task_info in tasks_to_cancel:
+                tid = task_info["task_id"]
+                process = task_info["process"]
+
+                if process and process.is_alive():
+                    print(
+                        f"{PRNT_API} Terminating download process {tid}", flush=True
+                    )
+                    process.terminate()
                     process.join(timeout=1.0)
+                    if process.is_alive():
+                        print(
+                            f"{PRNT_API} Force killing download process {tid}",
+                            flush=True,
+                        )
+                        process.kill()
+                        process.join(timeout=1.0)
 
-            # Update status
-            if task_id in self._progress:
-                self._progress[task_id].status = "cancelled"
-                self._progress[task_id].completed_at = time.time()
+                # Update status
+                if tid in self._progress:
+                    self._progress[tid].status = "cancelled"
+                    self._progress[tid].completed_at = time.time()
 
-            print(f"{PRNT_API} Download cancelled {task_id}", flush=True)
+                print(f"{PRNT_API} Download cancelled {tid}", flush=True)
 
-        # Clean up incomplete files OUTSIDE the lock to avoid blocking
-        # This removes .incomplete and .lock files so user can re-download
-        if cache_dir and repo_id:
-            _cleanup_incomplete_download(cache_dir, repo_id, filename)
+        # Clean up incomplete files OUTSIDE the lock to avoid blocking other
+        # operations. This removes .incomplete and .lock files so user can
+        # re-download. Safe to use captured values here since they're immutable
+        # copies taken while we held the lock.
+        for task_info in tasks_to_cancel:
+            cache_dir = task_info["cache_dir"]
+            repo_id = task_info["repo_id"]
+            filename = task_info["filename"]
+            if cache_dir and repo_id:
+                _cleanup_incomplete_download(cache_dir, repo_id, filename)
 
         return True
 
