@@ -322,13 +322,8 @@ def download_text_model(request: Request, payload: classes.DownloadTextModelRequ
         mmproj_repo_id = payload.mmproj_repo_id
         mmproj_filename = payload.mmproj_filename
 
-        # Save initial path and details to json file
-        common.save_text_model(
-            {
-                "repoId": repo_id,
-                "savePath": {filename: ""},
-            }
-        )
+        # NOTE: Model metadata is only saved on successful completion (in on_model_complete)
+        # to avoid showing cancelled/failed downloads as "installed"
 
         def on_model_complete(task_id: str, file_path: str):
             """Called when main model download completes successfully."""
@@ -456,7 +451,9 @@ def _start_mmproj_download(
 
 # Remove a single text model weights file and its installation record.
 @router.post("/delete")
-def delete_text_model(payload: classes.DeleteTextModelRequest) -> classes.GenericEmptyResponse:
+def delete_text_model(
+    payload: classes.DeleteTextModelRequest,
+) -> classes.GenericEmptyResponse:
     filename = payload.filename
     repo_id = payload.repoId
 
