@@ -5,6 +5,7 @@ import signal
 import asyncio
 import subprocess
 import platform
+import tempfile
 from asyncio.subprocess import Process
 from fastapi import Request
 from typing import List, Optional
@@ -339,6 +340,7 @@ class LLAMA_CPP:
         native_tool_defs: Optional[str] = None,
         constrain_json_output: Optional[dict] = None,
     ):
+        prompt_file_path = None
         try:
             self.abort_requested = False
 
@@ -352,6 +354,16 @@ class LLAMA_CPP:
                     messageFormat=self.message_format,
                     native_tool_defs=native_tool_defs,
                 )
+
+            # Write prompt to temp file to avoid Windows command line length limit (8191 chars)
+            # Using --file instead of --prompt prevents [WinError 206] for large prompts
+            prompt_file = tempfile.NamedTemporaryFile(
+                mode="w", suffix=".txt", delete=False, encoding="utf-8"
+            )
+            prompt_file.write(formatted_prompt)
+            prompt_file.close()
+            prompt_file_path = prompt_file.name
+
             # Create arguments
             cmd_args = [
                 self.BINARY_PATH,
@@ -362,8 +374,8 @@ class LLAMA_CPP:
                 "--simple-io",
                 "--multiline-input",  # dont have to type "/" to add a new line
                 "--no-warmup",  # skip warming up the model with an empty run
-                "--prompt",
-                formatted_prompt,
+                "--file",
+                prompt_file_path,
             ]
             # Add conditional args
             if constrain_json_output:
@@ -393,12 +405,21 @@ class LLAMA_CPP:
             await self.process.stdin.drain()
             # Text generation
             return self._text_generator(
-                stream=stream, gen_type="completion", request=request
+                stream=stream,
+                gen_type="completion",
+                request=request,
+                prompt_file_path=prompt_file_path,
             )
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled", flush=True)
+            # Cleanup temp file on error
+            if prompt_file_path and os.path.exists(prompt_file_path):
+                os.unlink(prompt_file_path)
         except (ValueError, UnicodeEncodeError, Exception) as e:
             print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}", flush=True)
+            # Cleanup temp file on error
+            if prompt_file_path and os.path.exists(prompt_file_path):
+                os.unlink(prompt_file_path)
             raise Exception(f"Failed to query llama.cpp: {e}")
 
     # Start llm process
@@ -423,6 +444,7 @@ class LLAMA_CPP:
         stream: bool,
         gen_type: str,
         request: Request,
+        prompt_file_path: Optional[str] = None,
     ):
         """Parse incoming tokens/text and stop generation when necessary"""
         self.process_type = gen_type
@@ -491,11 +513,17 @@ class LLAMA_CPP:
             self.process = None
         # Skip sending final response if aborted
         if was_aborted:
+            # Cleanup temp prompt file
+            if prompt_file_path and os.path.exists(prompt_file_path):
+                os.unlink(prompt_file_path)
             return
         # Finally, send all tokens together
         content += decoder.decode(b"", final=True)
         content = content.rstrip(eos_llama_token).strip()
         if not content:
+            # Cleanup temp prompt file
+            if prompt_file_path and os.path.exists(prompt_file_path):
+                os.unlink(prompt_file_path)
             errMsg = "No response from model. Check available memory, try to lower amount of GPU Layers or offload to CPU only."
             print(f"{common.PRNT_LLAMA} {errMsg}")
             # Return error msg
@@ -505,6 +533,9 @@ class LLAMA_CPP:
             yield json.dumps(payload)
         else:
             yield payload
+        # Cleanup temp prompt file
+        if prompt_file_path and os.path.exists(prompt_file_path):
+            os.unlink(prompt_file_path)
 
     # Vision inference - requires mmproj to be loaded
     async def vision_completion(
@@ -520,6 +551,7 @@ class LLAMA_CPP:
         Generate text response based on image(s) and text prompt.
         Requires model to be loaded with mmproj (via /vision/load).
         """
+        prompt_file_path = None
         try:
             self.abort_requested = False
 
@@ -566,7 +598,16 @@ class LLAMA_CPP:
             if system_message:
                 full_prompt = f"{system_message}\n\n{prompt.strip()}"
 
-            cmd_args.extend(["--prompt", full_prompt])
+            # Write prompt to temp file to avoid Windows command line length limit (8191 chars)
+            # Using --file instead of --prompt prevents [WinError 206] for large prompts
+            prompt_file = tempfile.NamedTemporaryFile(
+                mode="w", suffix=".txt", delete=False, encoding="utf-8"
+            )
+            prompt_file.write(full_prompt)
+            prompt_file.close()
+            prompt_file_path = prompt_file.name
+
+            cmd_args.extend(["--file", prompt_file_path])
 
             # Build vision-specific args explicitly (llama-mtmd-cli has limited options)
             vision_args = {
@@ -624,22 +665,31 @@ class LLAMA_CPP:
             await self.process.stdin.drain()
 
             # Generate response
-            return self._vision_generator(stream=stream, request=request)
+            return self._vision_generator(
+                stream=stream, request=request, prompt_file_path=prompt_file_path
+            )
 
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Vision task was cancelled", flush=True)
+            # Cleanup temp file on error
+            if prompt_file_path and os.path.exists(prompt_file_path):
+                os.unlink(prompt_file_path)
             raise Exception("Vision inference was cancelled")
         except (ValueError, UnicodeEncodeError, Exception) as e:
             err_msg = str(e) if str(e) else f"{type(e).__name__} (no message)"
             print(
                 f"{common.PRNT_LLAMA} Error in vision inference: {err_msg}", flush=True
             )
+            # Cleanup temp file on error
+            if prompt_file_path and os.path.exists(prompt_file_path):
+                os.unlink(prompt_file_path)
             raise Exception(f"Failed vision inference: {err_msg}")
 
     async def _vision_generator(
         self,
         stream: bool,
         request: Optional[Request] = None,
+        prompt_file_path: Optional[str] = None,
     ):
         """Parse incoming tokens and yield response for vision inference"""
         content = ""
@@ -705,6 +755,9 @@ class LLAMA_CPP:
                         self.process.terminate()
                         await self.process.wait()
                     self.process = None
+                # Cleanup temp prompt file
+                if prompt_file_path and os.path.exists(prompt_file_path):
+                    os.unlink(prompt_file_path)
             except Exception as e:
                 print(f"{common.PRNT_LLAMA} Cleanup error: {e}")
                 self.process = None
@@ -748,6 +801,9 @@ class LLAMA_CPP:
             if self.process:
                 self.process.terminate()
                 self.process = None
+            # Cleanup temp prompt file
+            if prompt_file_path and os.path.exists(prompt_file_path):
+                os.unlink(prompt_file_path)
             raise Exception(errMsg)
 
         payload = content_payload(content)
@@ -765,6 +821,9 @@ class LLAMA_CPP:
                 if self.process.returncode is None:
                     self.process.terminate()
                 self.process = None
+            # Cleanup temp prompt file
+            if prompt_file_path and os.path.exists(prompt_file_path):
+                os.unlink(prompt_file_path)
         except ProcessLookupError:
             # Process already terminated - expected after clean completion
             if self.debug:
