@@ -13,6 +13,7 @@ from core import common
 from inference.helpers import (
     FEEDING_PROMPT,
     GENERATING_TOKENS,
+    cleanup_temp_file,
     completion_to_prompt,
     event_payload,
     token_payload,
@@ -412,14 +413,10 @@ class LLAMA_CPP:
             )
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled", flush=True)
-            # Cleanup temp file on error
-            if prompt_file_path and os.path.exists(prompt_file_path):
-                os.unlink(prompt_file_path)
+            cleanup_temp_file(prompt_file_path)
         except (ValueError, UnicodeEncodeError, Exception) as e:
             print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}", flush=True)
-            # Cleanup temp file on error
-            if prompt_file_path and os.path.exists(prompt_file_path):
-                os.unlink(prompt_file_path)
+            cleanup_temp_file(prompt_file_path)
             raise Exception(f"Failed to query llama.cpp: {e}")
 
     # Start llm process
@@ -513,17 +510,13 @@ class LLAMA_CPP:
             self.process = None
         # Skip sending final response if aborted
         if was_aborted:
-            # Cleanup temp prompt file
-            if prompt_file_path and os.path.exists(prompt_file_path):
-                os.unlink(prompt_file_path)
+            cleanup_temp_file(prompt_file_path)
             return
         # Finally, send all tokens together
         content += decoder.decode(b"", final=True)
         content = content.rstrip(eos_llama_token).strip()
         if not content:
-            # Cleanup temp prompt file
-            if prompt_file_path and os.path.exists(prompt_file_path):
-                os.unlink(prompt_file_path)
+            cleanup_temp_file(prompt_file_path)
             errMsg = "No response from model. Check available memory, try to lower amount of GPU Layers or offload to CPU only."
             print(f"{common.PRNT_LLAMA} {errMsg}")
             # Return error msg
@@ -534,8 +527,7 @@ class LLAMA_CPP:
         else:
             yield payload
         # Cleanup temp prompt file
-        if prompt_file_path and os.path.exists(prompt_file_path):
-            os.unlink(prompt_file_path)
+        cleanup_temp_file(prompt_file_path)
 
     # Vision inference - requires mmproj to be loaded
     async def vision_completion(
@@ -671,18 +663,14 @@ class LLAMA_CPP:
 
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Vision task was cancelled", flush=True)
-            # Cleanup temp file on error
-            if prompt_file_path and os.path.exists(prompt_file_path):
-                os.unlink(prompt_file_path)
-            raise Exception("Vision inference was cancelled")
+            cleanup_temp_file(prompt_file_path)
+            # Match text_completion behavior - silent cancellation, don't re-raise
         except (ValueError, UnicodeEncodeError, Exception) as e:
             err_msg = str(e) if str(e) else f"{type(e).__name__} (no message)"
             print(
                 f"{common.PRNT_LLAMA} Error in vision inference: {err_msg}", flush=True
             )
-            # Cleanup temp file on error
-            if prompt_file_path and os.path.exists(prompt_file_path):
-                os.unlink(prompt_file_path)
+            cleanup_temp_file(prompt_file_path)
             raise Exception(f"Failed vision inference: {err_msg}")
 
     async def _vision_generator(
@@ -755,12 +743,11 @@ class LLAMA_CPP:
                         self.process.terminate()
                         await self.process.wait()
                     self.process = None
-                # Cleanup temp prompt file
-                if prompt_file_path and os.path.exists(prompt_file_path):
-                    os.unlink(prompt_file_path)
             except Exception as e:
                 print(f"{common.PRNT_LLAMA} Cleanup error: {e}")
                 self.process = None
+            finally:
+                cleanup_temp_file(prompt_file_path)
             return
 
         # Finalize content
@@ -801,9 +788,7 @@ class LLAMA_CPP:
             if self.process:
                 self.process.terminate()
                 self.process = None
-            # Cleanup temp prompt file
-            if prompt_file_path and os.path.exists(prompt_file_path):
-                os.unlink(prompt_file_path)
+            cleanup_temp_file(prompt_file_path)
             raise Exception(errMsg)
 
         payload = content_payload(content)
@@ -821,9 +806,6 @@ class LLAMA_CPP:
                 if self.process.returncode is None:
                     self.process.terminate()
                 self.process = None
-            # Cleanup temp prompt file
-            if prompt_file_path and os.path.exists(prompt_file_path):
-                os.unlink(prompt_file_path)
         except ProcessLookupError:
             # Process already terminated - expected after clean completion
             if self.debug:
@@ -838,3 +820,5 @@ class LLAMA_CPP:
                 flush=True,
             )
             self.process = None
+        finally:
+            cleanup_temp_file(prompt_file_path)
