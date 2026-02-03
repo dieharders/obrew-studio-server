@@ -176,7 +176,6 @@ async def search_web(
         provider = WebProvider(
             app=app,
             website=payload.website,
-            max_pages=payload.max_pages or 10,
         )
 
         search_id = str(uuid.uuid4())

@@ -90,7 +90,6 @@ class WebSearchRequest(BaseModel):
     website: Optional[List[str]] = (
         None  # Domain filter: None/[] = all, [one] = single site, [many] = whitelist
     )
-    max_pages: Optional[int] = DEFAULT_MAX_PREVIEW  # Max pages to fetch content from
     max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max URLs to preview
     max_read: Optional[int] = DEFAULT_MAX_READ  # Max pages to read/extract full content from
 
@@ -100,7 +99,6 @@ class WebSearchRequest(BaseModel):
                 {
                     "query": "Python asyncio best practices",
                     "website": ["docs.python.org", "stackoverflow.com"],
-                    "max_pages": 10,
                     "max_preview": 10,
                     "max_read": 3,
                 }
