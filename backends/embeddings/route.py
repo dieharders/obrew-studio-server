@@ -390,6 +390,7 @@ def wipe_all_memories(
         # so we clear the reference and force garbage collection
         if app.state.db_client is not None:
             import gc
+
             app.state.db_client = None
             gc.collect()
         # Remove all vector storage collections and folders (including chroma.sqlite3)
@@ -488,14 +489,8 @@ def download_embedding_model(
 
         else:
             # Transformer models: synchronous multi-file download (no SSE progress)
-            common.save_embedding_model(
-                {
-                    "repoId": repo_id,
-                    "modelName": model_name,
-                    "savePath": filename,
-                    "size": 0,
-                }
-            )
+            # NOTE: Model metadata is only saved after successful completion (below)
+            # to avoid showing cancelled/failed downloads as "installed"
 
             files_to_download = [
                 "config.json",
