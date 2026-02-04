@@ -30,7 +30,6 @@ from . import (
     agent_search,
     agent_chooser,
     agent_file,
-    agent_render_widget,
     # Widget tools
     widget_email,
 )
@@ -65,7 +64,6 @@ TOOLS = {
     "agent_search.py": agent_search,
     "agent_chooser.py": agent_chooser,
     "agent_file.py": agent_file,
-    "agent_render_widget.py": agent_render_widget,
     # Widget tools
     "widget_email.py": widget_email,
 }
