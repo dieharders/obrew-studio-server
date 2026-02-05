@@ -2,32 +2,36 @@
 # Static imports for PyInstaller compatibility
 
 from . import (
+    # General tools
     calculator,
-    data_transform,
+    data_transform,  # @TODO See if we need this anymore
     enhance_text,
-    retrieval,
+    # Data extraction and transform tools
     extract_array_of_strings,
     extract_boolean,
     extract_json,
     extract_number,
     extract_object,
     extract_string,
+    # File-system tools
     file_glob,
     file_grep,
     file_parse,
     file_preview,
     file_read,
     file_scan,
+    # Structured data tools
     item_grep,
     item_preview,
     item_query,
     item_read,
     item_scan,
+    # Embeddings tools
+    retrieval,  # @TODO Rename to embeddings_query
     # Agent harness tools
     agent_task,
     agent_todo,
     agent_respond,
-    agent_search,
     agent_chooser,
     agent_file,
     # Widget tools
@@ -61,7 +65,6 @@ TOOLS = {
     "agent_task.py": agent_task,
     "agent_todo.py": agent_todo,
     "agent_respond.py": agent_respond,
-    "agent_search.py": agent_search,
     "agent_chooser.py": agent_chooser,
     "agent_file.py": agent_file,
     # Widget tools
