@@ -416,6 +416,23 @@ def preprocess_image(
         return input_path
 
 
+def cleanup_temp_file(file_path: Optional[str]) -> None:
+    """
+    Safely cleanup a temporary file. Uses best-effort approach with error handling
+    to prevent orphan files while avoiding race conditions on locked files.
+    """
+    if not file_path:
+        return
+    try:
+        if os.path.exists(file_path):
+            os.unlink(file_path)
+    except OSError as e:
+        # Best effort cleanup - log but don't raise
+        print(
+            f"{common.PRNT_LLAMA} Warning: Failed to cleanup temp file {file_path}: {e}"
+        )
+
+
 def cleanup_temp_images(image_paths: List[str]):
     """
     Remove temporary image files created during vision inference.
