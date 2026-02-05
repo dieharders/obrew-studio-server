@@ -2,60 +2,57 @@
 # Static imports for PyInstaller compatibility
 
 from . import (
-    # General tools
     calculator,
     data_transform,  # @TODO See if we need this anymore
     enhance_text,
-    # Data extraction and transform tools
+    retrieval,  # @TODO Rename to embeddings_query
     extract_array_of_strings,
     extract_boolean,
     extract_json,
     extract_number,
     extract_object,
     extract_string,
-    # File-system tools
     file_glob,
     file_grep,
     file_parse,
     file_preview,
     file_read,
     file_scan,
-    # Structured data tools
     item_grep,
     item_preview,
     item_query,
     item_read,
     item_scan,
-    # Embeddings tools
-    retrieval,  # @TODO Rename to embeddings_query
-    # Agent harness tools
-    agent_task,
     agent_todo,
+    agent_task,
     agent_respond,
     agent_chooser,
-    agent_file,
-    # Widget tools
     widget_email,
 )
 
 # Registry for tool discovery - maps filename to module
 TOOLS = {
+    # General tools
     "calculator.py": calculator,
     "data_transform.py": data_transform,
     "enhance_text.py": enhance_text,
+    # Embeddings tools
     "retrieval.py": retrieval,
+    # Data extraction and transform tools
     "extract_array_of_strings.py": extract_array_of_strings,
     "extract_boolean.py": extract_boolean,
     "extract_json.py": extract_json,
     "extract_number.py": extract_number,
     "extract_object.py": extract_object,
     "extract_string.py": extract_string,
+    # File-system tools
     "file_glob.py": file_glob,
     "file_grep.py": file_grep,
     "file_parse.py": file_parse,
     "file_preview.py": file_preview,
     "file_read.py": file_read,
     "file_scan.py": file_scan,
+    # Structured data tools
     "item_grep.py": item_grep,
     "item_preview.py": item_preview,
     "item_query.py": item_query,
@@ -66,7 +63,6 @@ TOOLS = {
     "agent_todo.py": agent_todo,
     "agent_respond.py": agent_respond,
     "agent_chooser.py": agent_chooser,
-    "agent_file.py": agent_file,
     # Widget tools
     "widget_email.py": widget_email,
 }
