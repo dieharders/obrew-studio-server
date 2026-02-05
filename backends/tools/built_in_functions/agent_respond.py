@@ -2,6 +2,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+# This is useful in an agent's list of tools as it gives them the option to ask the user for clarity or decision making (planning, creating todos).
 class Params(BaseModel):
     """Generate a conversational response. Use this tool for clarification, confirmation, creative answers, technical breakdowns, or presenting choices to the user."""
 
@@ -52,7 +53,11 @@ async def main(**kwargs: Params) -> dict:
         "confirm": "Confirm your understanding of the request. Summarize what you think the user wants and ask if this is correct.",
         "creative": "Provide a creative and engaging response. Think outside the box while remaining helpful.",
         "technical": "Provide a detailed technical breakdown. Include relevant details, considerations, and step-by-step explanations.",
-        "choice": f"Present the following options to the user and ask them to choose: {options}" if options else "Present relevant options based on the context.",
+        "choice": (
+            f"Present the following options to the user and ask them to choose: {options}"
+            if options
+            else "Present relevant options based on the context."
+        ),
     }
 
     instruction = mode_instructions.get(mode, mode_instructions["clarify"])

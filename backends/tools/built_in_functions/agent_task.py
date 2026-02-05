@@ -2,8 +2,9 @@ from typing import Literal, Union
 from pydantic import BaseModel, Field
 
 
+# @TODO This is a stub to be implemented more fully. This tool needs input args for "verifiers" (how to know when task is complete), what "tools" to offer the agent performing the task, and we need to settle on an output schema (something informative to the harness, task completed state, etc).
 class Params(BaseModel):
-    """Execute a single instruction and return a structured result. Use this tool to perform one focused task with optional structured output."""
+    """Execute a single instruction and return a structured result. Use this tool to perform one focused task with structured output."""
 
     prompt: str = Field(
         ...,
