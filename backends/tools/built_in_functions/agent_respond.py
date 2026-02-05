@@ -2,6 +2,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+# @TODO This is a stub, pls implement fully later.
 # This is useful in an agent's list of tools as it gives them the option to ask the user for clarity or decision making (planning, creating todos).
 class Params(BaseModel):
     """Generate a conversational response. Use this tool for clarification, confirmation, creative answers, technical breakdowns, or presenting choices to the user."""
