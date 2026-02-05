@@ -25,7 +25,7 @@ from . import (
     item_scan,
     agent_todo,
     agent_task,
-    agent_respond,  # @TODO Maybe rename to "agent_ask" ?
+    agent_ask,
     agent_chooser,
     widget_email,
 )
@@ -61,7 +61,7 @@ TOOLS = {
     # Agent harness tools
     "agent_task.py": agent_task,
     "agent_todo.py": agent_todo,
-    "agent_respond.py": agent_respond,
+    "agent_ask.py": agent_ask,
     "agent_chooser.py": agent_chooser,
     # Widget tools
     "widget_email.py": widget_email,
