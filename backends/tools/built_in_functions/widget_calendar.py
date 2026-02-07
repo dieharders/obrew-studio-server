@@ -5,7 +5,13 @@ from pydantic import BaseModel, Field
 
 
 class Params(BaseModel):
-    """Display calendar events, check availability, or propose new meetings. Use this tool when the user asks about their schedule, meetings, availability, or wants to create a calendar event."""
+    """Display calendar events, check availability, or propose new meetings. Use this tool when the user asks about their schedule, meetings, availability, or wants to create a calendar event.
+
+    Fields by action_mode:
+    - 'view': date, events, events_today, events_this_week, next_available_slot, context
+    - 'availability': date, available_slots, next_available_slot, context
+    - 'propose': date, proposed_title, proposed_start, proposed_end, proposed_location, proposed_description, proposed_attendees, proposed_is_all_day, context
+    """
 
     date: Optional[str] = Field(
         default="",
@@ -98,7 +104,7 @@ class Params(BaseModel):
     }
 
 
-async def main(**kwargs) -> dict:
+async def main(app=None, request=None, **kwargs) -> dict:
     """Return structured calendar data for widget rendering.
 
     All fields are optional - the widget UI will handle displaying
@@ -107,8 +113,8 @@ async def main(**kwargs) -> dict:
     date_str = kwargs.get("date", "") or ""
     events_json = kwargs.get("events", "[]") or "[]"
     action_mode = kwargs.get("action_mode", "view") or "view"
-    events_today = kwargs.get("events_today", 0) or 0
-    events_this_week = kwargs.get("events_this_week", 0) or 0
+    events_today = kwargs.get("events_today", 0)
+    events_this_week = kwargs.get("events_this_week", 0)
     next_available_slot = kwargs.get("next_available_slot", "") or ""
     available_slots_json = kwargs.get("available_slots", "[]") or "[]"
     proposed_title = kwargs.get("proposed_title", "") or ""
@@ -117,7 +123,7 @@ async def main(**kwargs) -> dict:
     proposed_location = kwargs.get("proposed_location", "") or ""
     proposed_description = kwargs.get("proposed_description", "") or ""
     proposed_attendees = kwargs.get("proposed_attendees", "") or ""
-    proposed_is_all_day = kwargs.get("proposed_is_all_day", False) or False
+    proposed_is_all_day = kwargs.get("proposed_is_all_day", False)
     context_str = kwargs.get("context", "") or ""
 
     # Default date to today if not provided

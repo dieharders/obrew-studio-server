@@ -323,7 +323,7 @@ class Tool:
             func_call_result = await tool_func(
                 **chosen_tool_params, app=self.app, request=self.request
             )
-            return dict(raw=func_call_result, text=json.dumps(func_call_result))
+            return dict(raw=func_call_result, text=json.dumps(func_call_result, default=str))
 
     # Execute the tool function with the provided arguments (if any)
     # Tool defs are passed to llm are formatted as markdown text.
@@ -449,7 +449,7 @@ class Tool:
                 app=self.app,
                 request=self.request,
             )
-            return dict(raw=func_call_result, text=json.dumps(func_call_result))
+            return dict(raw=func_call_result, text=json.dumps(func_call_result, default=str))
 
 
 async def _call_func_with_tool_params(
@@ -494,4 +494,4 @@ async def _call_func_with_tool_params(
             memories=collections,
         )
         # Return results
-        return dict(raw=func_call_result, text=json.dumps(func_call_result))
+        return dict(raw=func_call_result, text=json.dumps(func_call_result, default=str))
