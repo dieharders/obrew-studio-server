@@ -28,6 +28,7 @@ from . import (
     agent_ask,
     agent_chooser,
     widget_email,
+    widget_calendar,
 )
 
 # Registry for tool discovery - maps filename to module
@@ -65,4 +66,5 @@ TOOLS = {
     "agent_chooser.py": agent_chooser,
     # Widget tools
     "widget_email.py": widget_email,
+    "widget_calendar.py": widget_calendar,
 }
