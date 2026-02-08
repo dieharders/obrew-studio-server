@@ -451,7 +451,9 @@ class Tool:
                 app=self.app,
                 request=self.request,
             )
-            return dict(raw=func_call_result, text=str(func_call_result))
+            return dict(
+                raw=func_call_result, text=json.dumps(func_call_result, default=str)
+            )
 
 
 async def _call_func_with_tool_params(
@@ -496,4 +498,6 @@ async def _call_func_with_tool_params(
             memories=collections,
         )
         # Return results
-        return dict(raw=func_call_result, text=str(func_call_result))
+        return dict(
+            raw=func_call_result, text=json.dumps(func_call_result, default=str)
+        )
