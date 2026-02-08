@@ -17,7 +17,7 @@ class Params(BaseModel):
     )
     search_fields: Optional[List[str]] = Field(
         default=None,
-        description="Which email fields to search. Options: subject, from, to, bodyPreview, body. Defaults to subject, from, bodyPreview.",
+        description="Which email fields to search. Options: subject, from, to, bodyPreview, body. Defaults to subject, from, bodyPreview, body.",
     )
     case_sensitive: bool = Field(
         default=False,
@@ -88,10 +88,10 @@ def _extract_field_value(email: Dict[str, Any], field: str) -> str:
     return str(value) if value else ""
 
 
-async def main(**kwargs) -> Dict[str, Any]:
+async def main(**kwargs: Params) -> dict:
     """
     Search for a pattern across email items.
-    Returns dict with: pattern, matches, total_matches, items_searched
+    Returns dict with: pattern, matches, emails_matched, items_searched
     """
     pattern_str = kwargs.get("pattern")
     items = kwargs.get("items", [])
@@ -99,6 +99,7 @@ async def main(**kwargs) -> Dict[str, Any]:
         "subject",
         "from",
         "bodyPreview",
+        "body",
     ]
     case_sensitive = kwargs.get("case_sensitive", False)
     use_regex = kwargs.get("use_regex", False)
@@ -111,7 +112,7 @@ async def main(**kwargs) -> Dict[str, Any]:
         return {
             "pattern": pattern_str,
             "matches": [],
-            "total_matches": 0,
+            "emails_matched": 0,
             "items_searched": 0,
         }
 
@@ -126,8 +127,10 @@ async def main(**kwargs) -> Dict[str, Any]:
         pattern = re.compile(re.escape(pattern_str), flags)
 
     all_matches = []
+    items_searched = 0
 
     for idx, email in enumerate(items):
+        items_searched += 1
         if len(all_matches) >= max_results:
             break
 
@@ -173,7 +176,7 @@ async def main(**kwargs) -> Dict[str, Any]:
     return {
         "pattern": pattern_str,
         "matches": all_matches,
-        "total_matches": len(all_matches),
-        "items_searched": len(items),
+        "emails_matched": len(all_matches),
+        "items_searched": items_searched,
         "truncated": len(all_matches) >= max_results,
     }
