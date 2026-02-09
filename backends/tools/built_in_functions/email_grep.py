@@ -1,4 +1,5 @@
 """Email grep tool for pattern-based search across email items."""
+
 import re
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field
@@ -9,7 +10,7 @@ class Params(BaseModel):
 
     pattern: str = Field(
         ...,
-        description="The search pattern (plain text or regular expression).",
+        description="The search pattern (plain text keyword or phrase).",
     )
     search_fields: Optional[List[str]] = Field(
         default=None,
@@ -18,10 +19,6 @@ class Params(BaseModel):
     case_sensitive: bool = Field(
         default=False,
         description="Whether the search should be case-sensitive.",
-    )
-    use_regex: bool = Field(
-        default=False,
-        description="Whether to interpret the pattern as a regular expression.",
     )
     max_results: int = Field(
         default=25,
@@ -83,7 +80,11 @@ async def main(**kwargs: Params) -> dict:
     # Read email items from request.state.context_items (injected by frontend)
     items = []
     request = kwargs.get("request")
-    if request and hasattr(request, "state") and hasattr(request.state, "context_items"):
+    if (
+        request
+        and hasattr(request, "state")
+        and hasattr(request.state, "context_items")
+    ):
         items = request.state.context_items or []
 
     # Normalize field aliases (e.g. "title" -> "subject")
@@ -96,7 +97,6 @@ async def main(**kwargs: Params) -> dict:
     ]
     search_fields = [field_aliases.get(f, f) for f in raw_fields]
     case_sensitive = kwargs.get("case_sensitive", False)
-    use_regex = kwargs.get("use_regex", False)
     max_results = kwargs.get("max_results", 25)
 
     if not pattern_str:
@@ -110,23 +110,18 @@ async def main(**kwargs: Params) -> dict:
             "items_searched": 0,
         }
 
-    # Compile the pattern
+    # @TODO We could include a `regex_pattern` for advanced search that an agent could pass from another search tool.
+    # Compile the pattern (always escaped plain text)
     flags = 0 if case_sensitive else re.IGNORECASE
-    if use_regex:
-        try:
-            pattern = re.compile(pattern_str, flags)
-        except re.error as e:
-            raise ValueError(f"Invalid regex pattern: {e}")
-    else:
-        pattern = re.compile(re.escape(pattern_str), flags)
+    pattern = re.compile(re.escape(pattern_str), flags)
 
     all_matches = []
     items_searched = 0
 
     for idx, email in enumerate(items):
-        items_searched += 1
         if len(all_matches) >= max_results:
             break
+        items_searched += 1
 
         email_id = email.get("id") or f"email_{idx}"
         subject = email.get("subject") or "(No Subject)"
