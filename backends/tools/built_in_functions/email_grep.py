@@ -14,7 +14,7 @@ class Params(BaseModel):
     )
     search_fields: Optional[List[str]] = Field(
         default=None,
-        description="Which email fields to search the pattern in (not what to return). Options: subject, from, to, bodyPreview, body. Defaults to subject, from, bodyPreview, body. Use 'subject' to search email titles/subjects.",
+        description="Which email fields to search the pattern in (not what to return). Options: subject, from, to, bodyPreview, body, conversationId. Defaults to subject, from, bodyPreview, body. Use 'subject' to search email titles/subjects.",
     )
     case_sensitive: bool = Field(
         default=False,
@@ -70,7 +70,10 @@ def _extract_field_value(email: Dict[str, Any], field: str) -> str:
     return str(value) if value else ""
 
 
-async def main(**kwargs: Params) -> dict:
+# Note: kwargs type hint omitted because all built-in tools receive unpacked
+# fields (not a Params instance). The Params schema is used for LLM
+# JSON-schema generation only. See also: other tools follow this convention.
+async def main(**kwargs) -> dict:
     """
     Search for a pattern across email items.
     Returns dict with: pattern, matches, emails_matched, items_searched
@@ -86,6 +89,11 @@ async def main(**kwargs: Params) -> dict:
         and hasattr(request.state, "context_items")
     ):
         items = request.state.context_items or []
+    else:
+        print(
+            "[email_grep] Warning: no request.state.context_items available, returning empty results.",
+            flush=True,
+        )
 
     # Normalize field aliases (e.g. "title" -> "subject")
     field_aliases = {"title": "subject", "sender": "from", "recipient": "to"}
@@ -117,9 +125,11 @@ async def main(**kwargs: Params) -> dict:
 
     all_matches = []
     items_searched = 0
+    truncated = False
 
     for idx, email in enumerate(items):
         if len(all_matches) >= max_results:
+            truncated = True
             break
         items_searched += 1
 
@@ -167,5 +177,5 @@ async def main(**kwargs: Params) -> dict:
         "matches": all_matches,
         "emails_matched": len(all_matches),
         "items_searched": items_searched,
-        "truncated": len(all_matches) >= max_results,
+        "truncated": truncated,
     }
