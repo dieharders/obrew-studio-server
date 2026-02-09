@@ -13,7 +13,7 @@ class Params(BaseModel):
     )
     search_fields: Optional[List[str]] = Field(
         default=None,
-        description="Which email fields to search. Options: subject, from, to, bodyPreview, body. Defaults to subject, from, bodyPreview, body.",
+        description="Which email fields to search the pattern in (not what to return). Options: subject, from, to, bodyPreview, body. Defaults to subject, from, bodyPreview, body. Use 'subject' to search email titles/subjects.",
     )
     case_sensitive: bool = Field(
         default=False,
@@ -86,12 +86,15 @@ async def main(**kwargs: Params) -> dict:
     if request and hasattr(request, "state") and hasattr(request.state, "context_items"):
         items = request.state.context_items or []
 
-    search_fields = kwargs.get("search_fields") or [
+    # Normalize field aliases (e.g. "title" -> "subject")
+    field_aliases = {"title": "subject", "sender": "from", "recipient": "to"}
+    raw_fields = kwargs.get("search_fields") or [
         "subject",
         "from",
         "bodyPreview",
         "body",
     ]
+    search_fields = [field_aliases.get(f, f) for f in raw_fields]
     case_sensitive = kwargs.get("case_sensitive", False)
     use_regex = kwargs.get("use_regex", False)
     max_results = kwargs.get("max_results", 25)
