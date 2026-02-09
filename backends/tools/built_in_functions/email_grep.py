@@ -11,10 +11,6 @@ class Params(BaseModel):
         ...,
         description="The search pattern (plain text or regular expression).",
     )
-    items: List[Dict[str, Any]] = Field(
-        ...,
-        description="List of email items to search. Each item should have id, subject, from, to, bodyPreview, receivedDateTime, conversationId.",
-    )
     search_fields: Optional[List[str]] = Field(
         default=None,
         description="Which email fields to search. Options: subject, from, to, bodyPreview, body. Defaults to subject, from, bodyPreview, body.",
@@ -37,17 +33,6 @@ class Params(BaseModel):
             "examples": [
                 {
                     "pattern": "quarterly report",
-                    "items": [
-                        {
-                            "id": "msg-001",
-                            "subject": "Q4 Quarterly Report",
-                            "from": "alice@example.com",
-                            "to": ["bob@example.com"],
-                            "bodyPreview": "Please find attached the Q4 quarterly report...",
-                            "receivedDateTime": "2024-12-15T10:30:00Z",
-                            "conversationId": "conv-123",
-                        }
-                    ],
                     "search_fields": ["subject", "bodyPreview"],
                 }
             ]
@@ -94,7 +79,13 @@ async def main(**kwargs: Params) -> dict:
     Returns dict with: pattern, matches, emails_matched, items_searched
     """
     pattern_str = kwargs.get("pattern")
-    items = kwargs.get("items", [])
+
+    # Read email items from request.state.context_items (injected by frontend)
+    items = []
+    request = kwargs.get("request")
+    if request and hasattr(request, "state") and hasattr(request.state, "context_items"):
+        items = request.state.context_items or []
+
     search_fields = kwargs.get("search_fields") or [
         "subject",
         "from",

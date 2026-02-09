@@ -1,6 +1,6 @@
 from enum import Enum
 from types import NoneType
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 from core.classes import KnowledgeSettings
 from tools.classes import DEFAULT_TOOL_SCHEMA_TYPE
@@ -212,6 +212,8 @@ class InferenceRequest(BaseModel):
         0.0  # The penalty to apply to tokens based on their frequency in the prompt
     )
     similarity_top_k: Optional[int] = None
+    # Contextual data items passed through to tool functions (e.g. pre-fetched emails)
+    context_items: Optional[List[Dict[str, Any]]] = None
 
     model_config = {
         "json_schema_extra": {
