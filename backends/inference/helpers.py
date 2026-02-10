@@ -438,12 +438,14 @@ def cleanup_temp_file(file_path: Optional[str]) -> None:
     if not file_path:
         return
     try:
-        if os.path.exists(file_path):
-            os.unlink(file_path)
+        os.unlink(file_path)
+    except FileNotFoundError:
+        pass  # Already cleaned up (e.g. by finally block in generator)
     except OSError as e:
         # Best effort cleanup - log but don't raise
         print(
-            f"{common.PRNT_LLAMA} Warning: Failed to cleanup temp file {file_path}: {e}"
+            f"{common.PRNT_LLAMA} Warning: Failed to cleanup temp file {file_path}: {e}",
+            flush=True,
         )
 
 

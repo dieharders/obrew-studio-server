@@ -288,8 +288,10 @@ class LLAMA_CPP:
             cmd_args.append("")
             cmd_args.append("--in-suffix")
             cmd_args.append("")
-            # Sets system message when using "-cnv" mode
-            # Use temp file to avoid Windows command line length limit (8191 chars)
+            # Sets system message when using "-cnv" mode.
+            # Use temp file to avoid Windows command line length limit (8191 chars).
+            # The user prompt is sent via stdin (not a CLI arg), so it is not
+            # subject to the Windows char limit and does not need a temp file.
             if system_message:
                 prompt_file_path = write_prompt_to_temp_file(system_message)
                 cmd_args.append("--file")
@@ -319,20 +321,22 @@ class LLAMA_CPP:
             print(f"{common.PRNT_LLAMA} Generating chat with command: {command}")
             self.process.stdin.write(command.encode("utf-8") + b"\n")
             await self.process.stdin.drain()
-            # Text generation
-            return self._text_generator(
+            # Text generation - generator takes ownership of temp file cleanup
+            generator = self._text_generator(
                 stream=stream,
                 gen_type="chat",
                 request=request,
                 prompt_file_path=prompt_file_path,
             )
+            prompt_file_path = None  # Generator owns cleanup now
+            return generator
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled.", flush=True)
-            cleanup_temp_file(prompt_file_path)
         except (ValueError, UnicodeEncodeError) as e:
             print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}", flush=True)
-            cleanup_temp_file(prompt_file_path)
             raise Exception(f"Failed to query llama.cpp: {e}")
+        finally:
+            cleanup_temp_file(prompt_file_path)
 
     # Predict the rest of the prompt. Can work with tools.
     # FYI, if we want to load prev conversation from cache and continue from there, most likely must use completion since -cnv mode makes it difficult to reload and manage chat history.
@@ -405,20 +409,22 @@ class LLAMA_CPP:
                 self.task_logging = asyncio.create_task(self.read_logs())
             # Send command to llama-cli
             await self.process.stdin.drain()
-            # Text generation
-            return self._text_generator(
+            # Text generation - generator takes ownership of temp file cleanup
+            generator = self._text_generator(
                 stream=stream,
                 gen_type="completion",
                 request=request,
                 prompt_file_path=prompt_file_path,
             )
+            prompt_file_path = None  # Generator owns cleanup now
+            return generator
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled", flush=True)
-            cleanup_temp_file(prompt_file_path)
         except (ValueError, UnicodeEncodeError) as e:
             print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}", flush=True)
-            cleanup_temp_file(prompt_file_path)
             raise Exception(f"Failed to query llama.cpp: {e}")
+        finally:
+            cleanup_temp_file(prompt_file_path)
 
     # Start llm process
     async def _run(self, cmd_args):
@@ -437,14 +443,15 @@ class LLAMA_CPP:
             **creation_kwargs,
         )
 
-    def _cleanup_vision_process(self):
-        """Terminate the vision subprocess and cancel logging task."""
+    async def _cleanup_vision_process(self):
+        """Terminate the vision subprocess, wait for it to exit, and cancel logging task."""
         try:
             if self.task_logging:
                 self.task_logging.cancel()
             if self.process:
                 if self.process.returncode is None:
                     self.process.terminate()
+                    await self.process.wait()
                 self.process = None
         except ProcessLookupError:
             if self.debug:
@@ -674,22 +681,24 @@ class LLAMA_CPP:
             # Drain stdin
             await self.process.stdin.drain()
 
-            # Generate response
-            return self._vision_generator(
+            # Generate response - generator takes ownership of temp file cleanup
+            generator = self._vision_generator(
                 stream=stream, request=request, prompt_file_path=prompt_file_path
             )
+            prompt_file_path = None  # Generator owns cleanup now
+            return generator
 
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Vision task was cancelled", flush=True)
-            cleanup_temp_file(prompt_file_path)
             # Match text_completion behavior - silent cancellation, don't re-raise
         except (ValueError, UnicodeEncodeError) as e:
             err_msg = str(e) if str(e) else f"{type(e).__name__} (no message)"
             print(
                 f"{common.PRNT_LLAMA} Error in vision inference: {err_msg}", flush=True
             )
-            cleanup_temp_file(prompt_file_path)
             raise Exception(f"Failed vision inference: {err_msg}")
+        finally:
+            cleanup_temp_file(prompt_file_path)
 
     async def _vision_generator(
         self,
@@ -712,9 +721,7 @@ class LLAMA_CPP:
                 # Handle abort (only check if request context exists)
                 aborted = await request.is_disconnected() if request else False
                 if aborted or not self.process or self.abort_requested:
-                    print(
-                        f"{common.PRNT_LLAMA} Vision generation aborted", flush=True
-                    )
+                    print(f"{common.PRNT_LLAMA} Vision generation aborted", flush=True)
                     break_reason = "aborted"
                     self.abort_requested = False  # Reset for next request
                     break
@@ -759,7 +766,7 @@ class LLAMA_CPP:
                     yield json.dumps(payload)
 
             # Terminate process
-            self._cleanup_vision_process()
+            await self._cleanup_vision_process()
 
             # Skip sending final response if aborted
             if break_reason == "aborted":
@@ -783,16 +790,14 @@ class LLAMA_CPP:
                         stderr_data = await asyncio.wait_for(
                             self.process.stderr.read(), timeout=1.0
                         )
-                        stderr_output = (
-                            stderr_data.decode("utf-8", errors="ignore").strip()
-                        )
+                        stderr_output = stderr_data.decode(
+                            "utf-8", errors="ignore"
+                        ).strip()
                     except asyncio.TimeoutError:
                         pass
 
                 if stderr_output:
-                    print(
-                        f"{common.PRNT_LLAMA_LOG} stderr output:\n{stderr_output}"
-                    )
+                    print(f"{common.PRNT_LLAMA_LOG} stderr output:\n{stderr_output}")
 
                 errMsg = (
                     "No response from vision model. Check available memory, "
