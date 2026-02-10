@@ -1,6 +1,5 @@
 """Extract a boolean value from input data based on a prompt."""
 
-import json
 from pydantic import BaseModel, Field
 
 
@@ -22,7 +21,7 @@ class Params(BaseModel):
     }
 
 
-async def main(**kwargs) -> str:
+async def main(**kwargs) -> dict:
     """
     Return the extracted boolean value.
     The LLM provides the value parameter which is constrained to be a boolean.
@@ -39,4 +38,4 @@ async def main(**kwargs) -> str:
         value = bool(value)
 
     result = {"value": value}
-    return json.dumps(result, indent=2)
+    return result
