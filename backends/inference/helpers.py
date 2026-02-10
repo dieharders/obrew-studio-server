@@ -1,5 +1,6 @@
 import base64
 import os
+import tempfile
 from typing import Optional, List, Sequence
 from typing_extensions import TypedDict
 from core import common
@@ -414,6 +415,19 @@ def preprocess_image(
             flush=True,
         )
         return input_path
+
+
+def write_prompt_to_temp_file(prompt: str) -> str:
+    """
+    Write a prompt string to a temporary file and return the file path.
+    Uses delete=False so the file persists for the subprocess to read.
+    Caller is responsible for cleanup via cleanup_temp_file().
+    """
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".txt", delete=False, encoding="utf-8"
+    ) as f:
+        f.write(prompt)
+        return f.name
 
 
 def cleanup_temp_file(file_path: Optional[str]) -> None:

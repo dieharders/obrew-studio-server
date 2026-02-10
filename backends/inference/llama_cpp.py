@@ -5,7 +5,6 @@ import signal
 import asyncio
 import subprocess
 import platform
-import tempfile
 from asyncio.subprocess import Process
 from fastapi import Request
 from typing import List, Optional
@@ -14,6 +13,7 @@ from inference.helpers import (
     FEEDING_PROMPT,
     GENERATING_TOKENS,
     cleanup_temp_file,
+    write_prompt_to_temp_file,
     completion_to_prompt,
     event_payload,
     token_payload,
@@ -262,6 +262,7 @@ class LLAMA_CPP:
         override_args: Optional[dict] = None,
         constrain_json_output: Optional[dict] = None,
     ):
+        prompt_file_path = None
         try:
             self.abort_requested = False
 
@@ -288,9 +289,11 @@ class LLAMA_CPP:
             cmd_args.append("--in-suffix")
             cmd_args.append("")
             # Sets system message when using "-cnv" mode
+            # Use temp file to avoid Windows command line length limit (8191 chars)
             if system_message:
-                cmd_args.append("--prompt")
-                cmd_args.append(system_message)
+                prompt_file_path = write_prompt_to_temp_file(system_message)
+                cmd_args.append("--file")
+                cmd_args.append(prompt_file_path)
             # Add stop words
             if self.generate_kwargs.get("--reverse-prompt"):
                 cmd_args.append("--reverse-prompt")
@@ -321,11 +324,14 @@ class LLAMA_CPP:
                 stream=stream,
                 gen_type="chat",
                 request=request,
+                prompt_file_path=prompt_file_path,
             )
         except asyncio.CancelledError:
-            print(f"{common.PRNT_LLAMA} Streaming task was cancelled.")
-        except (ValueError, UnicodeEncodeError, Exception) as e:
-            print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}")
+            print(f"{common.PRNT_LLAMA} Streaming task was cancelled.", flush=True)
+            cleanup_temp_file(prompt_file_path)
+        except (ValueError, UnicodeEncodeError) as e:
+            print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}", flush=True)
+            cleanup_temp_file(prompt_file_path)
             raise Exception(f"Failed to query llama.cpp: {e}")
 
     # Predict the rest of the prompt. Can work with tools.
@@ -358,12 +364,7 @@ class LLAMA_CPP:
 
             # Write prompt to temp file to avoid Windows command line length limit (8191 chars)
             # Using --file instead of --prompt prevents [WinError 206] for large prompts
-            prompt_file = tempfile.NamedTemporaryFile(
-                mode="w", suffix=".txt", delete=False, encoding="utf-8"
-            )
-            prompt_file.write(formatted_prompt)
-            prompt_file.close()
-            prompt_file_path = prompt_file.name
+            prompt_file_path = write_prompt_to_temp_file(formatted_prompt)
 
             # Create arguments
             cmd_args = [
@@ -414,7 +415,7 @@ class LLAMA_CPP:
         except asyncio.CancelledError:
             print(f"{common.PRNT_LLAMA} Streaming task was cancelled", flush=True)
             cleanup_temp_file(prompt_file_path)
-        except (ValueError, UnicodeEncodeError, Exception) as e:
+        except (ValueError, UnicodeEncodeError) as e:
             print(f"{common.PRNT_LLAMA} Error querying llama.cpp: {e}", flush=True)
             cleanup_temp_file(prompt_file_path)
             raise Exception(f"Failed to query llama.cpp: {e}")
@@ -436,6 +437,29 @@ class LLAMA_CPP:
             **creation_kwargs,
         )
 
+    def _cleanup_vision_process(self):
+        """Terminate the vision subprocess and cancel logging task."""
+        try:
+            if self.task_logging:
+                self.task_logging.cancel()
+            if self.process:
+                if self.process.returncode is None:
+                    self.process.terminate()
+                self.process = None
+        except ProcessLookupError:
+            if self.debug:
+                print(
+                    f"{common.PRNT_LLAMA} Process already terminated (clean exit)",
+                    flush=True,
+                )
+            self.process = None
+        except Exception as e:
+            print(
+                f"{common.PRNT_LLAMA} Cleanup error (non-fatal): {e}",
+                flush=True,
+            )
+            self.process = None
+
     async def _text_generator(
         self,
         stream: bool,
@@ -452,82 +476,81 @@ class LLAMA_CPP:
         eos_llama_token = "[end of text]"  # Corresponds to special token (number 2) in LLaMa embedding
         eos_deepseek_token = "</think"  # @TODO Include
         has_gen_started = False
-        # Start of generation
-        yield event_payload(FEEDING_PROMPT)
-        while True:
-            # Handle abort signal or non-existent process
-            aborted = await request.is_disconnected() if request else False
-            if aborted or not self.process or self.abort_requested:
-                print(f"{common.PRNT_LLAMA} Text generation aborted", flush=True)
-                was_aborted = True
-                self.abort_requested = False  # Reset for next request
-                break
-            # Attempt to read bytes and convert to text
-            try:
-                byte = await self.process.stdout.read(1)
-                # Bail on empty
-                if not byte:
+        try:
+            # Start of generation
+            yield event_payload(FEEDING_PROMPT)
+            while True:
+                # Handle abort signal or non-existent process
+                aborted = await request.is_disconnected() if request else False
+                if aborted or not self.process or self.abort_requested:
+                    print(f"{common.PRNT_LLAMA} Text generation aborted", flush=True)
+                    was_aborted = True
+                    self.abort_requested = False  # Reset for next request
                     break
-                if not has_gen_started:
-                    has_gen_started = True
-                    yield event_payload(GENERATING_TOKENS)
-                # Read and parse bytes into text incrementally, handles multi-byte decoding
-                byte_text = decoder.decode(byte)
-            # Stop incomplete bytes from passing
-            except (UnicodeEncodeError, UnicodeDecodeError) as e:
-                continue
-            # Bail if end of sequence token found
-            if content.endswith(eos_llama_token):
-                break
-            # Check CLI "turn" token
-            if byte_text == ">":
-                marker_num += 1
-                # Bail if llama-cli ">" token found
-                if gen_type == "completion":
-                    break
-                if gen_type == "chat":
-                    # Bail on subsequent occurrence
-                    if marker_num > 1:
+                # Attempt to read bytes and convert to text
+                try:
+                    byte = await self.process.stdout.read(1)
+                    # Bail on empty
+                    if not byte:
                         break
-            if (
-                len(content) > len("\r\n>")
-                and content.endswith("\r\n>")
-                and gen_type == "chat"
-            ):
-                break
-            # Add text to accumulated content
-            content += byte_text
-            # Send tokens
+                    if not has_gen_started:
+                        has_gen_started = True
+                        yield event_payload(GENERATING_TOKENS)
+                    # Read and parse bytes into text incrementally, handles multi-byte decoding
+                    byte_text = decoder.decode(byte)
+                # Stop incomplete bytes from passing
+                except (UnicodeEncodeError, UnicodeDecodeError) as e:
+                    continue
+                # Bail if end of sequence token found
+                if content.endswith(eos_llama_token):
+                    break
+                # Check CLI "turn" token
+                if byte_text == ">":
+                    marker_num += 1
+                    # Bail if llama-cli ">" token found
+                    if gen_type == "completion":
+                        break
+                    if gen_type == "chat":
+                        # Bail on subsequent occurrence
+                        if marker_num > 1:
+                            break
+                if (
+                    len(content) > len("\r\n>")
+                    and content.endswith("\r\n>")
+                    and gen_type == "chat"
+                ):
+                    break
+                # Add text to accumulated content
+                content += byte_text
+                # Send tokens
+                if stream:
+                    payload = token_payload(byte_text)
+                    yield json.dumps(payload)  # streaming format expects json
+            # Cleanup
+            if self.task_logging:
+                self.task_logging.cancel()
+            # Only terminate cli if Instruct mode
+            if self.process and gen_type == "completion":
+                self.process.terminate()
+                self.process = None
+            # Skip sending final response if aborted
+            if was_aborted:
+                return
+            # Finally, send all tokens together
+            content += decoder.decode(b"", final=True)
+            content = content.rstrip(eos_llama_token).strip()
+            if not content:
+                errMsg = "No response from model. Check available memory, try to lower amount of GPU Layers or offload to CPU only."
+                print(f"{common.PRNT_LLAMA} {errMsg}")
+                # Return error msg
+                raise Exception(f"{errMsg}")
+            payload = content_payload(content)
             if stream:
-                payload = token_payload(byte_text)
-                yield json.dumps(payload)  # streaming format expects json
-        # Cleanup
-        if self.task_logging:
-            self.task_logging.cancel()
-        # Only terminate cli if Instruct mode
-        if self.process and gen_type == "completion":
-            self.process.terminate()
-            self.process = None
-        # Skip sending final response if aborted
-        if was_aborted:
+                yield json.dumps(payload)
+            else:
+                yield payload
+        finally:
             cleanup_temp_file(prompt_file_path)
-            return
-        # Finally, send all tokens together
-        content += decoder.decode(b"", final=True)
-        content = content.rstrip(eos_llama_token).strip()
-        if not content:
-            cleanup_temp_file(prompt_file_path)
-            errMsg = "No response from model. Check available memory, try to lower amount of GPU Layers or offload to CPU only."
-            print(f"{common.PRNT_LLAMA} {errMsg}")
-            # Return error msg
-            raise Exception(f"{errMsg}")
-        payload = content_payload(content)
-        if stream:
-            yield json.dumps(payload)
-        else:
-            yield payload
-        # Cleanup temp prompt file
-        cleanup_temp_file(prompt_file_path)
 
     # Vision inference - requires mmproj to be loaded
     async def vision_completion(
@@ -592,12 +615,7 @@ class LLAMA_CPP:
 
             # Write prompt to temp file to avoid Windows command line length limit (8191 chars)
             # Using --file instead of --prompt prevents [WinError 206] for large prompts
-            prompt_file = tempfile.NamedTemporaryFile(
-                mode="w", suffix=".txt", delete=False, encoding="utf-8"
-            )
-            prompt_file.write(full_prompt)
-            prompt_file.close()
-            prompt_file_path = prompt_file.name
+            prompt_file_path = write_prompt_to_temp_file(full_prompt)
 
             cmd_args.extend(["--file", prompt_file_path])
 
@@ -665,7 +683,7 @@ class LLAMA_CPP:
             print(f"{common.PRNT_LLAMA} Vision task was cancelled", flush=True)
             cleanup_temp_file(prompt_file_path)
             # Match text_completion behavior - silent cancellation, don't re-raise
-        except (ValueError, UnicodeEncodeError, Exception) as e:
+        except (ValueError, UnicodeEncodeError) as e:
             err_msg = str(e) if str(e) else f"{type(e).__name__} (no message)"
             print(
                 f"{common.PRNT_LLAMA} Error in vision inference: {err_msg}", flush=True
@@ -686,139 +704,110 @@ class LLAMA_CPP:
         has_gen_started = False
         break_reason = "unknown"
 
-        # Start of generation
-        yield event_payload(FEEDING_PROMPT)
+        try:
+            # Start of generation
+            yield event_payload(FEEDING_PROMPT)
 
-        while True:
-            # Handle abort (only check if request context exists)
-            aborted = await request.is_disconnected() if request else False
-            if aborted or not self.process or self.abort_requested:
-                print(f"{common.PRNT_LLAMA} Vision generation aborted", flush=True)
-                break_reason = "aborted"
-                self.abort_requested = False  # Reset for next request
-                break
-
-            try:
-                byte = await self.process.stdout.read(1)
-                if not byte:
-                    break_reason = "eof"
+            while True:
+                # Handle abort (only check if request context exists)
+                aborted = await request.is_disconnected() if request else False
+                if aborted or not self.process or self.abort_requested:
+                    print(
+                        f"{common.PRNT_LLAMA} Vision generation aborted", flush=True
+                    )
+                    break_reason = "aborted"
+                    self.abort_requested = False  # Reset for next request
                     break
 
-                if not has_gen_started:
-                    has_gen_started = True
-                    yield event_payload(GENERATING_TOKENS)
-
-                byte_text = decoder.decode(byte)
-            except (UnicodeEncodeError, UnicodeDecodeError) as e:
-                print(
-                    f"{common.PRNT_LLAMA} Decode error (skipping byte): {e}", flush=True
-                )
-                continue
-
-            # Check for end of sequence
-            if content.endswith(eos_token):
-                break_reason = "eos_token"
-                break
-
-            # Check for CLI turn marker (only after we have some content)
-            # This prevents breaking on ">" characters in the model's output
-            if byte_text == ">" and len(content) > MIN_CONTENT_LENGTH_FOR_CLI_MARKER:
-                break_reason = "cli_marker"
-                break
-
-            content += byte_text
-
-            # Stream tokens
-            if stream:
-                payload = token_payload(byte_text)
-                yield json.dumps(payload)
-
-        # Cleanup on abort
-        if break_reason == "aborted":
-            try:
-                if self.task_logging:
-                    self.task_logging.cancel()
-                if self.process:
-                    if self.process.returncode is None:
-                        self.process.terminate()
-                        await self.process.wait()
-                    self.process = None
-            except Exception as e:
-                print(f"{common.PRNT_LLAMA} Cleanup error: {e}")
-                self.process = None
-            finally:
-                cleanup_temp_file(prompt_file_path)
-            return
-
-        # Finalize content
-        content += decoder.decode(b"", final=True)
-        content = content.rstrip(eos_token).strip()
-
-        if self.verbose:
-            print(
-                f"{common.PRNT_LLAMA} Generation complete. Reason: {break_reason}, Content length: {len(content)}",
-                flush=True,
-            )
-
-        if not content:
-            # Try to capture stderr for debugging
-            stderr_output = ""
-            if self.process and self.process.stderr:
                 try:
-                    stderr_data = await asyncio.wait_for(
-                        self.process.stderr.read(), timeout=1.0
+                    byte = await self.process.stdout.read(1)
+                    if not byte:
+                        break_reason = "eof"
+                        break
+
+                    if not has_gen_started:
+                        has_gen_started = True
+                        yield event_payload(GENERATING_TOKENS)
+
+                    byte_text = decoder.decode(byte)
+                except (UnicodeEncodeError, UnicodeDecodeError) as e:
+                    print(
+                        f"{common.PRNT_LLAMA} Decode error (skipping byte): {e}",
+                        flush=True,
                     )
-                    stderr_output = stderr_data.decode("utf-8", errors="ignore").strip()
-                except asyncio.TimeoutError:
-                    pass
+                    continue
 
-            if stderr_output:
-                print(f"{common.PRNT_LLAMA_LOG} stderr output:\n{stderr_output}")
+                # Check for end of sequence
+                if content.endswith(eos_token):
+                    break_reason = "eos_token"
+                    break
 
-            errMsg = (
-                "No response from vision model. Check available memory, "
-                "ensure mmproj file is valid, or try lowering GPU layers."
-            )
-            if stderr_output:
-                errMsg += f"\nBinary stderr: {stderr_output[:500]}"
+                # Check for CLI turn marker (only after we have some content)
+                # This prevents breaking on ">" characters in the model's output
+                if (
+                    byte_text == ">"
+                    and len(content) > MIN_CONTENT_LENGTH_FOR_CLI_MARKER
+                ):
+                    break_reason = "cli_marker"
+                    break
 
-            print(f"{common.PRNT_LLAMA} {errMsg}")
-            if self.task_logging:
-                self.task_logging.cancel()
-            if self.process:
-                self.process.terminate()
-                self.process = None
-            cleanup_temp_file(prompt_file_path)
-            raise Exception(errMsg)
+                content += byte_text
 
-        payload = content_payload(content)
-        if stream:
-            yield json.dumps(payload)
-        else:
-            yield payload
+                # Stream tokens
+                if stream:
+                    payload = token_payload(byte_text)
+                    yield json.dumps(payload)
 
-        # Cleanup
-        try:
-            if self.task_logging:
-                self.task_logging.cancel()
-            if self.process:
-                # Check if process is still running before terminating
-                if self.process.returncode is None:
-                    self.process.terminate()
-                self.process = None
-        except ProcessLookupError:
-            # Process already terminated - expected after clean completion
-            if self.debug:
+            # Terminate process
+            self._cleanup_vision_process()
+
+            # Skip sending final response if aborted
+            if break_reason == "aborted":
+                return
+
+            # Finalize content
+            content += decoder.decode(b"", final=True)
+            content = content.rstrip(eos_token).strip()
+
+            if self.verbose:
                 print(
-                    f"{common.PRNT_LLAMA} Process already terminated (clean exit)",
+                    f"{common.PRNT_LLAMA} Generation complete. Reason: {break_reason}, Content length: {len(content)}",
                     flush=True,
                 )
-            self.process = None
-        except Exception as cleanup_err:
-            print(
-                f"{common.PRNT_LLAMA} Cleanup error (non-fatal): {cleanup_err}",
-                flush=True,
-            )
-            self.process = None
+
+            if not content:
+                # Try to capture stderr for debugging
+                stderr_output = ""
+                if self.process and self.process.stderr:
+                    try:
+                        stderr_data = await asyncio.wait_for(
+                            self.process.stderr.read(), timeout=1.0
+                        )
+                        stderr_output = (
+                            stderr_data.decode("utf-8", errors="ignore").strip()
+                        )
+                    except asyncio.TimeoutError:
+                        pass
+
+                if stderr_output:
+                    print(
+                        f"{common.PRNT_LLAMA_LOG} stderr output:\n{stderr_output}"
+                    )
+
+                errMsg = (
+                    "No response from vision model. Check available memory, "
+                    "ensure mmproj file is valid, or try lowering GPU layers."
+                )
+                if stderr_output:
+                    errMsg += f"\nBinary stderr: {stderr_output[:500]}"
+
+                print(f"{common.PRNT_LLAMA} {errMsg}")
+                raise Exception(errMsg)
+
+            payload = content_payload(content)
+            if stream:
+                yield json.dumps(payload)
+            else:
+                yield payload
         finally:
             cleanup_temp_file(prompt_file_path)
