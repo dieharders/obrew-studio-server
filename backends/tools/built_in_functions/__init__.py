@@ -28,6 +28,7 @@ from . import (
     agent_ask,
     agent_chooser,
     widget_email,
+    email_grep,
     widget_calendar,
 )
 
@@ -66,5 +67,7 @@ TOOLS = {
     "agent_chooser.py": agent_chooser,
     # Widget tools
     "widget_email.py": widget_email,
+    # Email search tools
+    "email_grep.py": email_grep,
     "widget_calendar.py": widget_calendar,
 }
