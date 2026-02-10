@@ -730,6 +730,8 @@ async def generate_text(
         prompt_template = payload.promptTemplate
         assigned_tool_names = payload.tools
         collections = payload.memory.ids if payload.memory else []
+        # Store context items on request state for tool access
+        request.state.context_items = payload.context_items or []
         # messages = payload.messages # @TODO Implement...
 
         # We can re-use llm for multi-turn conversations
