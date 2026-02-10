@@ -26,7 +26,7 @@ class Params(BaseModel):
     }
 
 
-async def main(**kwargs) -> str:
+async def main(**kwargs) -> dict:
     """
     Return the extracted JSON value.
     The LLM provides the value parameter as a JSON-serialized string.
@@ -44,4 +44,4 @@ async def main(**kwargs) -> str:
         parsed_value = value
 
     result = {"value": parsed_value}
-    return json.dumps(result, indent=2)
+    return result

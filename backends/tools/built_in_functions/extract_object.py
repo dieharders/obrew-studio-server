@@ -24,7 +24,7 @@ class Params(BaseModel):
     }
 
 
-async def main(**kwargs) -> str:
+async def main(**kwargs) -> dict:
     """
     Return the extracted object.
     The LLM provides the value parameter which is constrained to be a dict.
@@ -45,4 +45,4 @@ async def main(**kwargs) -> str:
         raise ValueError(f"Expected an object, got {type(value).__name__}")
 
     result = {"value": value}
-    return json.dumps(result, indent=2)
+    return result

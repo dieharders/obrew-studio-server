@@ -1,6 +1,5 @@
 """Backend tool for structured email analysis with schema-constrained LLM output."""
 
-import json
 from pydantic import BaseModel, Field
 
 
@@ -146,7 +145,7 @@ VALID_TONES = {"formal", "casual", "brief"}
 VALID_EVENT_TYPES = {"meeting", "follow-up", "recurring", "deadline"}
 
 
-async def main(**kwargs) -> str:
+async def main(**kwargs) -> dict:
     """
     Return the structured email analysis as JSON.
 
@@ -201,4 +200,4 @@ async def main(**kwargs) -> str:
         "suggestedEvents": suggested_events,
     }
 
-    return json.dumps(result)
+    return result

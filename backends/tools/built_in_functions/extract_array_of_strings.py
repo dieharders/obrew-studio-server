@@ -25,7 +25,7 @@ class Params(BaseModel):
     }
 
 
-async def main(**kwargs) -> str:
+async def main(**kwargs) -> dict:
     """
     Return the extracted array of strings.
     The LLM provides the value parameter which is constrained to be a list of strings.
@@ -50,4 +50,4 @@ async def main(**kwargs) -> str:
     value = [str(item) for item in value]
 
     result = {"value": value}
-    return json.dumps(result, indent=2)
+    return result
