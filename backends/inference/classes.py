@@ -212,7 +212,10 @@ class InferenceRequest(BaseModel):
         0.0  # The penalty to apply to tokens based on their frequency in the prompt
     )
     similarity_top_k: Optional[int] = None
-    # Contextual data items passed through to tool functions (e.g. pre-fetched emails)
+    # Contextual raw data items passed through to tool functions (e.g. pre-fetched emails)
+    # *Note - Normally we pass this context as a string injected into the prompt, but for
+    # things like email that are already fetched on the frontend, we pass them like this
+    # so the tool func has structured data to work with (instead of inside a wall of plain text).
     context_items: Optional[List[Dict[str, Any]]] = None
 
     model_config = {
