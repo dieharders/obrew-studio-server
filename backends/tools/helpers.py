@@ -243,8 +243,8 @@ def tool_to_json_schema(params: List[dict]) -> str:
             param_schema["enum"] = param["options"]
         # Assign param
         properties[param_name] = param_schema
-        # Add param to required
-        if not param.get("llm_not_required"):
+        # Add param to required (skip params with defaults or marked llm_not_required)
+        if not param.get("llm_not_required") and "default" not in param:
             required.append(param_name)
     object_constrained_schema = {
         "type": "object",

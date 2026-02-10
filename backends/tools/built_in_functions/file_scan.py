@@ -102,7 +102,22 @@ async def main(**kwargs) -> List[Dict[str, Any]]:
     # Convert patterns to lowercase set for filtering
     filter_extensions = None
     if file_patterns:
-        filter_extensions = {ext.lower() if ext.startswith(".") else f".{ext.lower()}" for ext in file_patterns}
+        # Normalize patterns: handle glob-style (*.txt), dot-prefixed (.txt), and plain (txt)
+        normalized = set()
+        for ext in file_patterns:
+            ext = ext.strip()
+            if ext == "*" or ext == "*.*":
+                # Wildcard means all files - skip filtering entirely
+                normalized = None
+                break
+            # Strip leading glob asterisk (e.g., "*.txt" -> ".txt")
+            if ext.startswith("*."):
+                ext = ext[1:]  # "*.txt" -> ".txt"
+            if ext.startswith("."):
+                normalized.add(ext.lower())
+            else:
+                normalized.add(f".{ext.lower()}")
+        filter_extensions = normalized
 
     results = []
 

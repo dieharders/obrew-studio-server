@@ -1,3 +1,5 @@
+import base64
+import os
 from typing import Optional, List, Sequence
 from typing_extensions import TypedDict
 from core import common
@@ -259,8 +261,6 @@ def read_event_data(data_events: List[dict]) -> AgentOutput:
 
 
 # Vision/Multi-modal utilities
-import base64
-import os
 
 # Security limits for image processing
 MAX_BASE64_SIZE_MB = 50  # Maximum base64 string size in MB
