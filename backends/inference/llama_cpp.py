@@ -294,7 +294,7 @@ class LLAMA_CPP:
             # subject to the Windows char limit and does not need a temp file.
             if system_message:
                 prompt_file_path = write_prompt_to_temp_file(system_message)
-                cmd_args.append("--file")
+                cmd_args.append("--file")  # prev used "--prompt"
                 cmd_args.append(prompt_file_path)
             # Add stop words
             if self.generate_kwargs.get("--reverse-prompt"):
