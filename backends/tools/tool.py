@@ -323,9 +323,8 @@ class Tool:
             func_call_result = await tool_func(
                 **chosen_tool_params, app=self.app, request=self.request
             )
-            return dict(
-                raw=func_call_result, text=json.dumps(func_call_result, default=str)
-            )
+            text_result = func_call_result if isinstance(func_call_result, str) else json.dumps(func_call_result, default=str)
+            return dict(raw=func_call_result, text=text_result)
 
     # Execute the tool function with the provided arguments (if any)
     # Tool defs are passed to llm are formatted as markdown text.
@@ -451,9 +450,8 @@ class Tool:
                 app=self.app,
                 request=self.request,
             )
-            return dict(
-                raw=func_call_result, text=json.dumps(func_call_result, default=str)
-            )
+            text_result = func_call_result if isinstance(func_call_result, str) else json.dumps(func_call_result, default=str)
+            return dict(raw=func_call_result, text=text_result)
 
 
 async def _call_func_with_tool_params(
@@ -497,7 +495,6 @@ async def _call_func_with_tool_params(
             system_message=system_message,
             memories=collections,
         )
-        # Return results
-        return dict(
-            raw=func_call_result, text=json.dumps(func_call_result, default=str)
-        )
+        # Return results — use string directly to avoid double-serializing text tool responses (e.g. retrieval)
+        text_result = func_call_result if isinstance(func_call_result, str) else json.dumps(func_call_result, default=str)
+        return dict(raw=func_call_result, text=text_result)
