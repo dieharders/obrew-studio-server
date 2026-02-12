@@ -31,6 +31,8 @@ from . import (
     email_grep,
     analyze_email,
     widget_calendar,
+    widget_meeting,
+    chat_insights,
 )
 
 # Registry for tool discovery - maps filename to module
@@ -73,4 +75,7 @@ TOOLS = {
     # Email analysis tools
     "analyze_email.py": analyze_email,
     "widget_calendar.py": widget_calendar,
+    "widget_meeting.py": widget_meeting,
+    # Chat analysis tools
+    "chat_insights.py": chat_insights,
 }
