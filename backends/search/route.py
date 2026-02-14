@@ -9,12 +9,14 @@ from .classes import (
     VectorSearchRequest,
     WebSearchRequest,
     StructuredSearchRequest,
+    EmailSearchRequest,
 )
 from .providers import (
     FileSystemProvider,
     VectorProvider,
     WebProvider,
     StructuredProvider,
+    EmailProvider,
 )
 
 
@@ -388,5 +390,88 @@ async def search_structured(
         return SearchResult(
             success=False,
             message=f"Structured search failed: {e}",
+            data=None,
+        )
+
+
+@router.post("/email")
+async def search_email(
+    request: Request,
+    payload: EmailSearchRequest,
+) -> SearchResult:
+    """
+    Perform agentic search over email data from Microsoft Graph API.
+
+    The agent discovers emails by metadata, previews relevant ones via
+    bodyPreview, extracts full body content for the most relevant, and
+    synthesizes an answer using the LLM.
+
+    Email data is fetched by the frontend from MS Graph and passed in the
+    request body. The data exists only for the duration of the request.
+
+    Requires:
+    - A loaded LLM model
+    - At least one email in the emails array
+    """
+    app: classes.FastAPIApp = request.app
+
+    try:
+        # Verify LLM is loaded
+        if not app.state.llm:
+            return SearchResult(
+                success=False,
+                message="No LLM loaded. Load a model first.",
+                data=None,
+            )
+
+        # Validate emails exist
+        if not payload.emails:
+            return SearchResult(
+                success=False,
+                message="No emails provided. Include at least one email to search.",
+                data=None,
+            )
+
+        # Create provider with the provided emails
+        provider = EmailProvider(
+            app=app,
+            emails=payload.emails,
+        )
+
+        search_id = str(uuid.uuid4())
+        active_searches = _get_active_searches(app)
+
+        try:
+            orchestrator = AgenticSearch(
+                provider=provider,
+                llm=app.state.llm,
+                search_type="email",
+            )
+            orchestrator.search_id = search_id
+            active_searches[search_id] = orchestrator
+
+            # Run the search
+            result = await orchestrator.search(
+                query=payload.query,
+                initial_scope=None,
+                max_preview=payload.max_preview or 10,
+                max_read=payload.max_read or 3,
+                auto_expand=(
+                    payload.auto_expand if payload.auto_expand is not None else False
+                ),
+                request=request,
+            )
+
+            return result
+
+        finally:
+            # Clean up orchestrator from active searches
+            active_searches.pop(search_id, None)
+
+    except Exception as e:
+        print(f"{common.PRNT_API} Email search error: {e}", flush=True)
+        return SearchResult(
+            success=False,
+            message=f"Email search failed: {e}",
             data=None,
         )
