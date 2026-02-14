@@ -65,7 +65,7 @@ class Params(BaseModel):
     }
 
 
-async def main(**kwargs: Params) -> dict:
+async def main(**kwargs) -> dict:
     """Return structured chat analysis data for the Teams Chat Insights component.
 
     The LLM fills in the appropriate output fields based on the action type.

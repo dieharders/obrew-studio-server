@@ -72,7 +72,7 @@ class Params(BaseModel):
     }
 
 
-async def main(**kwargs: Params) -> dict:
+async def main(**kwargs) -> dict:
     """Return structured meeting data for widget rendering.
 
     All fields are optional - the widget UI will handle displaying
