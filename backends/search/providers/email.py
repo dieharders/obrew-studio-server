@@ -19,114 +19,17 @@ from ..harness import (
     DEFAULT_CONTENT_EXTRACT_LENGTH,
     DEFAULT_CONTENT_PREVIEW_LENGTH,
 )
-
-
-def _extract_sender(email: Dict[str, Any]) -> str:
-    """Extract sender display string from a Graph API email object."""
-    from_data = email.get("from", {})
-    if isinstance(from_data, dict):
-        addr = from_data.get("emailAddress", {})
-        name = addr.get("name", "")
-        address = addr.get("address", "")
-        if name:
-            return f"{name} <{address}>" if address else name
-        return address or "Unknown"
-    return str(from_data) if from_data else "Unknown"
-
-
-def _extract_sender_short(email: Dict[str, Any]) -> str:
-    """Extract short sender name from a Graph API email object."""
-    from_data = email.get("from", {})
-    if isinstance(from_data, dict):
-        addr = from_data.get("emailAddress", {})
-        return addr.get("name", "") or addr.get("address", "") or "Unknown"
-    return str(from_data) if from_data else "Unknown"
-
-
-def _html_to_text(html: str) -> str:
-    """Simple HTML to plain text conversion."""
-    # Remove style and script tags and their content
-    text = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(
-        r"<script[^>]*>.*?</script>", "", text, flags=re.DOTALL | re.IGNORECASE
-    )
-    # Replace br/p tags with newlines
-    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"</p>", "\n", text, flags=re.IGNORECASE)
-    text = re.sub(r"</div>", "\n", text, flags=re.IGNORECASE)
-    # Remove all remaining HTML tags
-    text = re.sub(r"<[^>]+>", "", text)
-    # Decode common HTML entities
-    text = text.replace("&amp;", "&")
-    text = text.replace("&lt;", "<")
-    text = text.replace("&gt;", ">")
-    text = text.replace("&quot;", '"')
-    text = text.replace("&#39;", "'")
-    text = text.replace("&nbsp;", " ")
-    # Collapse whitespace
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    text = re.sub(r" {2,}", " ", text)
-    return text.strip()
-
-
-def _extract_body_text(
-    email: Dict[str, Any], max_length: int = DEFAULT_CONTENT_EXTRACT_LENGTH
-) -> str:
-    """Extract full body as plain text from a Graph API email object."""
-    body = email.get("body", {})
-    if isinstance(body, dict):
-        content_type = body.get("contentType", "").lower()
-        content = body.get("content", "")
-        if content_type == "html" and content:
-            text = _html_to_text(content)
-        else:
-            text = content or ""
-    else:
-        text = str(body) if body else ""
-
-    # Fall back to bodyPreview if body is empty
-    if not text.strip():
-        text = email.get("bodyPreview", "")
-
-    return text[:max_length] if text else ""
+from backends.tools.built_in_functions.email_utils import (
+    extract_sender,
+    extract_sender_short,
+    extract_body_text,
+    extract_field_value,
+)
 
 
 _FIELD_ALIASES = {"title": "subject", "sender": "from", "recipient": "to"}
 
 _DEFAULT_GREP_FIELDS = ["subject", "from", "to", "bodyPreview", "body"]
-
-
-def _extract_grep_field_value(email: Dict[str, Any], field: str) -> str:
-    """Extract a searchable string value from a Graph API email field."""
-    if field == "from":
-        from_data = email.get("from", "")
-        if isinstance(from_data, dict):
-            addr = from_data.get("emailAddress", {})
-            name = addr.get("name", "")
-            address = addr.get("address", "")
-            return f"{name} {address}".strip()
-        return str(from_data)
-
-    if field == "to":
-        to_data = email.get("to", email.get("toRecipients", []))
-        if isinstance(to_data, list):
-            parts = []
-            for recipient in to_data:
-                if isinstance(recipient, dict):
-                    addr = recipient.get("emailAddress", {})
-                    name = addr.get("name", "")
-                    address = addr.get("address", "")
-                    parts.append(f"{name} {address}".strip())
-                else:
-                    parts.append(str(recipient))
-            return " ".join(parts)
-        return str(to_data)
-
-    value = email.get(field, "")
-    if isinstance(value, dict):
-        # Handle body object with contentType/content
-        return value.get("content", str(value))
-    return str(value) if value else ""
 
 
 class EmailProvider(SearchProvider):
@@ -186,7 +89,7 @@ class EmailProvider(SearchProvider):
         for idx, email in enumerate(self.emails):
             email_id = email.get("id", f"email_{idx}")
             subject = email.get("subject", "(No Subject)")
-            sender = _extract_sender_short(email)
+            sender = extract_sender_short(email)
             date = email.get("receivedDateTime", "")
             importance = email.get("importance", "normal")
             has_attachments = email.get("hasAttachments", False)
@@ -249,7 +152,7 @@ class EmailProvider(SearchProvider):
             if idx is not None and 0 <= idx < len(self.emails):
                 email = self.emails[idx]
                 body_preview = email.get("bodyPreview", "")
-                sender = _extract_sender(email)
+                sender = extract_sender(email)
                 subject = email.get("subject", "(No Subject)")
                 date = email.get("receivedDateTime", "")
 
@@ -287,10 +190,10 @@ class EmailProvider(SearchProvider):
 
             if idx is not None and 0 <= idx < len(self.emails):
                 email = self.emails[idx]
-                sender = _extract_sender(email)
+                sender = extract_sender(email)
                 subject = email.get("subject", "(No Subject)")
                 date = email.get("receivedDateTime", "")
-                body_text = _extract_body_text(email)
+                body_text = extract_body_text(email, DEFAULT_CONTENT_EXTRACT_LENGTH)
 
                 # Format as a structured email document
                 content_parts = [
@@ -380,7 +283,7 @@ class EmailProvider(SearchProvider):
             snippets: List[str] = []
 
             for field in search_fields:
-                field_value = _extract_grep_field_value(email, field)
+                field_value = extract_field_value(email, field)
                 if not field_value:
                     continue
 

@@ -1,7 +1,8 @@
 """Email preview tool - returns bodyPreview and metadata for selected emails."""
 
-from typing import List, Optional
+from typing import List
 from pydantic import BaseModel, Field
+from .email_utils import extract_sender, extract_recipients
 
 
 class Params(BaseModel):
@@ -21,36 +22,6 @@ class Params(BaseModel):
             ]
         }
     }
-
-
-def _extract_sender(email: dict) -> str:
-    """Extract sender display string from a Graph API email object."""
-    from_data = email.get("from", {})
-    if isinstance(from_data, dict):
-        addr = from_data.get("emailAddress", {})
-        name = addr.get("name", "")
-        address = addr.get("address", "")
-        if name:
-            return f"{name} <{address}>" if address else name
-        return address or "Unknown"
-    return str(from_data) if from_data else "Unknown"
-
-
-def _extract_recipients(recipients: list) -> str:
-    """Extract recipient display string."""
-    if not recipients or not isinstance(recipients, list):
-        return ""
-    parts = []
-    for r in recipients[:5]:  # Limit to 5 recipients
-        if isinstance(r, dict):
-            addr = r.get("emailAddress", {})
-            name = addr.get("name", "")
-            address = addr.get("address", "")
-            parts.append(f"{name} <{address}>" if name else address)
-    result = ", ".join(parts)
-    if len(recipients) > 5:
-        result += f" (+{len(recipients) - 5} more)"
-    return result
 
 
 async def main(**kwargs) -> dict:
@@ -95,19 +66,21 @@ async def main(**kwargs) -> dict:
             not_found_ids.append(eid)
             continue
 
-        previews.append({
-            "id": eid,
-            "subject": email.get("subject", "(No Subject)"),
-            "sender": _extract_sender(email),
-            "to": _extract_recipients(email.get("toRecipients", [])),
-            "cc": _extract_recipients(email.get("ccRecipients", [])),
-            "date": email.get("receivedDateTime", ""),
-            "importance": email.get("importance", "normal"),
-            "has_attachments": email.get("hasAttachments", False),
-            "is_read": email.get("isRead", False),
-            "body_preview": email.get("bodyPreview", ""),
-            "conversation_id": email.get("conversationId"),
-        })
+        previews.append(
+            {
+                "id": eid,
+                "subject": email.get("subject", "(No Subject)"),
+                "sender": extract_sender(email),
+                "to": extract_recipients(email.get("toRecipients", [])),
+                "cc": extract_recipients(email.get("ccRecipients", [])),
+                "date": email.get("receivedDateTime", ""),
+                "importance": email.get("importance", "normal"),
+                "has_attachments": email.get("hasAttachments", False),
+                "is_read": email.get("isRead", False),
+                "body_preview": email.get("bodyPreview", ""),
+                "conversation_id": email.get("conversationId"),
+            }
+        )
 
     return {
         "previews": previews,

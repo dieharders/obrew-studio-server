@@ -2,6 +2,7 @@
 
 from typing import Optional
 from pydantic import BaseModel, Field
+from .email_utils import extract_sender_short
 
 
 class Params(BaseModel):
@@ -26,15 +27,6 @@ class Params(BaseModel):
             ]
         }
     }
-
-
-def _extract_sender_short(email: dict) -> str:
-    """Extract short sender name from a Graph API email object."""
-    from_data = email.get("from", {})
-    if isinstance(from_data, dict):
-        addr = from_data.get("emailAddress", {})
-        return addr.get("name", "") or addr.get("address", "") or "Unknown"
-    return str(from_data) if from_data else "Unknown"
 
 
 async def main(**kwargs) -> dict:
@@ -71,21 +63,23 @@ async def main(**kwargs) -> dict:
     for idx, email in enumerate(items):
         email_id = email.get("id", f"email_{idx}")
         subject = email.get("subject", "(No Subject)")
-        sender = _extract_sender_short(email)
+        sender = extract_sender_short(email)
         date = email.get("receivedDateTime", "")
         importance = email.get("importance", "normal")
         has_attachments = email.get("hasAttachments", False)
         is_read = email.get("isRead", False)
 
-        email_list.append({
-            "id": email_id,
-            "subject": subject,
-            "sender": sender,
-            "date": date,
-            "importance": importance,
-            "has_attachments": has_attachments,
-            "is_read": is_read,
-        })
+        email_list.append(
+            {
+                "id": email_id,
+                "subject": subject,
+                "sender": sender,
+                "date": date,
+                "importance": importance,
+                "has_attachments": has_attachments,
+                "is_read": is_read,
+            }
+        )
 
     # Sort
     if sort_by == "date":

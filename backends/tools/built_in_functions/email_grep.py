@@ -1,8 +1,9 @@
 """Email grep tool for pattern-based search across email items."""
 
 import re
-from typing import List, Dict, Any, Optional
+from typing import List, Optional
 from pydantic import BaseModel, Field
+from .email_utils import extract_field_value
 
 
 class Params(BaseModel):
@@ -35,39 +36,6 @@ class Params(BaseModel):
             ]
         }
     }
-
-
-def _extract_field_value(email: Dict[str, Any], field: str) -> str:
-    """Extract a searchable string value from an email field."""
-    if field == "from":
-        from_data = email.get("from", "")
-        if isinstance(from_data, dict):
-            addr = from_data.get("emailAddress", {})
-            name = addr.get("name", "")
-            address = addr.get("address", "")
-            return f"{name} {address}".strip()
-        return str(from_data)
-
-    if field == "to":
-        to_data = email.get("to", email.get("toRecipients", []))
-        if isinstance(to_data, list):
-            parts = []
-            for recipient in to_data:
-                if isinstance(recipient, dict):
-                    addr = recipient.get("emailAddress", {})
-                    name = addr.get("name", "")
-                    address = addr.get("address", "")
-                    parts.append(f"{name} {address}".strip())
-                else:
-                    parts.append(str(recipient))
-            return " ".join(parts)
-        return str(to_data)
-
-    value = email.get(field, "")
-    if isinstance(value, dict):
-        # Handle body object with contentType/content
-        return value.get("content", str(value))
-    return str(value) if value else ""
 
 
 # Note: kwargs type hint omitted because all built-in tools receive unpacked
@@ -138,7 +106,7 @@ async def main(**kwargs) -> dict:
         field_matches = []
 
         for field in search_fields:
-            field_value = _extract_field_value(email, field)
+            field_value = extract_field_value(email, field)
             if not field_value:
                 continue
 
@@ -165,7 +133,7 @@ async def main(**kwargs) -> dict:
                 {
                     "id": email_id,
                     "subject": subject,
-                    "from": _extract_field_value(email, "from"),
+                    "from": extract_field_value(email, "from"),
                     "date": email.get("receivedDateTime", ""),
                     "conversationId": email.get("conversationId"),
                     "matched_fields": field_matches,
