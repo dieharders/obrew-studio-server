@@ -80,6 +80,13 @@ class Tool:
             for key, value in list(properties.items()):  # Convert items to list
                 param = dict(**value)
                 param["name"] = key
+                # Resolve type from anyOf for Optional fields (Pydantic generates anyOf instead of type)
+                if "type" not in param and "anyOf" in param:
+                    non_null_types = [t for t in param["anyOf"] if t.get("type") != "null"]
+                    if non_null_types:
+                        param["type"] = non_null_types[0].get("type", "string")
+                    else:
+                        param["type"] = "string"
                 # Create tool schema
                 allowed_values = param.get("options", None)
                 schema_params = dict(
