@@ -29,6 +29,9 @@ from . import (
     agent_chooser,
     widget_email,
     email_grep,
+    email_scan,
+    email_preview,
+    email_read,
     analyze_email,
     widget_calendar,
     widget_meeting,
@@ -72,6 +75,9 @@ TOOLS = {
     "widget_email.py": widget_email,
     # Email search tools
     "email_grep.py": email_grep,
+    "email_scan.py": email_scan,
+    "email_preview.py": email_preview,
+    "email_read.py": email_read,
     # Email analysis tools
     "analyze_email.py": analyze_email,
     "widget_calendar.py": widget_calendar,
