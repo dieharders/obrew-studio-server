@@ -246,6 +246,45 @@ class StructuredSearchRequest(BaseModel):
     }
 
 
+# Email Search classes
+class EmailSearchRequest(BaseModel):
+    """Request for agentic email search.
+
+    Searches over email data sent by the frontend (fetched from MS Graph API).
+    The emails exist only for the duration of the request.
+
+    The search uses the same multi-phase agentic pattern as filesystem search:
+    discover (metadata) → preview (bodyPreview) → extract (full body) → synthesize.
+    """
+
+    query: str  # The search query
+    emails: List[Dict[str, Any]]  # Raw email objects (Microsoft Graph API format)
+    max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max emails to preview
+    max_read: Optional[int] = DEFAULT_MAX_READ  # Max emails to read fully
+    auto_expand: Optional[bool] = False  # Reserved for future folder expansion
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "query": "Summarize information about shareholders",
+                    "emails": [
+                        {
+                            "id": "AAMkAGI2...",
+                            "subject": "Q4 Shareholder Report",
+                            "from": {"emailAddress": {"name": "John", "address": "john@example.com"}},
+                            "bodyPreview": "Please find attached the Q4 shareholder report...",
+                            "receivedDateTime": "2025-12-15T10:30:00Z",
+                        }
+                    ],
+                    "max_preview": 10,
+                    "max_read": 3,
+                }
+            ]
+        }
+    }
+
+
 # Export unified response type for all endpoints
 # All search endpoints should return SearchResult
 __all__ = [
@@ -254,6 +293,7 @@ __all__ = [
     "WebSearchRequest",
     "StructuredItem",
     "StructuredSearchRequest",
+    "EmailSearchRequest",
     "SearchResult",
     "SearchResultData",
     "SearchSource",
