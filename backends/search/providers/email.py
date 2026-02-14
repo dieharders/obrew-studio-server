@@ -17,6 +17,7 @@ from ..harness import (
     SearchProvider,
     SearchItem,
     DEFAULT_CONTENT_EXTRACT_LENGTH,
+    DEFAULT_CONTENT_PREVIEW_LENGTH,
 )
 
 
@@ -46,7 +47,9 @@ def _html_to_text(html: str) -> str:
     """Simple HTML to plain text conversion."""
     # Remove style and script tags and their content
     text = re.sub(r"<style[^>]*>.*?</style>", "", html, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"<script[^>]*>.*?</script>", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(
+        r"<script[^>]*>.*?</script>", "", text, flags=re.DOTALL | re.IGNORECASE
+    )
     # Replace br/p tags with newlines
     text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"</p>", "\n", text, flags=re.IGNORECASE)
@@ -66,7 +69,9 @@ def _html_to_text(html: str) -> str:
     return text.strip()
 
 
-def _extract_body_text(email: Dict[str, Any], max_length: int = DEFAULT_CONTENT_EXTRACT_LENGTH) -> str:
+def _extract_body_text(
+    email: Dict[str, Any], max_length: int = DEFAULT_CONTENT_EXTRACT_LENGTH
+) -> str:
     """Extract full body as plain text from a Graph API email object."""
     body = email.get("body", {})
     if isinstance(body, dict):
@@ -84,6 +89,44 @@ def _extract_body_text(email: Dict[str, Any], max_length: int = DEFAULT_CONTENT_
         text = email.get("bodyPreview", "")
 
     return text[:max_length] if text else ""
+
+
+_FIELD_ALIASES = {"title": "subject", "sender": "from", "recipient": "to"}
+
+_DEFAULT_GREP_FIELDS = ["subject", "from", "to", "bodyPreview", "body"]
+
+
+def _extract_grep_field_value(email: Dict[str, Any], field: str) -> str:
+    """Extract a searchable string value from a Graph API email field."""
+    if field == "from":
+        from_data = email.get("from", "")
+        if isinstance(from_data, dict):
+            addr = from_data.get("emailAddress", {})
+            name = addr.get("name", "")
+            address = addr.get("address", "")
+            return f"{name} {address}".strip()
+        return str(from_data)
+
+    if field == "to":
+        to_data = email.get("to", email.get("toRecipients", []))
+        if isinstance(to_data, list):
+            parts = []
+            for recipient in to_data:
+                if isinstance(recipient, dict):
+                    addr = recipient.get("emailAddress", {})
+                    name = addr.get("name", "")
+                    address = addr.get("address", "")
+                    parts.append(f"{name} {address}".strip())
+                else:
+                    parts.append(str(recipient))
+            return " ".join(parts)
+        return str(to_data)
+
+    value = email.get(field, "")
+    if isinstance(value, dict):
+        # Handle body object with contentType/content
+        return value.get("content", str(value))
+    return str(value) if value else ""
 
 
 class EmailProvider(SearchProvider):
@@ -286,3 +329,91 @@ class EmailProvider(SearchProvider):
             Empty list (no expansion)
         """
         return []
+
+    @property
+    def supports_grep(self) -> bool:
+        return True
+
+    @property
+    def grep_fields(self) -> List[str]:
+        return _DEFAULT_GREP_FIELDS
+
+    async def grep(
+        self, items: List[SearchItem], pattern: str, **kwargs
+    ) -> Optional[List[SearchItem]]:
+        """
+        Filter discovered email items by text pattern matching.
+
+        Searches across email fields (subject, from, to, bodyPreview, body)
+        and returns only items whose underlying email data matches the pattern.
+        Matched items get their preview enriched with match snippets.
+
+        Args:
+            items: Discovered SearchItem list from discover()
+            pattern: Text pattern to search for (plain text, not regex)
+            **kwargs: Optional 'search_fields' list and 'case_sensitive' bool
+
+        Returns:
+            Filtered list of SearchItems with enriched previews, or None on error
+        """
+        from core import common
+
+        if not pattern or not items:
+            return None
+
+        # Resolve field aliases and defaults
+        raw_fields = kwargs.get("search_fields") or _DEFAULT_GREP_FIELDS
+        search_fields = [_FIELD_ALIASES.get(f, f) for f in raw_fields]
+        case_sensitive = kwargs.get("case_sensitive", False)
+
+        flags = 0 if case_sensitive else re.IGNORECASE
+        compiled = re.compile(re.escape(pattern), flags)
+
+        matched_items: List[SearchItem] = []
+
+        for item in items:
+            idx = item.metadata.get("index") if item.metadata else None
+            if idx is None or idx < 0 or idx >= len(self.emails):
+                continue
+
+            email = self.emails[idx]
+            snippets: List[str] = []
+
+            for field in search_fields:
+                field_value = _extract_grep_field_value(email, field)
+                if not field_value:
+                    continue
+
+                match = compiled.search(field_value)
+                if match:
+                    # Extract a snippet around the match
+                    start = max(0, match.start() - 40)
+                    end = min(len(field_value), match.end() + 40)
+                    snippet = field_value[start:end]
+                    if start > 0:
+                        snippet = "..." + snippet
+                    if end < len(field_value):
+                        snippet = snippet + "..."
+                    snippets.append(f"{field}: {snippet}")
+
+            if snippets:
+                # Enrich preview with match context
+                enriched_preview = " | ".join(snippets)
+                if item.preview:
+                    enriched_preview = f"{item.preview} | matches: {enriched_preview}"
+
+                matched_item = item.model_copy(
+                    update={
+                        "preview": enriched_preview[
+                            : DEFAULT_CONTENT_PREVIEW_LENGTH * 5
+                        ]
+                    }
+                )
+                matched_items.append(matched_item)
+
+        print(
+            f"{common.PRNT_API} [EmailProvider] Grep '{pattern}' matched {len(matched_items)}/{len(items)} emails",
+            flush=True,
+        )
+
+        return matched_items if matched_items else None

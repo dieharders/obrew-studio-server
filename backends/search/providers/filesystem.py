@@ -299,3 +299,8 @@ class FileSystemProvider(SearchProvider):
             for d in self.allowed_directories
             if d != current_resolved and not current_resolved.is_relative_to(d)
         ]
+
+    # @TODO Add grep support (supports_grep, grep_fields, grep()) to enable
+    # Phase 1.5 pre-filtering in the search harness. Use file_grep tool logic
+    # to match patterns in file content before LLM selection, similar to how
+    # EmailProvider uses email_grep for email field matching.
