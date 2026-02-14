@@ -32,6 +32,7 @@ DEFAULT_MAX_DISCOVER_ITEMS = 50  # Max items to return from discover phase
 DEFAULT_CONTENT_PREVIEW_LENGTH = 100  # Preview length in LLM selection prompt
 DEFAULT_CONTENT_SNIPPET_LENGTH = 200  # Snippet length for source citations
 DEFAULT_CONTENT_EXTRACT_LENGTH = 5000  # Max content length per extracted item
+GREP_MIN_ITEMS_THRESHOLD = 15  # Skip grep pre-filter when fewer items than this
 
 
 # =============================================================================
@@ -596,8 +597,8 @@ Examples:
             if await self._check_abort(request):
                 return self._cancelled_result(query, "discover", tool_logs)
 
-            # Phase 1.5: GREP PRE-FILTER (optional)
-            if self.provider.supports_grep:
+            # Phase 1.5: GREP PRE-FILTER (optional, skipped for small item sets)
+            if self.provider.supports_grep and len(items) >= GREP_MIN_ITEMS_THRESHOLD:
                 print(
                     f"{common.PRNT_API} [AgenticSearch] Phase 1.5: Extracting grep pattern from query",
                     flush=True,
