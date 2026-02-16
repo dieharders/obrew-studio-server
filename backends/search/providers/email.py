@@ -65,8 +65,12 @@ class EmailProvider(SearchProvider):
         """
         Discover emails from the provided data.
 
-        Returns SearchItems with email metadata only (sender, subject, date).
-        The LLM uses this metadata to decide which emails to preview.
+        Returns SearchItems with email metadata and bodyPreview snippet.
+        The LLM uses this to decide which emails to preview in detail.
+
+        Note: The query is validated but not used for filtering here because
+        all emails are provided upfront by the frontend. Query-based filtering
+        happens in Phase 1.5 (grep pre-filter) and Phase 2 (LLM selection).
 
         Args:
             scope: Unused (all emails provided upfront)
@@ -93,11 +97,12 @@ class EmailProvider(SearchProvider):
             date = email.get("receivedDateTime", "")
             importance = email.get("importance", "normal")
             has_attachments = email.get("hasAttachments", False)
+            body_preview = email.get("bodyPreview", "")
 
             # Name: what the LLM sees in the selection list
             name = f"{sender} — {subject}"
 
-            # Preview: brief metadata for initial triage
+            # Preview: metadata + bodyPreview snippet for initial triage
             meta_parts = []
             if date:
                 # Show just the date portion
@@ -107,6 +112,12 @@ class EmailProvider(SearchProvider):
                 meta_parts.append(f"importance: {importance}")
             if has_attachments:
                 meta_parts.append("has attachments")
+            if body_preview:
+                # Include bodyPreview snippet to give LLM better triage context
+                snippet = body_preview[:DEFAULT_CONTENT_PREVIEW_LENGTH]
+                if len(body_preview) > DEFAULT_CONTENT_PREVIEW_LENGTH:
+                    snippet += "..."
+                meta_parts.append(snippet)
             preview = " | ".join(meta_parts) if meta_parts else ""
 
             search_item = SearchItem(
