@@ -11,6 +11,9 @@ from .harness import (
     DEFAULT_MAX_DISCOVER_ITEMS,
 )
 
+# Limits for email search
+MAX_EMAIL_ITEMS = 500  # Maximum number of emails per request
+
 # Limits for structured search to prevent abuse
 MAX_STRUCTURED_ITEMS = 1000  # Maximum number of items
 MAX_CONTENT_DEPTH = 10  # Maximum nesting depth for content
@@ -262,6 +265,16 @@ class EmailSearchRequest(BaseModel):
     max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max emails to preview
     max_read: Optional[int] = DEFAULT_MAX_READ  # Max emails to read fully
     auto_expand: Optional[bool] = False  # Reserved for future folder expansion
+
+    @field_validator("emails")
+    @classmethod
+    def validate_emails_count(cls, v: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Validate that email count doesn't exceed maximum."""
+        if len(v) > MAX_EMAIL_ITEMS:
+            raise ValueError(
+                f"Number of emails ({len(v)}) exceeds maximum of {MAX_EMAIL_ITEMS}"
+            )
+        return v
 
     model_config = {
         "json_schema_extra": {
