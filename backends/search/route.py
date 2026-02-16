@@ -9,6 +9,7 @@ from .classes import (
     WebSearchRequest,
     StructuredSearchRequest,
     EmailSearchRequest,
+    SharePointSearchRequest,
 )
 from .providers import (
     FileSystemProvider,
@@ -16,6 +17,7 @@ from .providers import (
     WebProvider,
     StructuredProvider,
     EmailProvider,
+    SharePointProvider,
 )
 
 
@@ -482,5 +484,89 @@ async def search_email(
         return SearchResult(
             success=False,
             message=f"Email search failed: {e}",
+            data=None,
+        )
+
+
+@router.post("/sharepoint")
+async def search_sharepoint(
+    request: Request,
+    payload: SharePointSearchRequest,
+) -> SearchResult:
+    """
+    Perform agentic search over SharePoint file data from Microsoft Graph API.
+
+    The agent discovers files by metadata, previews relevant ones via
+    content snippets, extracts full content for the most relevant, and
+    synthesizes an answer using the LLM.
+
+    File data is fetched by the frontend from MS Graph and passed in the
+    request body. The data exists only for the duration of the request.
+
+    Requires:
+    - A loaded LLM model
+    - At least one file item in the items array
+    """
+    app: classes.FastAPIApp = request.app
+
+    try:
+        # Verify LLM is loaded
+        if not app.state.llm:
+            return SearchResult(
+                success=False,
+                message="No LLM loaded. Load a model first.",
+                data=None,
+            )
+
+        # Validate items exist
+        if not payload.items:
+            return SearchResult(
+                success=False,
+                message="No SharePoint files provided. Include at least one file to search.",
+                data=None,
+            )
+
+        # Convert Pydantic models to dicts for the provider
+        items_data = [item.model_dump() for item in payload.items]
+
+        # Create provider with the provided file data
+        provider = SharePointProvider(
+            app=app,
+            items=items_data,
+        )
+
+        search_id = str(uuid.uuid4())
+        active_searches = _get_active_searches(app)
+
+        try:
+            orchestrator = AgenticSearch(
+                provider=provider,
+                llm=app.state.llm,
+                search_type="sharepoint",
+            )
+            orchestrator.search_id = search_id
+            active_searches[search_id] = orchestrator
+
+            # Run the search
+            result = await orchestrator.search(
+                query=payload.query,
+                initial_scope=None,
+                max_preview=payload.max_preview,
+                max_read=payload.max_read,
+                auto_expand=False,
+                request=request,
+            )
+
+            return result
+
+        finally:
+            # Clean up orchestrator from active searches
+            active_searches.pop(search_id, None)
+
+    except Exception as e:
+        print(f"{common.PRNT_API} SharePoint search error: {e}", flush=True)
+        return SearchResult(
+            success=False,
+            message=f"SharePoint search failed: {e}",
             data=None,
         )

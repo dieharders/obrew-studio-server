@@ -298,6 +298,75 @@ class EmailSearchRequest(BaseModel):
     }
 
 
+# SharePoint Search classes
+MAX_SHAREPOINT_ITEMS = 500  # Maximum number of SharePoint files per request
+
+
+class SharePointSearchItem(BaseModel):
+    """Individual item in a SharePoint search request."""
+
+    id: str
+    name: str
+    content: str  # Text content or preview (fetched by frontend from Graph API)
+    web_url: Optional[str] = None
+    mime_type: Optional[str] = None
+    drive_id: Optional[str] = None
+    last_modified: Optional[str] = None
+    last_modified_by: Optional[str] = None
+
+
+class SharePointSearchRequest(BaseModel):
+    """Request for agentic SharePoint file search.
+
+    Searches over SharePoint file data sent by the frontend (fetched from MS Graph API).
+    The data exists only for the duration of the request.
+
+    The search uses the same multi-phase agentic pattern:
+    discover (metadata) → preview (content snippet) → extract (full content) → synthesize.
+    """
+
+    query: str  # The search query
+    items: List[SharePointSearchItem]  # SharePoint file data from frontend
+    max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max files to preview
+    max_read: Optional[int] = DEFAULT_MAX_READ  # Max files to read fully
+    auto_expand: Optional[bool] = False  # Not used (no expansion for SharePoint)
+
+    @field_validator("items")
+    @classmethod
+    def validate_items_count(
+        cls, v: List[SharePointSearchItem],
+    ) -> List[SharePointSearchItem]:
+        """Validate that item count doesn't exceed maximum."""
+        if len(v) > MAX_SHAREPOINT_ITEMS:
+            raise ValueError(
+                f"Number of items ({len(v)}) exceeds maximum of {MAX_SHAREPOINT_ITEMS}"
+            )
+        return v
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "query": "Find the latest project proposal document",
+                    "items": [
+                        {
+                            "id": "01ABCDEF...",
+                            "name": "Project Proposal v2.docx",
+                            "content": "This document outlines the proposed project timeline...",
+                            "web_url": "https://contoso.sharepoint.com/sites/team/Documents/proposal.docx",
+                            "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            "last_modified": "2025-12-15T10:30:00Z",
+                            "last_modified_by": "John Smith",
+                        }
+                    ],
+                    "max_preview": 10,
+                    "max_read": 3,
+                }
+            ]
+        }
+    }
+
+
 # Export unified response type for all endpoints
 # All search endpoints should return SearchResult
 __all__ = [
@@ -307,6 +376,8 @@ __all__ = [
     "StructuredItem",
     "StructuredSearchRequest",
     "EmailSearchRequest",
+    "SharePointSearchItem",
+    "SharePointSearchRequest",
     "SearchResult",
     "SearchResultData",
     "SearchSource",

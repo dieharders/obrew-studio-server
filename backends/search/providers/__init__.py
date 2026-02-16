@@ -13,5 +13,13 @@ from .vector import VectorProvider
 from .web import WebProvider
 from .structured import StructuredProvider
 from .email import EmailProvider
+from .sharepoint import SharePointProvider
 
-__all__ = ["FileSystemProvider", "VectorProvider", "WebProvider", "StructuredProvider", "EmailProvider"]
+__all__ = [
+    "FileSystemProvider",
+    "VectorProvider",
+    "WebProvider",
+    "StructuredProvider",
+    "EmailProvider",
+    "SharePointProvider",
+]
