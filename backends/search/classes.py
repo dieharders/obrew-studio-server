@@ -1,6 +1,6 @@
 import json
 from typing import List, Optional, Dict, Any, Union
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from .harness import (
     SearchResult,
     SearchResultData,
@@ -300,6 +300,7 @@ class EmailSearchRequest(BaseModel):
 
 # SharePoint Search classes
 MAX_SHAREPOINT_ITEMS = 500  # Maximum number of SharePoint files per request
+MAX_SHAREPOINT_CONTENT_LENGTH = 102_400  # Maximum content length per file (~100KB)
 
 
 class SharePointSearchItem(BaseModel):
@@ -307,7 +308,12 @@ class SharePointSearchItem(BaseModel):
 
     id: str
     name: str
-    content: str  # Text content or preview (fetched by frontend from Graph API)
+    content: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_SHAREPOINT_CONTENT_LENGTH,
+        description="Text content fetched by frontend from Graph API. Must be non-empty.",
+    )
     web_url: Optional[str] = None
     mime_type: Optional[str] = None
     drive_id: Optional[str] = None
@@ -329,7 +335,6 @@ class SharePointSearchRequest(BaseModel):
     items: List[SharePointSearchItem]  # SharePoint file data from frontend
     max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max files to preview
     max_read: Optional[int] = DEFAULT_MAX_READ  # Max files to read fully
-    auto_expand: Optional[bool] = False  # Not used (no expansion for SharePoint)
 
     @field_validator("items")
     @classmethod
