@@ -43,12 +43,18 @@ class EmailProvider(SearchProvider):
     - discover: Shows email metadata (sender, subject, date) for LLM triage
     - preview: Shows bodyPreview content for LLM to assess relevance
     - extract: Returns full body content (HTML→text) for selected emails
+
+    Expansion:
+    When auto_expand is enabled, emails are grouped by conversationId.
+    The initial discover returns the largest conversation group, and
+    expansion searches the remaining groups.
     """
 
     def __init__(
         self,
         app: Any,
         emails: List[Dict[str, Any]],
+        auto_expand: bool = False,
     ):
         """
         Initialize the EmailProvider.
@@ -56,10 +62,28 @@ class EmailProvider(SearchProvider):
         Args:
             app: FastAPI application instance
             emails: List of raw email objects (Microsoft Graph API format)
+            auto_expand: Whether to group by conversationId for expansion
         """
         self.app = app
         self.emails = emails
+        self.auto_expand = auto_expand
         self._search_items: List[SearchItem] = []
+
+        # Build conversation groups for auto_expand
+        self._groups: Dict[str, List[int]] = {}  # conversationId → email indices
+        self._searched_groups: List[str] = []
+        if auto_expand:
+            self._build_conversation_groups()
+
+    def _build_conversation_groups(self):
+        """Group emails by conversationId for scope expansion."""
+        for idx, email in enumerate(self.emails):
+            conv_id = email.get("conversationId", "_ungrouped")
+            if not conv_id:
+                conv_id = "_ungrouped"
+            if conv_id not in self._groups:
+                self._groups[conv_id] = []
+            self._groups[conv_id].append(idx)
 
     async def discover(self, scope: Optional[str] = None, **kwargs) -> List[SearchItem]:
         """
@@ -68,12 +92,16 @@ class EmailProvider(SearchProvider):
         Returns SearchItems with email metadata and bodyPreview snippet.
         The LLM uses this to decide which emails to preview in detail.
 
+        When auto_expand is enabled, discovers emails from the specified
+        conversation group (scope). On the first call (scope=None), returns
+        emails from the largest conversation group.
+
         Note: The query is validated but not used for filtering here because
         all emails are provided upfront by the frontend. Query-based filtering
         happens in Phase 1.5 (grep pre-filter) and Phase 2 (LLM selection).
 
         Args:
-            scope: Unused (all emails provided upfront)
+            scope: conversationId group to discover (when auto_expand enabled)
             **kwargs: Must include 'query'
 
         Returns:
@@ -85,12 +113,31 @@ class EmailProvider(SearchProvider):
         if not query:
             raise ValueError("Query is required for email search")
 
-        # Return cached items if already discovered
-        if self._search_items:
-            return self._search_items
+        # Determine which email indices to process
+        if self.auto_expand and self._groups:
+            if scope is not None:
+                # Search specific conversation group
+                indices = self._groups.get(scope, [])
+                emails_to_process = [(idx, self.emails[idx]) for idx in indices]
+                if scope not in self._searched_groups:
+                    self._searched_groups.append(scope)
+            elif not self._searched_groups:
+                # First call — pick the largest conversation group
+                largest_group = max(self._groups, key=lambda k: len(self._groups[k]))
+                indices = self._groups[largest_group]
+                emails_to_process = [(idx, self.emails[idx]) for idx in indices]
+                self._searched_groups.append(largest_group)
+            else:
+                # Already discovered, return cached
+                return self._search_items
+        else:
+            # No grouping — process all emails (only once)
+            if self._search_items:
+                return self._search_items
+            emails_to_process = list(enumerate(self.emails))
 
         search_items = []
-        for idx, email in enumerate(self.emails):
+        for idx, email in emails_to_process:
             email_id = email.get("id", f"email_{idx}")
             subject = email.get("subject", "(No Subject)")
             sender = extract_sender_short(email)
@@ -137,10 +184,15 @@ class EmailProvider(SearchProvider):
             )
             search_items.append(search_item)
 
-        self._search_items = search_items
+        # Cache items (append for grouped, replace for ungrouped)
+        if self.auto_expand:
+            self._search_items.extend(search_items)
+        else:
+            self._search_items = search_items
 
+        scope_info = f" (conversation: {scope})" if scope else ""
         print(
-            f"{common.PRNT_API} [EmailProvider] Loaded {len(search_items)} email(s)",
+            f"{common.PRNT_API} [EmailProvider] Loaded {len(search_items)} email(s){scope_info}",
             flush=True,
         )
 
@@ -234,15 +286,22 @@ class EmailProvider(SearchProvider):
 
     def get_expandable_scopes(self, current_scope: str) -> List[str]:
         """
-        Return additional scopes for expansion.
+        Return additional conversation groups that can be searched.
 
-        Email data is provided upfront by the frontend, so there are
-        no additional scopes to expand into.
+        When auto_expand is enabled, returns conversationId groups
+        that haven't been searched yet.
 
         Returns:
-            Empty list (no expansion)
+            List of unsearched conversationId group keys
         """
-        return []
+        if not self.auto_expand:
+            return []
+
+        return [
+            group
+            for group in self._groups.keys()
+            if group not in self._searched_groups
+        ]
 
     @property
     def supports_grep(self) -> bool:

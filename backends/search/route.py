@@ -1,5 +1,4 @@
 import uuid
-from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, Request
 from core import classes, common
@@ -122,8 +121,8 @@ async def search_vector(
             result = await orchestrator.search(
                 query=payload.query,
                 initial_scope=None,  # VectorProvider uses self.collections instead
-                max_preview=payload.max_preview or 10,
-                max_read=payload.max_read or 3,
+                max_preview=payload.max_preview,
+                max_read=payload.max_read,
                 auto_expand=(
                     payload.auto_expand if payload.auto_expand is not None else True
                 ),
@@ -196,8 +195,8 @@ async def search_web(
             result = await orchestrator.search(
                 query=payload.query,
                 initial_scope=payload.query,  # For web search, scope is the query itself
-                max_preview=payload.max_preview or 10,
-                max_read=payload.max_read or 3,
+                max_preview=payload.max_preview,
+                max_read=payload.max_read,
                 auto_expand=False,  # Web search doesn't use scope expansion
                 request=request,
             )
@@ -278,8 +277,8 @@ async def search_file_system(
             result = await orchestrator.search(
                 query=payload.query,
                 initial_scope=payload.directories[0],
-                max_preview=payload.max_preview or 10,
-                max_read=payload.max_read or 3,
+                max_preview=payload.max_preview,
+                max_read=payload.max_read,
                 max_expand=payload.max_iterations or 3,
                 auto_expand=(
                     payload.auto_expand if payload.auto_expand is not None else True
@@ -371,8 +370,8 @@ async def search_structured(
             result = await orchestrator.search(
                 query=payload.query,
                 initial_scope=initial_scope,
-                max_preview=payload.max_preview or 10,
-                max_read=payload.max_read or 3,
+                max_preview=payload.max_preview,
+                max_read=payload.max_read,
                 auto_expand=(
                     payload.auto_expand if payload.auto_expand is not None else False
                 ),
@@ -433,10 +432,22 @@ async def search_email(
             )
 
         # Create provider with the provided emails
+        use_expand = (
+            payload.auto_expand if payload.auto_expand is not None else False
+        )
         provider = EmailProvider(
             app=app,
             emails=payload.emails,
+            auto_expand=use_expand,
         )
+
+        # When auto_expand is enabled and groups exist, use the
+        # largest conversation group as the initial scope.
+        initial_scope = None
+        if use_expand and provider._groups:
+            initial_scope = max(
+                provider._groups, key=lambda k: len(provider._groups[k])
+            )
 
         search_id = str(uuid.uuid4())
         active_searches = _get_active_searches(app)
@@ -453,12 +464,10 @@ async def search_email(
             # Run the search
             result = await orchestrator.search(
                 query=payload.query,
-                initial_scope=None,
-                max_preview=payload.max_preview or 10,
-                max_read=payload.max_read or 3,
-                auto_expand=(
-                    payload.auto_expand if payload.auto_expand is not None else False
-                ),
+                initial_scope=initial_scope,
+                max_preview=payload.max_preview,
+                max_read=payload.max_read,
+                auto_expand=use_expand,
                 request=request,
             )
 

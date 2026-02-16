@@ -264,7 +264,7 @@ class EmailSearchRequest(BaseModel):
     emails: List[Dict[str, Any]]  # Raw email objects (Microsoft Graph API format)
     max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max emails to preview
     max_read: Optional[int] = DEFAULT_MAX_READ  # Max emails to read fully
-    auto_expand: Optional[bool] = False  # Reserved for future folder expansion
+    auto_expand: Optional[bool] = False  # Group by conversationId and expand to other threads
 
     @field_validator("emails")
     @classmethod
