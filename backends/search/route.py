@@ -2,7 +2,7 @@ import uuid
 from typing import Optional
 from fastapi import APIRouter, Request
 from core import classes, common
-from .harness import AgenticSearch, SearchResult
+from .harness import AgenticSearch, SearchResult, SearchResultData
 from .classes import (
     FileSystemSearchRequest,
     VectorSearchRequest,
@@ -518,12 +518,18 @@ async def search_sharepoint(
                 data=None,
             )
 
-        # Validate items exist
+        # Handle empty items gracefully
         if not payload.items:
             return SearchResult(
-                success=False,
-                message="No SharePoint files provided. Include at least one file to search.",
-                data=None,
+                success=True,
+                message="No SharePoint files provided.",
+                data=SearchResultData(
+                    answer="No SharePoint files were provided to search. Please ensure you have SharePoint files in your project and are signed in to Microsoft 365.",
+                    sources=[],
+                    query=payload.query,
+                    search_type="sharepoint",
+                    total_results=0,
+                ),
             )
 
         # Convert Pydantic models to dicts for the provider
