@@ -487,6 +487,10 @@ Instructions:
             else "all available fields"
         )
 
+        # NOTE: The user query is interpolated directly into this prompt. Since this
+        # is an internal LLM-to-LLM call (output is parsed as JSON, not shown to users),
+        # the risk is limited to manipulating the extracted grep pattern. A crafted query
+        # could produce an unhelpful pattern but cannot escape the JSON schema constraint.
         prompt = f"""Analyze the user's search query and extract the best keyword or phrase for a text-based grep search.
 
 User Query: {query}
@@ -619,7 +623,7 @@ Examples:
                     )
                     grep_items = await self.provider.grep(items, pattern, **grep_kwargs)
 
-                    if grep_items is not None and len(grep_items) > 0:
+                    if grep_items:
                         print(
                             f"{common.PRNT_API} [AgenticSearch] Phase 1.5: Grep narrowed {items_before} → {len(grep_items)} items",
                             flush=True,
