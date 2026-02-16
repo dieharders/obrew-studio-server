@@ -90,12 +90,19 @@ async def main(**kwargs) -> dict:
     meeting_id = kwargs.get("meeting_id", "") or ""
 
     # Validate ISO 8601 datetime format (YYYY-MM-DDTHH:MM:SS with optional timezone)
+    warnings = []
     iso_pattern = re.compile(
         r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?([+-]\d{2}:\d{2}|Z)?$"
     )
     if start_date_time and not iso_pattern.match(start_date_time):
+        warnings.append(
+            f"Invalid start_date_time '{start_date_time}' — expected ISO 8601 format (e.g. 2025-01-15T14:00:00). Value was cleared."
+        )
         start_date_time = ""
     if end_date_time and not iso_pattern.match(end_date_time):
+        warnings.append(
+            f"Invalid end_date_time '{end_date_time}' — expected ISO 8601 format (e.g. 2025-01-15T15:00:00). Value was cleared."
+        )
         end_date_time = ""
 
     # Parse comma-separated attendees into guest objects
@@ -132,4 +139,5 @@ async def main(**kwargs) -> dict:
         "startDateTime": start_date_time if start_date_time else None,
         "endDateTime": end_date_time if end_date_time else None,
         "meetingId": meeting_id if meeting_id else None,
+        **({"warnings": warnings} if warnings else {}),
     }
