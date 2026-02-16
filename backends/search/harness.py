@@ -635,6 +635,7 @@ Examples:
                             flush=True,
                         )
 
+                    zero_matches = grep_items is None or len(grep_items) == 0
                     tool_logs.append(
                         {
                             "phase": "grep_pre_filter",
@@ -642,6 +643,14 @@ Examples:
                             "search_fields": grep_params.get("search_fields"),
                             "items_before": items_before,
                             "items_after": len(items),
+                            "zero_matches": zero_matches,
+                            **(
+                                {
+                                    "note": f"Grep pattern '{pattern}' matched 0 items; kept all {items_before} for LLM selection"
+                                }
+                                if zero_matches
+                                else {}
+                            ),
                         }
                     )
 
