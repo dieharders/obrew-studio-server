@@ -75,9 +75,10 @@ class SharePointProvider(SearchProvider):
         for idx, item in enumerate(self.items):
             item_id = item.get("id", f"sp_file_{idx}")
             name = item.get("name", "(Unnamed File)")
-            content = str(item.get("content", ""))
+            content = item.get("content", "")
             web_url = item.get("web_url", "")
             mime_type = item.get("mime_type", "")
+            drive_id = item.get("drive_id", "")
             last_modified = item.get("last_modified", "")
             last_modified_by = item.get("last_modified_by", "")
 
@@ -95,11 +96,10 @@ class SharePointProvider(SearchProvider):
                     last_modified[:10] if len(last_modified) >= 10 else last_modified
                 )
                 meta_parts.append(date_short)
-            if content:
-                snippet = content[:DEFAULT_CONTENT_PREVIEW_LENGTH]
-                if len(content) > DEFAULT_CONTENT_PREVIEW_LENGTH:
-                    snippet += "..."
-                meta_parts.append(snippet)
+            snippet = content[:DEFAULT_CONTENT_PREVIEW_LENGTH]
+            if len(content) > DEFAULT_CONTENT_PREVIEW_LENGTH:
+                snippet += "..."
+            meta_parts.append(snippet)
             preview = " | ".join(meta_parts) if meta_parts else ""
 
             search_item = SearchItem(
@@ -112,6 +112,7 @@ class SharePointProvider(SearchProvider):
                     "name": name,
                     "web_url": web_url,
                     "mime_type": mime_type,
+                    "drive_id": drive_id,
                     "last_modified": last_modified,
                     "last_modified_by": last_modified_by,
                 },
@@ -144,7 +145,7 @@ class SharePointProvider(SearchProvider):
             idx = item.metadata.get("index") if item.metadata else None
             if idx is not None and 0 <= idx < len(self.items):
                 sp_item = self.items[idx]
-                content = str(sp_item.get("content", ""))
+                content = sp_item.get("content", "")
                 name = sp_item.get("name", "(Unnamed)")
                 web_url = sp_item.get("web_url", "")
                 last_modified_by = sp_item.get("last_modified_by", "")
@@ -154,11 +155,10 @@ class SharePointProvider(SearchProvider):
                     preview_parts.append(f"Last modified by: {last_modified_by}")
                 if web_url:
                     preview_parts.append(f"URL: {web_url}")
-                if content:
-                    snippet = content[:DEFAULT_CONTENT_PREVIEW_LENGTH]
-                    if len(content) > DEFAULT_CONTENT_PREVIEW_LENGTH:
-                        snippet += "..."
-                    preview_parts.append(f"Content: {snippet}")
+                snippet = content[:DEFAULT_CONTENT_PREVIEW_LENGTH]
+                if len(content) > DEFAULT_CONTENT_PREVIEW_LENGTH:
+                    snippet += "..."
+                preview_parts.append(f"Content: {snippet}")
 
                 item.preview = "\n".join(preview_parts)
 
@@ -182,8 +182,9 @@ class SharePointProvider(SearchProvider):
             if idx is not None and 0 <= idx < len(self.items):
                 sp_item = self.items[idx]
                 name = sp_item.get("name", "(Unnamed)")
-                content = str(sp_item.get("content", ""))
+                content = sp_item.get("content", "")
                 web_url = sp_item.get("web_url", "")
+                drive_id = sp_item.get("drive_id", "")
                 last_modified_by = sp_item.get("last_modified_by", "")
 
                 # Truncate content if too long
@@ -198,6 +199,8 @@ class SharePointProvider(SearchProvider):
                     content_parts.append(f"Last modified by: {last_modified_by}")
                 if web_url:
                     content_parts.append(f"SharePoint URL: {web_url}")
+                if drive_id:
+                    content_parts.append(f"Drive ID: {drive_id}")
                 content_parts.append("")
                 content_parts.append(content)
 
@@ -226,6 +229,11 @@ class SharePointProvider(SearchProvider):
     def supports_grep(self) -> bool:
         """SharePoint provider supports grep pre-filtering."""
         return True
+
+    @property
+    def grep_fields(self) -> List[str]:
+        """Available fields for grep searching."""
+        return ["name", "content", "web_url", "last_modified_by"]
 
     async def grep(
         self, items: List[SearchItem], pattern: str, **kwargs
