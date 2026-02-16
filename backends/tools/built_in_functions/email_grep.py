@@ -3,7 +3,7 @@
 import re
 from typing import List, Optional
 from pydantic import BaseModel, Field
-from .email_utils import extract_field_value
+from .._email_utils import extract_field_value
 
 
 class Params(BaseModel):

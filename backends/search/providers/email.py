@@ -19,7 +19,7 @@ from ..harness import (
     DEFAULT_CONTENT_EXTRACT_LENGTH,
     DEFAULT_CONTENT_PREVIEW_LENGTH,
 )
-from tools.built_in_functions.email_utils import (
+from tools._email_utils import (
     extract_sender,
     extract_sender_short,
     extract_body_text,

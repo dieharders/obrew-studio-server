@@ -7,7 +7,7 @@ empty results.
 
 from typing import List
 from pydantic import BaseModel, Field
-from .email_utils import extract_sender, extract_recipients, extract_body_text, get_context_emails, build_email_id_index
+from .._email_utils import extract_sender, extract_recipients, extract_body_text, get_context_emails, build_email_id_index
 
 
 class Params(BaseModel):
