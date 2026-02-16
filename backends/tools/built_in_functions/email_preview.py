@@ -1,4 +1,9 @@
-"""Email preview tool - returns bodyPreview and metadata for selected emails."""
+"""Email preview tool - returns bodyPreview and metadata for selected emails.
+
+Requires request.state.context_items to be populated with email objects
+by the frontend/middleware before tool invocation. If not set, returns
+empty results.
+"""
 
 from typing import List
 from pydantic import BaseModel, Field

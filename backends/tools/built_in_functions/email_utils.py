@@ -68,6 +68,12 @@ def html_to_text(html_content: str) -> str:
     - Block element conversion (br, p, div)
     - HTML entity decoding (named, decimal, and hex via html.unescape)
     - Whitespace normalization
+
+    Note on regex safety: The patterns below use non-greedy quantifiers and
+    character-class negation ([^>]*) which are safe against catastrophic
+    backtracking. The <a> tag regex uses [^"']* inside quotes which is bounded.
+    For very large HTML bodies (e.g. newsletters), callers should truncate the
+    input or the output via max_length to keep processing time reasonable.
     """
     if not html_content:
         return ""
