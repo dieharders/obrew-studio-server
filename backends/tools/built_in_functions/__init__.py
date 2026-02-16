@@ -36,6 +36,8 @@ from . import (
     widget_calendar,
     widget_meeting,
     chat_insights,
+    sharepoint_read,
+    sharepoint_scan,
 )
 
 # Registry for tool discovery - maps filename to module
@@ -84,4 +86,7 @@ TOOLS = {
     "widget_meeting.py": widget_meeting,
     # Chat analysis tools
     "chat_insights.py": chat_insights,
+    # SharePoint tools
+    "sharepoint_read.py": sharepoint_read,
+    "sharepoint_scan.py": sharepoint_scan,
 }
