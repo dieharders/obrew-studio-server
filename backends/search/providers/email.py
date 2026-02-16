@@ -11,8 +11,8 @@ body content (HTML converted to plain text).
 """
 
 import re
+from core import common
 from typing import List, Dict, Optional, Any
-
 from ..harness import (
     SearchProvider,
     SearchItem,
@@ -107,8 +107,6 @@ class EmailProvider(SearchProvider):
         Returns:
             List of SearchItem objects representing emails
         """
-        from core import common
-
         query = kwargs.get("query", "")
         if not query:
             raise ValueError("Query is required for email search")
@@ -298,9 +296,7 @@ class EmailProvider(SearchProvider):
             return []
 
         return [
-            group
-            for group in self._groups.keys()
-            if group not in self._searched_groups
+            group for group in self._groups.keys() if group not in self._searched_groups
         ]
 
     @property
@@ -329,8 +325,6 @@ class EmailProvider(SearchProvider):
         Returns:
             Filtered list of SearchItems with enriched previews, or None on error
         """
-        from core import common
-
         if not pattern or not items:
             return None
 

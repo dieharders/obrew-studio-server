@@ -9,8 +9,9 @@ The provider is file-aware: discover shows file metadata (name, author, date),
 preview shows content snippets, and extract returns the full text content.
 """
 
+import re
+from core import common
 from typing import List, Dict, Optional, Any
-
 from ..harness import (
     SearchProvider,
     SearchItem,
@@ -48,9 +49,7 @@ class SharePointProvider(SearchProvider):
         self.items = items
         self._search_items: List[SearchItem] = []
 
-    async def discover(
-        self, scope: Optional[str] = None, **kwargs
-    ) -> List[SearchItem]:
+    async def discover(self, scope: Optional[str] = None, **kwargs) -> List[SearchItem]:
         """
         Discover files from the provided SharePoint data.
 
@@ -64,8 +63,6 @@ class SharePointProvider(SearchProvider):
         Returns:
             List of SearchItem objects representing SharePoint files
         """
-        from core import common
-
         query = kwargs.get("query", "")
         if not query:
             raise ValueError("Query is required for SharePoint search")
@@ -95,9 +92,7 @@ class SharePointProvider(SearchProvider):
                 meta_parts.append(mime_type)
             if last_modified:
                 date_short = (
-                    last_modified[:10]
-                    if len(last_modified) >= 10
-                    else last_modified
+                    last_modified[:10] if len(last_modified) >= 10 else last_modified
                 )
                 meta_parts.append(date_short)
             if content:
@@ -247,8 +242,6 @@ class SharePointProvider(SearchProvider):
         Returns:
             Filtered list of matching SearchItems
         """
-        import re
-
         try:
             regex = re.compile(pattern, re.IGNORECASE)
         except re.error:
