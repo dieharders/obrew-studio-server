@@ -7,7 +7,7 @@ empty results.
 
 from typing import List
 from pydantic import BaseModel, Field
-from .email_utils import extract_sender, extract_recipients
+from .email_utils import extract_sender, extract_recipients, get_context_emails, build_email_id_index
 
 
 class Params(BaseModel):
@@ -38,16 +38,7 @@ async def main(**kwargs) -> dict:
     if not email_ids:
         raise ValueError("email_ids is required")
 
-    # Read email items from request.state.context_items
-    items = []
-    request = kwargs.get("request")
-    if (
-        request
-        and hasattr(request, "state")
-        and hasattr(request.state, "context_items")
-    ):
-        items = request.state.context_items or []
-
+    items = get_context_emails(kwargs)
     if not items:
         return {
             "previews": [],
@@ -55,13 +46,8 @@ async def main(**kwargs) -> dict:
             "not_found": len(email_ids),
         }
 
-    # Build ID → email index
-    id_to_email = {}
-    for idx, email in enumerate(items):
-        eid = email.get("id", f"email_{idx}")
-        id_to_email[eid] = email
+    id_to_email = build_email_id_index(items)
 
-    # Look up requested emails
     previews = []
     not_found_ids = []
 

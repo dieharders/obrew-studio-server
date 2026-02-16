@@ -57,6 +57,9 @@ def extract_recipients(recipients: list) -> str:
     return result
 
 
+MAX_HTML_INPUT = 100_000  # Truncate HTML input to ~100KB before regex processing
+
+
 def html_to_text(html_content: str) -> str:
     """Convert HTML to plain text.
 
@@ -72,13 +75,13 @@ def html_to_text(html_content: str) -> str:
     Note on regex safety: The patterns below use non-greedy quantifiers and
     character-class negation ([^>]*) which are safe against catastrophic
     backtracking. The <a> tag regex uses [^"']* inside quotes which is bounded.
-    For very large HTML bodies (e.g. newsletters), callers should truncate the
-    input or the output via max_length to keep processing time reasonable.
+    Input is truncated to MAX_HTML_INPUT to bound processing time for very
+    large HTML bodies (e.g. newsletters).
     """
     if not html_content:
         return ""
 
-    text = html_content
+    text = html_content[:MAX_HTML_INPUT]
 
     # Remove style and script tags and their content
     text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE)
@@ -139,6 +142,38 @@ def extract_body_text(email: Dict[str, Any], max_length: int = 5000) -> str:
         text = email.get("bodyPreview", "")
 
     return text[:max_length] if text else ""
+
+
+def get_context_emails(kwargs: Dict[str, Any]) -> list:
+    """Extract email items from request.state.context_items.
+
+    Tools that operate on emails passed via the frontend use
+    request.state.context_items to access the email list. This helper
+    centralizes that lookup so each tool doesn't duplicate it.
+
+    Returns:
+        List of email dicts, or empty list if not available.
+    """
+    request = kwargs.get("request")
+    if (
+        request
+        and hasattr(request, "state")
+        and hasattr(request.state, "context_items")
+    ):
+        return request.state.context_items or []
+    return []
+
+
+def build_email_id_index(emails: list) -> Dict[str, Dict[str, Any]]:
+    """Build an ID → email lookup dict from a list of email objects.
+
+    Falls back to "email_{idx}" when an email has no 'id' field.
+    """
+    index: Dict[str, Dict[str, Any]] = {}
+    for idx, email in enumerate(emails):
+        eid = email.get("id", f"email_{idx}")
+        index[eid] = email
+    return index
 
 
 def extract_field_value(email: Dict[str, Any], field: str) -> str:

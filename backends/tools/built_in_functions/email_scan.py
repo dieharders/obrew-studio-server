@@ -7,7 +7,7 @@ empty results.
 
 from typing import Optional
 from pydantic import BaseModel, Field
-from .email_utils import extract_sender_short
+from .email_utils import extract_sender_short, get_context_emails
 
 
 class Params(BaseModel):
@@ -42,20 +42,7 @@ async def main(**kwargs) -> dict:
     max_results = kwargs.get("max_results", 50)
     sort_by = kwargs.get("sort_by", "date")
 
-    # Read email items from request.state.context_items (injected by frontend)
-    items = []
-    request = kwargs.get("request")
-    if (
-        request
-        and hasattr(request, "state")
-        and hasattr(request.state, "context_items")
-    ):
-        items = request.state.context_items or []
-    else:
-        print(
-            "[email_scan] Warning: no request.state.context_items available.",
-            flush=True,
-        )
+    items = get_context_emails(kwargs)
 
     if not items:
         return {
