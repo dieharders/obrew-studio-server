@@ -11,6 +11,9 @@ from .harness import (
     DEFAULT_MAX_DISCOVER_ITEMS,
 )
 
+# Limits for email search
+MAX_EMAIL_ITEMS = 500  # Maximum number of emails per request
+
 # Limits for structured search to prevent abuse
 MAX_STRUCTURED_ITEMS = 1000  # Maximum number of items
 MAX_CONTENT_DEPTH = 10  # Maximum nesting depth for content
@@ -246,6 +249,55 @@ class StructuredSearchRequest(BaseModel):
     }
 
 
+# Email Search classes
+class EmailSearchRequest(BaseModel):
+    """Request for agentic email search.
+
+    Searches over email data sent by the frontend (fetched from MS Graph API).
+    The emails exist only for the duration of the request.
+
+    The search uses the same multi-phase agentic pattern as filesystem search:
+    discover (metadata) → preview (bodyPreview) → extract (full body) → synthesize.
+    """
+
+    query: str  # The search query
+    emails: List[Dict[str, Any]]  # Raw email objects (Microsoft Graph API format)
+    max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max emails to preview
+    max_read: Optional[int] = DEFAULT_MAX_READ  # Max emails to read fully
+    auto_expand: Optional[bool] = False  # Group by conversationId and expand to other threads
+
+    @field_validator("emails")
+    @classmethod
+    def validate_emails_count(cls, v: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Validate that email count doesn't exceed maximum."""
+        if len(v) > MAX_EMAIL_ITEMS:
+            raise ValueError(
+                f"Number of emails ({len(v)}) exceeds maximum of {MAX_EMAIL_ITEMS}"
+            )
+        return v
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "query": "Summarize information about shareholders",
+                    "emails": [
+                        {
+                            "id": "AAMkAGI2...",
+                            "subject": "Q4 Shareholder Report",
+                            "from": {"emailAddress": {"name": "John", "address": "john@example.com"}},
+                            "bodyPreview": "Please find attached the Q4 shareholder report...",
+                            "receivedDateTime": "2025-12-15T10:30:00Z",
+                        }
+                    ],
+                    "max_preview": 10,
+                    "max_read": 3,
+                }
+            ]
+        }
+    }
+
+
 # Export unified response type for all endpoints
 # All search endpoints should return SearchResult
 __all__ = [
@@ -254,6 +306,7 @@ __all__ = [
     "WebSearchRequest",
     "StructuredItem",
     "StructuredSearchRequest",
+    "EmailSearchRequest",
     "SearchResult",
     "SearchResultData",
     "SearchSource",

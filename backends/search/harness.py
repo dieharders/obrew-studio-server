@@ -32,6 +32,7 @@ DEFAULT_MAX_DISCOVER_ITEMS = 50  # Max items to return from discover phase
 DEFAULT_CONTENT_PREVIEW_LENGTH = 100  # Preview length in LLM selection prompt
 DEFAULT_CONTENT_SNIPPET_LENGTH = 200  # Snippet length for source citations
 DEFAULT_CONTENT_EXTRACT_LENGTH = 5000  # Max content length per extracted item
+GREP_MIN_ITEMS_THRESHOLD = 15  # Skip grep pre-filter when fewer items than this
 
 
 # =============================================================================
@@ -58,6 +59,23 @@ SELECTION_SCHEMA = {
     "type": "array",
     "items": {"type": "integer"},
     "description": "Array of item indices to select",
+}
+
+# JSON Schema for LLM-extracted grep pattern
+GREP_PATTERN_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "pattern": {
+            "type": "string",
+            "description": "The key search term or phrase to grep for",
+        },
+        "search_fields": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Which fields to search in",
+        },
+    },
+    "required": ["pattern"],
 }
 
 
@@ -162,6 +180,36 @@ class SearchProvider(ABC):
             List of additional scope strings to search
         """
         pass
+
+    @property
+    def supports_grep(self) -> bool:
+        """Whether this provider supports grep-based pre-filtering."""
+        return False
+
+    @property
+    def grep_fields(self) -> List[str]:
+        """Available fields for grep searching. Override in subclasses."""
+        return []
+
+    async def grep(
+        self, items: List[SearchItem], pattern: str, **kwargs
+    ) -> Optional[List[SearchItem]]:
+        """
+        Optional grep-based pre-filtering of discovered items.
+
+        Providers that support text pattern matching can override this
+        to filter and rank items before LLM selection, reducing the
+        number of items the LLM needs to evaluate.
+
+        Args:
+            items: Discovered items to filter
+            pattern: Text pattern to search for
+            **kwargs: Additional arguments (e.g., search_fields, case_sensitive)
+
+        Returns:
+            Filtered/ranked items, or None if grep is not supported
+        """
+        return None
 
 
 class AgenticSearch:
@@ -420,6 +468,66 @@ Instructions:
             total_results=len(sources),
         )
 
+    async def _extract_grep_pattern(self, query: str) -> Optional[Dict[str, Any]]:
+        """
+        Use LLM to extract a grep-friendly search pattern from the user's query.
+
+        The LLM analyzes the query and determines the best keyword or phrase
+        to use for text pattern matching, along with which fields to search.
+
+        Args:
+            query: The user's search query
+
+        Returns:
+            Dict with 'pattern' and optional 'search_fields', or None on failure
+        """
+        fields_str = (
+            ", ".join(self.provider.grep_fields)
+            if self.provider.grep_fields
+            else "all available fields"
+        )
+
+        # NOTE: The user query is interpolated directly into this prompt. Since this
+        # is an internal LLM-to-LLM call (output is parsed as JSON, not shown to users),
+        # the risk is limited to manipulating the extracted grep pattern. A crafted query
+        # could produce an unhelpful pattern but cannot escape the JSON schema constraint.
+        prompt = f"""Analyze the user's search query and extract the best keyword or phrase for a text-based grep search.
+
+User Query: {query}
+
+Available fields to search: {fields_str}
+
+Instructions:
+1. Extract the most specific keyword or phrase that would match relevant items
+2. Ignore filler words like "find", "show me", "what", "about", etc.
+3. Focus on the subject matter — names, topics, terms the user is looking for
+4. Choose which fields are most likely to contain the match
+5. Return a JSON object with "pattern" (string) and "search_fields" (array of field names)
+
+Examples:
+- "Find emails from John about the quarterly report" → {{"pattern": "quarterly report", "search_fields": ["subject", "bodyPreview", "body"]}}
+- "What did Sarah send me?" → {{"pattern": "Sarah", "search_fields": ["from"]}}
+- "Show me anything about the budget meeting" → {{"pattern": "budget meeting", "search_fields": ["subject", "bodyPreview", "body"]}}"""
+
+        try:
+            response = await self._llm_completion(
+                prompt=prompt,
+                system_message="You are a search keyword extraction assistant. Return only a JSON object.",
+                constrain_json=GREP_PATTERN_SCHEMA,
+            )
+
+            result = json.loads(response)
+            if isinstance(result, dict) and result.get("pattern"):
+                return result
+            return None
+
+        except Exception as e:
+            print(
+                f"{common.PRNT_API} [AgenticSearch] Grep pattern extraction failed: {e}",
+                flush=True,
+            )
+            return None
+
     async def search(
         self,
         query: str,
@@ -492,6 +600,65 @@ Instructions:
             # Check for abort after Phase 1
             if await self._check_abort(request):
                 return self._cancelled_result(query, "discover", tool_logs)
+
+            # Phase 1.5: GREP PRE-FILTER (optional, skipped for small item sets)
+            if self.provider.supports_grep and len(items) >= GREP_MIN_ITEMS_THRESHOLD:
+                print(
+                    f"{common.PRNT_API} [AgenticSearch] Phase 1.5: Extracting grep pattern from query",
+                    flush=True,
+                )
+                grep_params = await self._extract_grep_pattern(query)
+
+                if grep_params and grep_params.get("pattern"):
+                    pattern = grep_params["pattern"]
+                    grep_kwargs = {}
+                    if grep_params.get("search_fields"):
+                        grep_kwargs["search_fields"] = grep_params["search_fields"]
+
+                    items_before = len(items)
+
+                    print(
+                        f"{common.PRNT_API} [AgenticSearch] Phase 1.5: Grep filtering with pattern '{pattern}'",
+                        flush=True,
+                    )
+                    grep_items = await self.provider.grep(items, pattern, **grep_kwargs)
+
+                    if grep_items:
+                        print(
+                            f"{common.PRNT_API} [AgenticSearch] Phase 1.5: Grep narrowed {items_before} → {len(grep_items)} items",
+                            flush=True,
+                        )
+                        items = grep_items
+                    else:
+                        print(
+                            f"{common.PRNT_API} [AgenticSearch] Phase 1.5: Grep found no matches, keeping all {items_before} items",
+                            flush=True,
+                        )
+
+                    zero_matches = grep_items is None or len(grep_items) == 0
+                    tool_logs.append(
+                        {
+                            "phase": "grep_pre_filter",
+                            "pattern": pattern,
+                            "search_fields": grep_params.get("search_fields"),
+                            "items_before": items_before,
+                            "items_after": len(items),
+                            "zero_matches": zero_matches,
+                            **(
+                                {
+                                    "note": f"Grep pattern '{pattern}' matched 0 items; kept all {items_before} for LLM selection"
+                                }
+                                if zero_matches
+                                else {}
+                            ),
+                        }
+                    )
+
+                    # Check for abort after grep
+                    if await self._check_abort(request):
+                        return self._cancelled_result(
+                            query, "grep_pre_filter", tool_logs
+                        )
 
             # Phase 2: LLM SELECT for preview
             print(

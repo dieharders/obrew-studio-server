@@ -80,6 +80,13 @@ class Tool:
             for key, value in list(properties.items()):  # Convert items to list
                 param = dict(**value)
                 param["name"] = key
+                # Resolve type from anyOf for Optional fields (Pydantic generates anyOf instead of type)
+                if "type" not in param and "anyOf" in param:
+                    non_null_types = [t for t in param["anyOf"] if t.get("type") != "null"]
+                    if non_null_types:
+                        param["type"] = non_null_types[0].get("type", "string")
+                    else:
+                        param["type"] = "string"
                 # Create tool schema
                 allowed_values = param.get("options", None)
                 schema_params = dict(
@@ -363,10 +370,9 @@ class Tool:
             # TOOL_EXAMPLE_ARGUMENTS = "{{tool_example_str}}"
             TOOL_NAME_STR = "{{tool_name_str}}"
             TOOL_DESCRIPTION = "{{tool_description_str}}"
-            OUTPUT_SCHEMA = "{{output_schema}}"
             tool_params = tool_def.get("params", None)
             required_llm_arguments = get_llm_required_args(tool_params)
-            tool_instruction = f'# Tool\n\nYou are given a tool called "{TOOL_NAME_STR}" which does the following:\n{TOOL_DESCRIPTION}\n\n## Parameters\n\nA description of each parameter required by the tool.\n\n{TOOL_ARGUMENTS}\n\n## Instruction\n\nBased on this info and the user query, you are expected to return a JSON schema: {OUTPUT_SCHEMA}. Ensure the JSON is properly formatted and each parameter is the correct data type.'
+            tool_instruction = f'# Tool\n\nYou are given a tool called "{TOOL_NAME_STR}" which does the following:\n{TOOL_DESCRIPTION}\n\n## Parameters\n\nA description of each parameter required by the tool.\n\n{TOOL_ARGUMENTS}\n\n## Instruction\n\nBased on this info and the user query, you are expected to return valid JSON with the required parameters. Ensure the JSON is properly formatted and each parameter is the correct data type.'
             tool_prompt = f"QUESTION:\n{KEY_PROMPT_MESSAGE}\n\nANSWER:\n"
             # Return schema for llm to respond with
             tool_name_str = tool_def.get("name", "Tool")
@@ -397,9 +403,6 @@ class Tool:
             # tool_system_message = tool_system_message.replace(
             #     TOOL_EXAMPLE_ARGUMENTS, tool_example_str
             # )
-            tool_system_message = tool_system_message.replace(
-                OUTPUT_SCHEMA, tool_json_schema_str or ""
-            )
             tool_system_message = tool_system_message.replace(
                 TOOL_NAME_STR, tool_name_str or ""
             )

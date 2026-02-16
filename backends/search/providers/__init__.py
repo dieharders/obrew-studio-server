@@ -12,5 +12,6 @@ from .filesystem import FileSystemProvider
 from .vector import VectorProvider
 from .web import WebProvider
 from .structured import StructuredProvider
+from .email import EmailProvider
 
-__all__ = ["FileSystemProvider", "VectorProvider", "WebProvider", "StructuredProvider"]
+__all__ = ["FileSystemProvider", "VectorProvider", "WebProvider", "StructuredProvider", "EmailProvider"]
