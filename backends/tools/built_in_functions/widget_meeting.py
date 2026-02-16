@@ -1,3 +1,4 @@
+import re
 from typing import Optional
 from pydantic import BaseModel, Field
 
@@ -87,6 +88,15 @@ async def main(**kwargs) -> dict:
     attendees_str = kwargs.get("attendees", "") or ""
     action = kwargs.get("action", "create") or "create"
     meeting_id = kwargs.get("meeting_id", "") or ""
+
+    # Validate ISO 8601 datetime format (YYYY-MM-DDTHH:MM:SS with optional timezone)
+    iso_pattern = re.compile(
+        r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?([+-]\d{2}:\d{2}|Z)?$"
+    )
+    if start_date_time and not iso_pattern.match(start_date_time):
+        start_date_time = ""
+    if end_date_time and not iso_pattern.match(end_date_time):
+        end_date_time = ""
 
     # Parse comma-separated attendees into guest objects
     guests = []
