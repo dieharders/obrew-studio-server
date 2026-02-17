@@ -11,13 +11,15 @@ body content (HTML converted to plain text).
 """
 
 import re
+from core import common
 from typing import List, Dict, Optional, Any
-
 from ..harness import (
     SearchProvider,
     SearchItem,
+    DEFAULT_MAX_DISCOVER_ITEMS,
     DEFAULT_CONTENT_EXTRACT_LENGTH,
     DEFAULT_CONTENT_PREVIEW_LENGTH,
+    GREP_SNIPPET_CONTEXT,
 )
 from tools._email_utils import (
     extract_sender,
@@ -107,8 +109,6 @@ class EmailProvider(SearchProvider):
         Returns:
             List of SearchItem objects representing emails
         """
-        from core import common
-
         query = kwargs.get("query", "")
         if not query:
             raise ValueError("Query is required for email search")
@@ -134,7 +134,7 @@ class EmailProvider(SearchProvider):
             # No grouping — process all emails (only once)
             if self._search_items:
                 return self._search_items
-            emails_to_process = list(enumerate(self.emails))
+            emails_to_process = list(enumerate(self.emails[:DEFAULT_MAX_DISCOVER_ITEMS]))
 
         search_items = []
         for idx, email in emails_to_process:
@@ -298,9 +298,7 @@ class EmailProvider(SearchProvider):
             return []
 
         return [
-            group
-            for group in self._groups.keys()
-            if group not in self._searched_groups
+            group for group in self._groups.keys() if group not in self._searched_groups
         ]
 
     @property
@@ -329,8 +327,6 @@ class EmailProvider(SearchProvider):
         Returns:
             Filtered list of SearchItems with enriched previews, or None on error
         """
-        from core import common
-
         if not pattern or not items:
             return None
 
@@ -360,8 +356,8 @@ class EmailProvider(SearchProvider):
                 match = compiled.search(field_value)
                 if match:
                     # Extract a snippet around the match
-                    start = max(0, match.start() - 40)
-                    end = min(len(field_value), match.end() + 40)
+                    start = max(0, match.start() - GREP_SNIPPET_CONTEXT)
+                    end = min(len(field_value), match.end() + GREP_SNIPPET_CONTEXT)
                     snippet = field_value[start:end]
                     if start > 0:
                         snippet = "..." + snippet
