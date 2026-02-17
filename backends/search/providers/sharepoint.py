@@ -16,8 +16,12 @@ from ..harness import (
     SearchProvider,
     SearchItem,
     DEFAULT_CONTENT_EXTRACT_LENGTH,
-    DEFAULT_CONTENT_PREVIEW_LENGTH,
 )
+
+# Intermediate preview length between discover snippet and full extract.
+# Discover shows ~100 chars (metadata triage), preview shows ~800 chars
+# (relevance assessment), extract shows up to 5000 chars (full content).
+SHAREPOINT_PREVIEW_LENGTH = 800
 
 
 class SharePointProvider(SearchProvider):
@@ -87,7 +91,9 @@ class SharePointProvider(SearchProvider):
             if last_modified_by:
                 display_name = f"{name} (by {last_modified_by})"
 
-            # Preview: metadata + content snippet for initial triage
+            # Preview: metadata-only for initial triage (no content yet).
+            # The LLM decides which files to preview based on name, type,
+            # date, and author — content is revealed in the preview phase.
             meta_parts = []
             if mime_type:
                 meta_parts.append(mime_type)
@@ -96,10 +102,8 @@ class SharePointProvider(SearchProvider):
                     last_modified[:10] if len(last_modified) >= 10 else last_modified
                 )
                 meta_parts.append(date_short)
-            snippet = content[:DEFAULT_CONTENT_PREVIEW_LENGTH]
-            if len(content) > DEFAULT_CONTENT_PREVIEW_LENGTH:
-                snippet += "..."
-            meta_parts.append(snippet)
+            size_chars = len(content)
+            meta_parts.append(f"{size_chars} chars")
             preview = " | ".join(meta_parts) if meta_parts else ""
 
             search_item = SearchItem(
@@ -155,8 +159,8 @@ class SharePointProvider(SearchProvider):
                     preview_parts.append(f"Last modified by: {last_modified_by}")
                 if web_url:
                     preview_parts.append(f"URL: {web_url}")
-                snippet = content[:DEFAULT_CONTENT_PREVIEW_LENGTH]
-                if len(content) > DEFAULT_CONTENT_PREVIEW_LENGTH:
+                snippet = content[:SHAREPOINT_PREVIEW_LENGTH]
+                if len(content) > SHAREPOINT_PREVIEW_LENGTH:
                     snippet += "..."
                 preview_parts.append(f"Content: {snippet}")
 

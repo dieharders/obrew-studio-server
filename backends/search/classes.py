@@ -332,7 +332,9 @@ class SharePointSearchRequest(BaseModel):
     """
 
     query: str  # The search query
-    items: List[SharePointSearchItem]  # SharePoint file data from frontend
+    # Empty lists are intentionally allowed here; the route returns a
+    # graceful response when no items are provided instead of a 422.
+    items: List[SharePointSearchItem] = []  # SharePoint file data from frontend
     max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max files to preview
     max_read: Optional[int] = DEFAULT_MAX_READ  # Max files to read fully
 

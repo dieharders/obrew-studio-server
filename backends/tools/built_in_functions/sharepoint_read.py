@@ -1,18 +1,21 @@
-"""SharePoint file read tool for reading pre-fetched SharePoint file content."""
+"""SharePoint file read tool for reading pre-fetched SharePoint file content.
+
+Requires request.state.context_items to be populated with SharePoint file
+objects by the frontend/middleware before tool invocation. If not set,
+returns empty results.
+"""
+
 from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
+from .._item_utils import find_item_by_id
 
 
 class Params(BaseModel):
-    """Read the contents of a SharePoint file. The content must be pre-fetched by the frontend from Microsoft Graph API."""
+    """Read the contents of a SharePoint file by ID. The file data must be pre-fetched by the frontend from Microsoft Graph API and available in context items."""
 
-    file_content: str = Field(
+    file_id: str = Field(
         ...,
-        description="The pre-fetched text content of the SharePoint file.",
-    )
-    file_name: str = Field(
-        ...,
-        description="The name of the SharePoint file.",
+        description="The ID of the SharePoint file to read.",
     )
     start_line: Optional[int] = Field(
         default=None,
@@ -27,12 +30,10 @@ class Params(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
-                    "file_content": "This is the content of a SharePoint document...",
-                    "file_name": "report.txt",
+                    "file_id": "01ABCDEF...",
                 },
                 {
-                    "file_content": "Line 1\nLine 2\nLine 3\nLine 4\nLine 5",
-                    "file_name": "notes.md",
+                    "file_id": "sp_file_0",
                     "start_line": 2,
                     "end_line": 4,
                 },
@@ -41,18 +42,57 @@ class Params(BaseModel):
     }
 
 
+def _get_context_items(kwargs: Dict[str, Any]) -> list:
+    """Extract SharePoint items from request.state.context_items."""
+    request = kwargs.get("request")
+    if (
+        request
+        and hasattr(request, "state")
+        and hasattr(request.state, "context_items")
+    ):
+        return request.state.context_items or []
+    return []
+
+
 async def main(**kwargs) -> Dict[str, Any]:
     """
-    Read the contents of a pre-fetched SharePoint file.
+    Read the contents of a SharePoint file by ID from context items.
     Returns dict with: content, file_name, total_lines, lines_read, start_line, end_line
     """
-    file_content = kwargs.get("file_content")
-    file_name = kwargs.get("file_name", "unknown")
+    file_id = kwargs.get("file_id")
     start_line = kwargs.get("start_line")
     end_line = kwargs.get("end_line")
 
+    if not file_id:
+        raise ValueError("file_id is required")
+
+    items = _get_context_items(kwargs)
+    if not items:
+        return {
+            "content": "",
+            "file_name": "unknown",
+            "total_lines": 0,
+            "lines_read": 0,
+            "start_line": 0,
+            "end_line": 0,
+        }
+
+    item = find_item_by_id(file_id, items)
+    if not item:
+        raise ValueError(f"SharePoint file not found: {file_id}")
+
+    file_name = item.get("name", "unknown")
+    file_content = item.get("content", "")
+
     if not file_content:
-        raise ValueError("file_content is required")
+        return {
+            "content": "",
+            "file_name": file_name,
+            "total_lines": 0,
+            "lines_read": 0,
+            "start_line": 0,
+            "end_line": 0,
+        }
 
     all_lines = file_content.splitlines(keepends=True)
     total_lines = len(all_lines)
