@@ -15,8 +15,12 @@ from typing import List, Dict, Optional, Any
 from ..harness import (
     SearchProvider,
     SearchItem,
+    DEFAULT_MAX_DISCOVER_ITEMS,
     DEFAULT_CONTENT_EXTRACT_LENGTH,
+    DEFAULT_CONTENT_PREVIEW_LENGTH,
 )
+
+_DEFAULT_GREP_FIELDS = ["name", "content", "web_url", "last_modified_by"]
 
 # Intermediate preview length between discover snippet and full extract.
 # Discover shows ~100 chars (metadata triage), preview shows ~800 chars
@@ -76,7 +80,7 @@ class SharePointProvider(SearchProvider):
             return self._search_items
 
         search_items = []
-        for idx, item in enumerate(self.items):
+        for idx, item in enumerate(self.items[:DEFAULT_MAX_DISCOVER_ITEMS]):
             item_id = item.get("id", f"sp_file_{idx}")
             name = item.get("name", "(Unnamed File)")
             content = item.get("content", "")
@@ -237,37 +241,77 @@ class SharePointProvider(SearchProvider):
     @property
     def grep_fields(self) -> List[str]:
         """Available fields for grep searching."""
-        return ["name", "content", "web_url", "last_modified_by"]
+        return _DEFAULT_GREP_FIELDS
 
     async def grep(
         self, items: List[SearchItem], pattern: str, **kwargs
-    ) -> List[SearchItem]:
+    ) -> Optional[List[SearchItem]]:
         """
         Filter SharePoint files by text pattern matching.
 
-        Searches across file name and content.
+        Searches across file fields and returns only items whose underlying
+        data matches the pattern. Matched items get their preview enriched
+        with match snippets.
 
         Args:
             items: SearchItems to filter
             pattern: Text pattern to search for
+            **kwargs: Optional 'search_fields' list and 'case_sensitive' bool
 
         Returns:
-            Filtered list of matching SearchItems
+            Filtered list of matching SearchItems, or None if no matches
         """
-        regex = re.compile(re.escape(pattern), re.IGNORECASE)
+        if not pattern or not items:
+            return None
+
+        search_fields = kwargs.get("search_fields") or _DEFAULT_GREP_FIELDS
+        case_sensitive = kwargs.get("case_sensitive", False)
+
+        flags = 0 if case_sensitive else re.IGNORECASE
+        regex = re.compile(re.escape(pattern), flags)
 
         matching = []
         for item in items:
             idx = item.metadata.get("index") if item.metadata else None
-            if idx is not None and 0 <= idx < len(self.items):
-                sp_item = self.items[idx]
-                fields_to_search = [
-                    str(sp_item.get("name", "")),
-                    str(sp_item.get("content", "")),
-                    str(sp_item.get("web_url", "")),
-                    str(sp_item.get("last_modified_by", "")),
-                ]
-                if any(regex.search(field) for field in fields_to_search):
-                    matching.append(item)
+            if idx is None or idx < 0 or idx >= len(self.items):
+                continue
 
-        return matching
+            sp_item = self.items[idx]
+            snippets: List[str] = []
+
+            for field in search_fields:
+                field_value = str(sp_item.get(field, ""))
+                if not field_value:
+                    continue
+
+                match = regex.search(field_value)
+                if match:
+                    start = max(0, match.start() - 40)
+                    end = min(len(field_value), match.end() + 40)
+                    snippet = field_value[start:end]
+                    if start > 0:
+                        snippet = "..." + snippet
+                    if end < len(field_value):
+                        snippet = snippet + "..."
+                    snippets.append(f"{field}: {snippet}")
+
+            if snippets:
+                enriched_preview = " | ".join(snippets)
+                if item.preview:
+                    enriched_preview = f"{item.preview} | matches: {enriched_preview}"
+
+                matched_item = item.model_copy(
+                    update={
+                        "preview": enriched_preview[
+                            : DEFAULT_CONTENT_PREVIEW_LENGTH * 5
+                        ]
+                    }
+                )
+                matching.append(matched_item)
+
+        print(
+            f"{common.PRNT_API} [SharePointProvider] Grep '{pattern}' matched {len(matching)}/{len(items)} files",
+            flush=True,
+        )
+
+        return matching if matching else None

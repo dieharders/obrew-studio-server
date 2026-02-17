@@ -30,7 +30,8 @@ def find_item_by_id(
 
     Supports:
     - Exact ID match (e.g., "config-001")
-    - Index-based lookup (e.g., "item_0" or "0")
+    - Index-based lookup with any prefix (e.g., "item_0", "sp_file_3", "email_1")
+    - Plain numeric index (e.g., "0", "3")
 
     Args:
         item_id: The ID or index-based identifier of the item
@@ -44,10 +45,12 @@ def find_item_by_id(
         if item.get("id") == item_id:
             return item
 
-    # Try index-based lookup (e.g., "item_0", "0")
+    # Try index-based lookup: extract trailing integer after last "_"
+    # Handles "item_0", "sp_file_3", "email_1", or plain "0"
     try:
-        if item_id.startswith("item_"):
-            idx = int(item_id.split("_")[1])
+        parts = item_id.rsplit("_", 1)
+        if len(parts) == 2:
+            idx = int(parts[1])
         else:
             idx = int(item_id)
         if 0 <= idx < len(items):
