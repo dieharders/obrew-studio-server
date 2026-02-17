@@ -18,6 +18,7 @@ from ..harness import (
     DEFAULT_MAX_DISCOVER_ITEMS,
     DEFAULT_CONTENT_EXTRACT_LENGTH,
     DEFAULT_CONTENT_PREVIEW_LENGTH,
+    GREP_SNIPPET_CONTEXT,
 )
 
 _DEFAULT_GREP_FIELDS = ["name", "content", "web_url", "last_modified_by"]
@@ -286,8 +287,8 @@ class SharePointProvider(SearchProvider):
 
                 match = regex.search(field_value)
                 if match:
-                    start = max(0, match.start() - 40)
-                    end = min(len(field_value), match.end() + 40)
+                    start = max(0, match.start() - GREP_SNIPPET_CONTEXT)
+                    end = min(len(field_value), match.end() + GREP_SNIPPET_CONTEXT)
                     snippet = field_value[start:end]
                     if start > 0:
                         snippet = "..." + snippet

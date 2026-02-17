@@ -33,6 +33,7 @@ DEFAULT_CONTENT_PREVIEW_LENGTH = 100  # Preview length in LLM selection prompt
 DEFAULT_CONTENT_SNIPPET_LENGTH = 200  # Snippet length for source citations
 DEFAULT_CONTENT_EXTRACT_LENGTH = 5000  # Max content length per extracted item
 GREP_MIN_ITEMS_THRESHOLD = 15  # Skip grep pre-filter when fewer items than this
+GREP_SNIPPET_CONTEXT = 40  # Characters of context to show around grep matches
 
 
 # =============================================================================
