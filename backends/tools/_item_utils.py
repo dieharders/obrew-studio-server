@@ -2,6 +2,11 @@
 
 from typing import List, Dict, Any, Optional
 
+# Known prefixes used by providers for auto-generated index-based IDs.
+# Only these prefixes trigger the index fallback in find_item_by_id to
+# prevent false positives on real IDs that happen to end with "_<digits>".
+_INDEX_PREFIXES = {"item", "sp_file", "email"}
+
 
 def get_context_items(kwargs: Dict[str, Any]) -> list:
     """Extract context items from request.state.context_items.
@@ -45,11 +50,13 @@ def find_item_by_id(
         if item.get("id") == item_id:
             return item
 
-    # Try index-based lookup: extract trailing integer after last "_"
-    # Handles "item_0", "sp_file_3", "email_1", or plain "0"
+    # Try index-based lookup for known auto-generated ID patterns.
+    # Only triggers for known prefixes (e.g. "item_0", "sp_file_3", "email_1")
+    # or plain numeric strings (e.g. "0", "3") to avoid false positives on
+    # real IDs that happen to contain underscores followed by digits.
     try:
         parts = item_id.rsplit("_", 1)
-        if len(parts) == 2:
+        if len(parts) == 2 and parts[0] in _INDEX_PREFIXES:
             idx = int(parts[1])
         else:
             idx = int(item_id)
