@@ -59,15 +59,18 @@ async def main(**kwargs) -> Dict[str, Any]:
     if filter_name:
         filter_name_lower = filter_name.lower()
         filtered = [
-            f for f in filtered
-            if filter_name_lower in str(f.get("name", "")).lower()
+            f for f in filtered if filter_name_lower in str(f.get("name", "")).lower()
         ]
     if filter_type:
         filter_type_lower = filter_type.lower()
         filtered = [
-            f for f in filtered
+            f
+            for f in filtered
             if filter_type_lower in str(f.get("mime_type", "")).lower()
         ]
+
+    # @TODO: Add offset/limit params to Params for pagination when item counts
+    # are large (up to 500). For now, all matching items are returned at once.
 
     # Format output
     formatted_files = []
