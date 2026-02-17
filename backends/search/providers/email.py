@@ -16,8 +16,10 @@ from typing import List, Dict, Optional, Any
 from ..harness import (
     SearchProvider,
     SearchItem,
+    DEFAULT_MAX_DISCOVER_ITEMS,
     DEFAULT_CONTENT_EXTRACT_LENGTH,
     DEFAULT_CONTENT_PREVIEW_LENGTH,
+    GREP_SNIPPET_CONTEXT,
 )
 from tools._email_utils import (
     extract_sender,
@@ -132,7 +134,7 @@ class EmailProvider(SearchProvider):
             # No grouping — process all emails (only once)
             if self._search_items:
                 return self._search_items
-            emails_to_process = list(enumerate(self.emails))
+            emails_to_process = list(enumerate(self.emails[:DEFAULT_MAX_DISCOVER_ITEMS]))
 
         search_items = []
         for idx, email in emails_to_process:
@@ -354,8 +356,8 @@ class EmailProvider(SearchProvider):
                 match = compiled.search(field_value)
                 if match:
                     # Extract a snippet around the match
-                    start = max(0, match.start() - 40)
-                    end = min(len(field_value), match.end() + 40)
+                    start = max(0, match.start() - GREP_SNIPPET_CONTEXT)
+                    end = min(len(field_value), match.end() + GREP_SNIPPET_CONTEXT)
                     snippet = field_value[start:end]
                     if start > 0:
                         snippet = "..." + snippet
