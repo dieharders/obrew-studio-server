@@ -254,10 +254,7 @@ class SharePointProvider(SearchProvider):
         Returns:
             Filtered list of matching SearchItems
         """
-        try:
-            regex = re.compile(pattern, re.IGNORECASE)
-        except re.error:
-            regex = re.compile(re.escape(pattern), re.IGNORECASE)
+        regex = re.compile(re.escape(pattern), re.IGNORECASE)
 
         matching = []
         for item in items:
