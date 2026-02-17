@@ -47,12 +47,11 @@ async def main(**kwargs) -> Dict[str, Any]:
     Read the contents of a SharePoint file by ID from context items.
     Returns dict with: content, file_name, total_lines, lines_read, start_line, end_line
     """
-    file_id = kwargs.get("file_id")
-    start_line = kwargs.get("start_line")
-    end_line = kwargs.get("end_line")
-
-    if not file_id:
-        raise ValueError("file_id is required")
+    # Validate through Pydantic to enforce Field constraints (min_length, types)
+    params = Params(**{k: v for k, v in kwargs.items() if k in Params.model_fields})
+    file_id = params.file_id
+    start_line = params.start_line
+    end_line = params.end_line
 
     items = get_context_items(kwargs)
     if not items:
