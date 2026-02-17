@@ -7,7 +7,7 @@ returns empty results.
 
 from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
-from .._item_utils import find_item_by_id
+from tools._item_utils import find_item_by_id, get_context_items
 
 
 class Params(BaseModel):
@@ -42,18 +42,6 @@ class Params(BaseModel):
     }
 
 
-def _get_context_items(kwargs: Dict[str, Any]) -> list:
-    """Extract SharePoint items from request.state.context_items."""
-    request = kwargs.get("request")
-    if (
-        request
-        and hasattr(request, "state")
-        and hasattr(request.state, "context_items")
-    ):
-        return request.state.context_items or []
-    return []
-
-
 async def main(**kwargs) -> Dict[str, Any]:
     """
     Read the contents of a SharePoint file by ID from context items.
@@ -66,7 +54,7 @@ async def main(**kwargs) -> Dict[str, Any]:
     if not file_id:
         raise ValueError("file_id is required")
 
-    items = _get_context_items(kwargs)
+    items = get_context_items(kwargs)
     if not items:
         return {
             "content": "",

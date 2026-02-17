@@ -7,6 +7,7 @@ returns empty results.
 
 from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
+from tools._item_utils import get_context_items
 
 
 class Params(BaseModel):
@@ -34,31 +35,6 @@ class Params(BaseModel):
     }
 
 
-def _get_context_items(kwargs: Dict[str, Any]) -> list:
-    """Extract SharePoint items from request.state.context_items."""
-    request = kwargs.get("request")
-    if (
-        request
-        and hasattr(request, "state")
-        and hasattr(request.state, "context_items")
-    ):
-        return request.state.context_items or []
-    return []
-
-
-def _format_size(bytes_val: int) -> str:
-    """Format byte count to human-readable string."""
-    if bytes_val <= 0:
-        return "0 B"
-    sizes = ["B", "KB", "MB", "GB"]
-    i = 0
-    val = float(bytes_val)
-    while val >= 1024 and i < len(sizes) - 1:
-        val /= 1024
-        i += 1
-    return f"{val:.1f} {sizes[i]}"
-
-
 async def main(**kwargs) -> Dict[str, Any]:
     """
     List SharePoint files from context items with metadata.
@@ -67,7 +43,7 @@ async def main(**kwargs) -> Dict[str, Any]:
     filter_name = kwargs.get("filter_name")
     filter_type = kwargs.get("filter_type")
 
-    items = _get_context_items(kwargs)
+    items = get_context_items(kwargs)
 
     if not items:
         return {
@@ -99,7 +75,7 @@ async def main(**kwargs) -> Dict[str, Any]:
         entry = {
             "id": f.get("id", ""),
             "name": f.get("name", "(unnamed)"),
-            "size": _format_size(f.get("size", 0)),
+            "size": f"{len(f.get('content', '')):,} chars",
             "web_url": f.get("web_url", ""),
             "mime_type": f.get("mime_type", ""),
             "last_modified": f.get("last_modified", ""),

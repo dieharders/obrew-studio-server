@@ -3,6 +3,25 @@
 from typing import List, Dict, Any, Optional
 
 
+def get_context_items(kwargs: Dict[str, Any]) -> list:
+    """Extract context items from request.state.context_items.
+
+    Args:
+        kwargs: Tool kwargs dict, expected to contain a 'request' key
+
+    Returns:
+        List of context item dicts, or empty list if unavailable
+    """
+    request = kwargs.get("request")
+    if (
+        request
+        and hasattr(request, "state")
+        and hasattr(request.state, "context_items")
+    ):
+        return request.state.context_items or []
+    return []
+
+
 def find_item_by_id(
     item_id: str, items: List[Dict[str, Any]]
 ) -> Optional[Dict[str, Any]]:
