@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 
 
 class Params(BaseModel):
-    """Select the best option(s) from a list of indexed choices that best satisfies the given prompt. Outputs one or more indexes."""
+    """Pick the best option(s) from a list of indexed choices that most satisfies the given prompt. Outputs one or more indexes."""
 
     prompt: str = Field(
         ...,
@@ -16,19 +16,14 @@ class Params(BaseModel):
         default=False,
         description="Whether to select multiple choices (True) or just one (False).",
     )
-    context: str = Field(
-        default="",
-        description="Additional context to help make the decision.",
-    )
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
-                    "prompt": "Which node type best fits a data filtering operation?",
+                    "prompt": "Which option best fits a data filtering operation?",
                     "choices": "0: data-transform, 1: ai-process, 2: comparison",
                     "choose_multiple": False,
-                    "context": "Building a workflow that filters CSV data based on conditions.",
                 }
             ]
         }
@@ -39,14 +34,12 @@ async def main(**kwargs) -> dict:
     prompt = kwargs.get("prompt", "")
     choices = kwargs.get("choices", "")
     choose_multiple = kwargs.get("choose_multiple", False)
-    context = kwargs.get("context", "")
 
     if not prompt:
         raise ValueError("A prompt is required.")
     if not choices:
         raise ValueError("Choices are required.")
 
-    # Build selection instruction
     if choose_multiple:
         select_instruction = "Select ALL indexes that apply. Respond with comma-separated indexes."
         response_format = "SELECTED: [index1],[index2]\nREASON: [brief explanation]"
@@ -55,11 +48,8 @@ async def main(**kwargs) -> dict:
         response_format = "SELECTED: [index]\nREASON: [brief explanation]"
 
     parts = [
-        f"Decision: {prompt}",
+        f"Criteria: {prompt}",
     ]
-
-    if context:
-        parts.append(f"\nContext: {context}")
 
     parts.append(f"\nChoices:\n{choices}")
     parts.append(f"\n{select_instruction}")
@@ -68,8 +58,11 @@ async def main(**kwargs) -> dict:
     full_prompt = "\n".join(parts)
 
     return {
-        "selection_prompt": full_prompt,
-        "system": "You are a decision-making assistant. Analyze the given choices against the criteria and select the best option(s). Be decisive and concise.",
+        "choose_prompt": full_prompt,
+        "system": (
+            "You are a decision-making assistant. Analyze the given choices against "
+            "the criteria and select the best option(s). Be decisive and concise."
+        ),
         "choices": choices,
         "choose_multiple": choose_multiple,
         "status": "ready",
