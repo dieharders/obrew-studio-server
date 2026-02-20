@@ -178,7 +178,7 @@ class Agent:
                     # Set tool_call_result to None to trigger error handling below
                     tool_call_result = None
             print(
-                f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4) if tool_call_result else 'None'}"
+                f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4, default=str) if tool_call_result else 'None'}"
             )
             # Handle tool response
             failed_tool_response = f"\nFailed to use tool, no JSON block found. The original query:\n{prompt}"

@@ -19,6 +19,7 @@ from tools.helpers import (
     find_tool_in_response,
     get_llm_required_args,
     get_provided_args,
+    get_required_examples,
     get_required_schema,
     import_tool_function,
     load_function,
@@ -367,12 +368,12 @@ class Tool:
             return func_results
         else:
             TOOL_ARGUMENTS = "{{tool_arguments_str}}"
-            # TOOL_EXAMPLE_ARGUMENTS = "{{tool_example_str}}"
+            TOOL_EXAMPLE_ARGUMENTS = "{{tool_example_str}}"
             TOOL_NAME_STR = "{{tool_name_str}}"
             TOOL_DESCRIPTION = "{{tool_description_str}}"
             tool_params = tool_def.get("params", None)
             required_llm_arguments = get_llm_required_args(tool_params)
-            tool_instruction = f'# Tool\n\nYou are given a tool called "{TOOL_NAME_STR}" which does the following:\n{TOOL_DESCRIPTION}\n\n## Parameters\n\nA description of each parameter required by the tool.\n\n{TOOL_ARGUMENTS}\n\n## Instruction\n\nBased on this info and the user query, you are expected to return valid JSON with the required parameters. Ensure the JSON is properly formatted and each parameter is the correct data type.'
+            tool_instruction = f'# Tool\n\nYou are given a tool called "{TOOL_NAME_STR}" which does the following:\n{TOOL_DESCRIPTION}\n\n## Parameters\n\nA description of each parameter required by the tool.\n\n{TOOL_ARGUMENTS}\n\n## Example\n\n{TOOL_EXAMPLE_ARGUMENTS}\n\n## Instruction\n\nBased on this info and the user query, you are expected to return valid JSON with the required parameters. Ensure the JSON is properly formatted and each parameter is the correct data type.'
             tool_prompt = f"QUESTION:\n{KEY_PROMPT_MESSAGE}\n\nANSWER:\n"
             # Return schema for llm to respond with
             tool_name_str = tool_def.get("name", "Tool")
@@ -384,14 +385,14 @@ class Tool:
                 schema=tool_def.get("params_schema", dict()),
             )
 
-            # params_example_dict = get_required_examples(
-            #     required=required_llm_arguments,
-            #     example=tool_def.get("params_example", dict()),
-            # )
+            params_example_dict = get_required_examples(
+                required=required_llm_arguments,
+                example=tool_def.get("params_example", dict()),
+            )
 
             # Convert func arguments to machine readable strings
-            # tool_example_json = json.dumps(params_example_dict)
-            # tool_example_str = f"```json\n{tool_example_json}\n```"
+            tool_example_json = json.dumps(params_example_dict)
+            tool_example_str = f"```json\n{tool_example_json}\n```"
             tool_args_str = schema_to_markdown(params_schema_dict)
             # Inject template args into system message
             tool_prompt = tool_prompt.replace(KEY_PROMPT_MESSAGE, query or "")
@@ -399,10 +400,9 @@ class Tool:
             tool_system_message = tool_instruction.replace(
                 TOOL_ARGUMENTS, tool_args_str or ""
             )
-            # @TODO Do we need an example?
-            # tool_system_message = tool_system_message.replace(
-            #     TOOL_EXAMPLE_ARGUMENTS, tool_example_str
-            # )
+            tool_system_message = tool_system_message.replace(
+                TOOL_EXAMPLE_ARGUMENTS, tool_example_str
+            )
             tool_system_message = tool_system_message.replace(
                 TOOL_NAME_STR, tool_name_str or ""
             )

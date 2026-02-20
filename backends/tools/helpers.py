@@ -228,6 +228,11 @@ def tool_to_json_schema(params: List[dict]) -> str:
         # Handle complex Pydantic types (Optional, List, etc.)
         if "type" in param:
             param_schema = {"type": param["type"]}
+            # Preserve nested schema properties for complex types (e.g. "items" for arrays)
+            if "items" in param:
+                param_schema["items"] = param["items"]
+            if "additionalProperties" in param:
+                param_schema["additionalProperties"] = param["additionalProperties"]
         elif "anyOf" in param:
             # Optional types have anyOf with null - extract the non-null type
             non_null_types = [t for t in param["anyOf"] if t.get("type") != "null"]
