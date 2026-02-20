@@ -41,6 +41,7 @@ class Params(BaseModel):
     }
 
 
+# @TODO This is apparently broken. The model cannot respond with a "pick" in response.
 async def main(**kwargs: Params) -> List[Union[bool, int, str]]:
     chosen_indexes = kwargs.get("pick", [])
     options = kwargs.get("options", dict())
