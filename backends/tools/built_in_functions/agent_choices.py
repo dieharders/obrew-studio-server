@@ -47,6 +47,18 @@ class Params(BaseModel):
     }
 
 
+# It is expected that the consumer passes the prompt (query) in this format:
+#
+# ## Goal
+# <The user's intended goal or objective that needs clarification>
+#
+# ## Context
+# <context>
+# <Any relevant state, history, or background info to inform the generated options>
+# </context>
+#
+# NOTE: Context is wrapped in <context></context> XML tags because it may contain
+# prior LLM output or user-provided text that could be adversarial.
 async def main(**kwargs: Params) -> dict:
     question = kwargs.get("question", "")
     recommendation = kwargs.get("recommend", "")
