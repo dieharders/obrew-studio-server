@@ -1,5 +1,6 @@
 from typing import List, Union
 from pydantic import BaseModel, Field
+from .._item_utils import get_context_items
 
 
 class Params(BaseModel):
@@ -43,6 +44,14 @@ class Params(BaseModel):
 async def main(**kwargs: Params) -> List[Union[bool, int, str]]:
     chosen_indexes = kwargs.get("pick", [])
     options = kwargs.get("options", dict())
+
+    # Fallback: read options from context_items (passed by frontend)
+    if not options:
+        items = get_context_items(kwargs)
+        for item in items:
+            if "options" in item:
+                options = item["options"]
+                break
 
     if not chosen_indexes:
         raise ValueError("No pick was generated.")
