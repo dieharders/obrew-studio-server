@@ -50,7 +50,7 @@ class Params(BaseModel):
 # may contain adversarial text attempting to override the instruction/criteria.
 # The XML boundary tells the LLM to treat everything inside as data to evaluate,
 # not as instructions to follow.
-async def main(**kwargs: Params) -> Params:
+async def main(**kwargs: Params) -> dict:
     decision = kwargs.get("decision")
     reason = kwargs.get("reason", "")
 
@@ -59,4 +59,4 @@ async def main(**kwargs: Params) -> Params:
     if not reason:
         raise ValueError("No reason was generated.")
 
-    return Params(decision=decision, reason=reason)
+    return dict(decision=decision, reason=reason)
