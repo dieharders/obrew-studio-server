@@ -1,66 +1,71 @@
+from typing import Union
 from pydantic import BaseModel, Field
 
 
 class Params(BaseModel):
-    """Generate a clarifying question with multiple choices. Given an instruction and current plan context, return a follow-up question to provide task clarity along with up to 4 choices and one recommendation."""
+    # Required - A description is needed for prompt injection
+    """Given a goal, generate a clarifying question to pose to a user and provide multiple choices (up to 4 choices and one recommendation).\nExample goal: The user wants to create a workflow that processes documents and sends email summaries."""
 
-    instruction: str = Field(
+    question: str = Field(
         ...,
-        description="The instruction or goal that needs clarification.",
+        description="A clarifying question designed to elicit more information from the user about their intended goal.",
     )
-    current_plan: str = Field(
-        default="",
-        description="The current plan context with accumulated decisions so far.",
+    choices: dict[str, Union[bool, int, str]] = Field(
+        ...,
+        description="The choices to pick from that might satisfy the intended goal.",
     )
+    recommend: str = Field(
+        ...,
+        description="The index of the recommended choice that best satisfies the intended goal.",
+    )
+    # goal: str = Field(
+    #     ...,
+    #     description="The instruction that needs clarification.",
+    #     llm_not_required=True,
+    # )
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
-                    "instruction": "Create a workflow that processes documents and sends email summaries",
-                    "current_plan": "Purpose: Document processing\nFrequency: Daily",
+                    "question": "Reading the current graph state, it seems we are missing a node for sending emails. What node should we focus on next?",
+                    # @TODO This may need to be simplified down to `"choice_0": "Email Notify"` like we do in other tools...
+                    "choices": {
+                        "0": "Email Notify",
+                        "1": "AI Process",
+                        "2": "Data Transform",
+                        "3": "Fetch File",
+                    },
+                    "recommend": "0",
+                    # @TODO This is how the prompt from the frontend should be structured and sent with this tool use
+                    # "goal": "The user wants to create a workflow that processes documents and sends email summaries.\n\nWorkflow Rules:\n{...}\n\nCurrent Workflow Graph State:\n'begin'->'file'->'ai_process'\n\nCurrent Plan:\nNew Node = ?\nNode Settings = ?\nNode Connections = ?",
                 }
             ]
         }
     }
 
 
-RESPONSE_FORMAT = """Respond in EXACTLY this format:
-QUESTION: [Your clarifying question here]
-A: [First choice] (RECOMMENDED)
-B: [Second choice]
-C: [Third choice]
-D: [Fourth choice]"""
+# The FrontEnd should use the `recommend` prop to add text notation the agent's choices:
+#
+# QUESTION: [Clarifying question here]
+# A: [First choice] (RECOMMENDED)
+# B: [Second choice]
+# C: [Third choice]
+# D: [Fourth choice]
+async def main(**kwargs: Params) -> dict:
+    question = kwargs.get("question", "")
+    choices = kwargs.get("choices", dict())
+    recommendation = kwargs.get("recommend", "")
 
-
-async def main(**kwargs) -> dict:
-    instruction = kwargs.get("instruction", "")
-    current_plan = kwargs.get("current_plan", "")
-
-    if not instruction:
-        raise ValueError("An instruction is required.")
-
-    parts = [f"Goal: {instruction}"]
-
-    if current_plan:
-        parts.append(f"\nCurrent plan:\n{current_plan}")
-
-    parts.append(
-        "\nAsk ONE clarifying question with up to 4 choices that would help "
-        "refine the plan. Each choice should offer a meaningfully different approach. "
-        "Mark your recommended choice with (RECOMMENDED)."
-    )
-    parts.append(f"\n{RESPONSE_FORMAT}")
-
-    full_prompt = "\n".join(parts)
+    if not recommendation:
+        raise ValueError("No recommendation was generated.")
+    if not question:
+        raise ValueError("No question was generated.")
+    if not choices:
+        raise ValueError("No set of choices was generated.")
 
     return {
-        "choices_prompt": full_prompt,
-        "system": (
-            "You are an assistant that asks clarifying questions to help accomplish a task. "
-            "Generate exactly one question at a time with up to 4 practical, distinct choices. "
-            "Mark the most practical choice with (RECOMMENDED). Be concise."
-        ),
-        "instruction": instruction,
-        "status": "ready",
+        "question": question,
+        "choices": choices,
+        "recommend": recommendation,
     }

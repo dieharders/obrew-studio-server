@@ -1,69 +1,55 @@
+from typing import List, Union
 from pydantic import BaseModel, Field
 
 
 class Params(BaseModel):
-    """Pick the best option(s) from a list of indexed choices that most satisfies the given prompt. Outputs one or more indexes."""
+    # Required - A description is needed for prompt injection
+    """Pick one or more of the best option(s) from a set of choices that most satisfies the given prompt."""
 
-    prompt: str = Field(
-        ...,
-        description="The decision context or criteria for making the selection.",
-    )
-    choices: str = Field(
-        ...,
-        description="The choices to pick from, formatted as a numbered list like '0: Option A, 1: Option B, 2: Option C'.",
-    )
+    # We make the LLM to output this so it forces it to choose whether to pick one or multiple options.
     choose_multiple: bool = Field(
         default=False,
         description="Whether to select multiple choices (True) or just one (False).",
+    )
+    pick: List[str] = Field(
+        ...,
+        description="A list of index(s) of the chosen option(s).",
+    )
+    # Provided by FrontEnd
+    choices: dict[str, Union[bool, int, str]] = Field(
+        ...,
+        description="The choices to pick from, formatted as an indexed set of key/value pairs.",
+        llm_not_required=True,
     )
 
     model_config = {
         "json_schema_extra": {
             "examples": [
                 {
-                    "prompt": "Which option best fits a data filtering operation?",
-                    "choices": "0: data-transform, 1: ai-process, 2: comparison",
                     "choose_multiple": False,
-                }
+                    "choices": {"0": "Option A", "1": "Option B", "2": "Option C"},
+                    "pick": ["1"],
+                },
+                {
+                    "choose_multiple": True,
+                    "choices": {"0": 32, "1": 64, "2": 128},
+                    "pick": ["0", "2"],
+                },
             ]
         }
     }
 
 
-async def main(**kwargs) -> dict:
-    prompt = kwargs.get("prompt", "")
-    choices = kwargs.get("choices", "")
-    choose_multiple = kwargs.get("choose_multiple", False)
+async def main(**kwargs: Params) -> List[Union[bool, int, str]]:
+    chosen_indexes = kwargs.get("pick", [])
+    choices = kwargs.get("choices", dict())
 
-    if not prompt:
-        raise ValueError("A prompt is required.")
+    if not chosen_indexes:
+        raise ValueError("No pick was generated.")
     if not choices:
-        raise ValueError("Choices are required.")
+        raise ValueError("No choices are provided.")
 
-    if choose_multiple:
-        select_instruction = "Select ALL indexes that apply. Respond with comma-separated indexes."
-        response_format = "SELECTED: [index1],[index2]\nREASON: [brief explanation]"
-    else:
-        select_instruction = "Select exactly ONE index that best satisfies the criteria."
-        response_format = "SELECTED: [index]\nREASON: [brief explanation]"
+    # Get the chosen values from the choices provided
+    chosen_values = [choices[str(i)] for i in chosen_indexes if str(i) in choices]
 
-    parts = [
-        f"Criteria: {prompt}",
-    ]
-
-    parts.append(f"\nChoices:\n{choices}")
-    parts.append(f"\n{select_instruction}")
-    parts.append(f"\nRespond in EXACTLY this format:\n{response_format}")
-
-    full_prompt = "\n".join(parts)
-
-    return {
-        "choose_prompt": full_prompt,
-        "system": (
-            "You are a decision-making assistant. Analyze the given choices against "
-            "the criteria and select the best option(s). Be decisive and concise."
-        ),
-        "choices": choices,
-        "choose_multiple": choose_multiple,
-        "status": "ready",
-    }
+    return chosen_values
