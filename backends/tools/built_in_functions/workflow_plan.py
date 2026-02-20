@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 
+# @TODO Delete this file, it should be on the frontend side as a harness
 class Params(BaseModel):
     """Plan a workflow step-by-step. Given an instruction and accumulated context, generate a clarifying question with multiple choices. Returns an empty question when enough information has been gathered."""
 

@@ -5,7 +5,7 @@ from .._item_utils import get_context_items
 
 class Params(BaseModel):
     # Required - A description is needed for prompt injection
-    """Pick one or more of the best option(s) from a set of options that most satisfies the given prompt."""
+    """Pick one or more of the best option(s) from a set of options that most satisfies the given instruction."""
 
     # We make the LLM to output this so it forces it to choose whether to pick one or multiple options.
     choose_multiple: bool = Field(
@@ -41,7 +41,22 @@ class Params(BaseModel):
     }
 
 
-# @TODO This is apparently broken. The model cannot respond with a "pick" in response.
+# The consumer should embed the options directly
+# in the prompt (query) so the LLM can see them. Expected format:
+#
+# ## Instruction
+# <The goal or context for why a choice is needed>
+#
+# ## Options
+# <options>
+# 0: Option A
+# 1: Option B
+# 2: Option C
+# </options>
+#
+# NOTE: Options are wrapped in <options></options> XML tags because they may
+# contain user-provided or LLM-generated text. The XML boundary prevents
+# adversarial option values from being interpreted as instructions.
 async def main(**kwargs: Params) -> List[Union[bool, int, str]]:
     chosen_indexes = kwargs.get("pick", [])
     options = kwargs.get("options", dict())
@@ -61,5 +76,8 @@ async def main(**kwargs: Params) -> List[Union[bool, int, str]]:
 
     # Get the chosen values from the options provided
     chosen_values = [options[str(i)] for i in chosen_indexes if str(i) in options]
+
+    if not chosen_values:
+        raise ValueError("None of the picked indexes matched the provided options.")
 
     return chosen_values
