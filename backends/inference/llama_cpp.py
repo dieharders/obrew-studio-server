@@ -147,7 +147,7 @@ class LLAMA_CPP:
             "--frequency-penalty": settings.frequency_penalty,
             "--ctx-size": self.model_init_kwargs.get("--ctx-size"),
             "--temp": settings.temperature,
-            "--seed": self.model_init_kwargs.get("--seed"),
+            "--seed": settings.seed if settings.seed is not None else self.model_init_kwargs.get("--seed"),
             "--n-predict": settings.max_tokens,
         }
         if stopwords:
