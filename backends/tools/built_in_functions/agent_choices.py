@@ -19,11 +19,11 @@ class Params(BaseModel):
     )
     option_2: str = Field(
         ...,
-        description="The third option. Must be a short descriptive text. Leave empty if not needed.",
+        description="The third option. Must be a short descriptive text the user can read and pick from.",
     )
     option_3: str = Field(
         ...,
-        description="The fourth option. Must be a short descriptive text. Leave empty if not needed.",
+        description="The fourth option. Must be a short descriptive text the user can read and pick from.",
     )
     recommend: str = Field(
         ...,
