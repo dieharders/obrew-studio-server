@@ -1,3 +1,4 @@
+import re
 import json
 import importlib.util
 from fastapi import Request
@@ -69,9 +70,7 @@ class Tool:
             schema = pydantic_model.model_json_schema()
             tool_description = schema.get("description", "This is a tool.")
             examples = schema.get("examples", [dict()])
-            example_tool_schema: dict = None
-            if len(examples) > 0:
-                example_tool_schema = examples[0]
+            example_tool_schema = examples[0] if len(examples) > 0 else {}
             properties: dict = schema.get("properties", dict())
             # Make params
             func_name = filename.split(".")[0]
@@ -374,11 +373,13 @@ class Tool:
             tool_params = tool_def.get("params", None)
             required_llm_arguments = get_llm_required_args(tool_params)
             tool_instruction = f'# Tool\n\nYou are given a tool called "{TOOL_NAME_STR}" which does the following:\n{TOOL_DESCRIPTION}\n\n## Parameters\n\nA description of each parameter required by the tool.\n\n{TOOL_ARGUMENTS}\n\n## Example\n\n{TOOL_EXAMPLE_ARGUMENTS}\n\n## Instruction\n\nBased on this info and the user query, you are expected to return valid JSON with the required parameters. Ensure the JSON is properly formatted and each parameter is the correct data type.'
-            tool_prompt = f"QUESTION:\n{KEY_PROMPT_MESSAGE}\n\nANSWER:\n"
+            tool_prompt = f"User query:\n{KEY_PROMPT_MESSAGE}\n\nJSON response:\n"
             # Return schema for llm to respond with
             tool_name_str = tool_def.get("name", "Tool")
             tool_description_str = tool_def.get("description", "")
-            tool_json_schema_str = tool_def.get("json_schema", "")
+            # Build a JSON schema constrained to only the params the LLM needs to fill
+            required_params = [p for p in tool_params if p.get("name") in required_llm_arguments]
+            constrain_schema = json.loads(tool_to_json_schema(params=required_params))
             # Parse these to only include data from the required_llm_arguments list
             params_schema_dict = get_required_schema(
                 required=required_llm_arguments,
@@ -387,7 +388,7 @@ class Tool:
 
             params_example_dict = get_required_examples(
                 required=required_llm_arguments,
-                example=tool_def.get("params_example", dict()),
+                example=tool_def.get("params_example") or dict(),
             )
 
             # Convert func arguments to machine readable strings
@@ -396,18 +397,16 @@ class Tool:
             tool_args_str = schema_to_markdown(params_schema_dict)
             # Inject template args into system message
             tool_prompt = tool_prompt.replace(KEY_PROMPT_MESSAGE, query or "")
-            # tool_prompt = tool_prompt.replace(OUTPUT_SCHEMA, tool_json_schema_str)
-            tool_system_message = tool_instruction.replace(
-                TOOL_ARGUMENTS, tool_args_str or ""
-            )
-            tool_system_message = tool_system_message.replace(
-                TOOL_EXAMPLE_ARGUMENTS, tool_example_str
-            )
-            tool_system_message = tool_system_message.replace(
-                TOOL_NAME_STR, tool_name_str or ""
-            )
-            tool_system_message = tool_system_message.replace(
-                TOOL_DESCRIPTION, tool_description_str or ""
+            # Single-pass replacement to prevent double-substitution if a value contains another placeholder
+            replacements = {
+                TOOL_ARGUMENTS: tool_args_str or "",
+                TOOL_EXAMPLE_ARGUMENTS: tool_example_str,
+                TOOL_NAME_STR: tool_name_str or "",
+                TOOL_DESCRIPTION: tool_description_str or "",
+            }
+            pattern = re.compile("|".join(re.escape(k) for k in replacements))
+            tool_system_message = pattern.sub(
+                lambda m: replacements[m.group(0)], tool_instruction
             )
             # Prompt the LLM for a response using the tool's schema.
             # A lower temperature is better for tool use.
@@ -416,7 +415,7 @@ class Tool:
                 system_message=tool_system_message,
                 stream=False,
                 request=self.request,
-                constrain_json_output=json.loads(tool_json_schema_str),
+                constrain_json_output=constrain_schema,
             )
             content: List[dict] = [item async for item in llm_tool_use_response]
             data = read_event_data(content)
