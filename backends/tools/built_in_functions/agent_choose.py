@@ -41,6 +41,7 @@ class Params(BaseModel):
     }
 
 
+# @TODO This tool is still broken (cannot generate "pick")
 # The consumer should embed the options directly
 # in the prompt (query) so the LLM can see them. Expected format:
 #
