@@ -24,7 +24,6 @@ from . import (
     item_read,
     item_scan,
     # agent_todo,
-    # agent_task,
     agent_choices,
     agent_choose,
     agent_judge,
@@ -70,7 +69,6 @@ TOOLS = {
     "item_read.py": item_read,
     "item_scan.py": item_scan,
     # Agent harness tools
-    # "agent_task.py": agent_task,
     # "agent_todo.py": agent_todo,
     "agent_choices.py": agent_choices,
     "agent_choose.py": agent_choose,
