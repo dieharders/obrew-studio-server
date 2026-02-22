@@ -25,7 +25,6 @@ from . import (
     item_scan,
     # agent_todo,
     # agent_task,
-    # agent_ask,
     agent_choices,
     agent_choose,
     agent_judge,
@@ -73,7 +72,6 @@ TOOLS = {
     # Agent harness tools
     # "agent_task.py": agent_task,
     # "agent_todo.py": agent_todo,
-    # "agent_ask.py": agent_ask,
     "agent_choices.py": agent_choices,
     "agent_choose.py": agent_choose,
     "agent_judge.py": agent_judge,
