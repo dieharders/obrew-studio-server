@@ -18,7 +18,7 @@ TOOL_CHOICE_JSON_SCHEMA = {
     },
     "required": [KEY_TOOL_NAME],
 }
-TOOL_CHOICE_SCHEMA = {KEY_TOOL_NAME: "name"}
+TOOL_CHOICE_SCHEMA = {KEY_TOOL_NAME: "<name_of_chosen_tool>"}
 TOOL_CHOICE_SCHEMA_STR = f"```json\n{json.dumps(TOOL_CHOICE_SCHEMA)}\n```"
 TOOL_OUTPUT_JSON_SCHEMA = {
     "type": "object",
@@ -100,6 +100,11 @@ def tool_to_markdown(tool_list: List[ToolDefinition], include_code=False):
                     markdown_string += (
                         f"### {key}\n```json\n{json.dumps(value, indent=4)}\n```\n\n"
                     )
+                elif key == "params" and not include_code:
+                    # Include lightweight param names for tool selection context
+                    param_names = [p.get("name", "") for p in value if not p.get("llm_not_required")]
+                    if param_names:
+                        markdown_string += f"### parameters\n\n{', '.join(param_names)}\n\n"
             # Add descr
             elif key == "description" or key == "name":
                 markdown_string += f"### {key}\n\n{value}\n\n"
@@ -113,17 +118,15 @@ def tool_to_markdown(tool_list: List[ToolDefinition], include_code=False):
 
 # Filter out keys not in the allowed_keys set
 def filter_allowed_keys(schema: dict, allowed: List[str] = []):
-    filtered_json_object = None
-    # Filter out keys not in the allowed_keys set
-    if len(allowed) > 0:
-        filtered_json_object = {k: v for k, v in schema.items() if k in allowed}
-    return filtered_json_object
+    if len(allowed) == 0:
+        return {}
+    return {k: v for k, v in schema.items() if k in allowed}
 
 
 def strip_extra_chars(text: str):
     result = text.strip()
     # Remove single-line comments (//...)
-    result = re.sub(r"//.*", "", text)
+    result = re.sub(r"//.*", "", result)
     # Remove multi-line comments (/*...*/)
     result = re.sub(r"/\*.*?\*/", "", result, flags=re.DOTALL)
     # Clean up any extra commas or trailing whitespace
@@ -228,6 +231,11 @@ def tool_to_json_schema(params: List[dict]) -> str:
         # Handle complex Pydantic types (Optional, List, etc.)
         if "type" in param:
             param_schema = {"type": param["type"]}
+            # Preserve nested schema properties for complex types (e.g. "items" for arrays)
+            if "items" in param:
+                param_schema["items"] = param["items"]
+            if "additionalProperties" in param:
+                param_schema["additionalProperties"] = param["additionalProperties"]
         elif "anyOf" in param:
             # Optional types have anyOf with null - extract the non-null type
             non_null_types = [t for t in param["anyOf"] if t.get("type") != "null"]
@@ -347,7 +355,7 @@ def find_tool_in_response(response: str, tools: List[str]) -> Optional[str]:
     """Attempt to find any tool names at the end of the given response text."""
     print(f"{common.PRNT_API} Searching in response for tools...{tools}", flush=True)
     for tool_name in tools:
-        index = response.rfind(re.escape(tool_name))
+        index = response.rfind(tool_name)
         if index != -1:
             print(f"{common.PRNT_API} Found tool:{tool_name}", flush=True)
             return tool_name  # Return first match
