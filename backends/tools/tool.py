@@ -370,7 +370,7 @@ class Tool:
             TOOL_EXAMPLE_ARGUMENTS = "{{tool_example_str}}"
             TOOL_NAME_STR = "{{tool_name_str}}"
             TOOL_DESCRIPTION = "{{tool_description_str}}"
-            tool_params = tool_def.get("params", None)
+            tool_params = tool_def.get("params") or []
             required_llm_arguments = get_llm_required_args(tool_params)
             tool_instruction = f'# Tool\n\nYou are given a tool called "{TOOL_NAME_STR}" which does the following:\n{TOOL_DESCRIPTION}\n\n## Parameters\n\nA description of each parameter required by the tool.\n\n{TOOL_ARGUMENTS}\n\n## Example\n\n{TOOL_EXAMPLE_ARGUMENTS}\n\n## Instruction\n\nBased on this info and the user query, you are expected to return valid JSON with the required parameters. Ensure the JSON is properly formatted and each parameter is the correct data type.'
             tool_prompt = f"User query:\n{KEY_PROMPT_MESSAGE}\n\nJSON response:\n"
