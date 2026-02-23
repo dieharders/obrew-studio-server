@@ -7,19 +7,19 @@ class Params(BaseModel):
     # Required - A description is needed for prompt injection
     """Pick one or more of the best option(s) from a set of options that most satisfies the given instruction."""
 
-    # We make the LLM to output this so it forces it to choose whether to pick one or multiple options.
+    # We make the LLM to output this so it forces it to choose whether to choose one or multiple options.
     choose_multiple: bool = Field(
         default=False,
         description="Whether to select multiple options (True) or just one (False).",
     )
-    pick: List[str] = Field(
+    choice: List[str] = Field(
         ...,
         description="A list of index key(s) of the chosen option(s).",
     )
     # Provided by FrontEnd
     options: dict[str, Union[bool, int, str]] = Field(
         ...,
-        description="The options to pick from, formatted as an indexed set of key/value pairs.",
+        description="The options to choose from, formatted as an indexed set of key/value pairs.",
         llm_not_required=True,
     )
 
@@ -29,19 +29,19 @@ class Params(BaseModel):
                 {
                     "choose_multiple": False,
                     "options": {"0": "Option A", "1": "Option B", "2": "Option C"},
-                    "pick": ["1"],
+                    "choice": ["1"],
                 },
                 {
                     "choose_multiple": True,
                     "options": {"0": 32, "1": 64, "2": 128},
-                    "pick": ["0", "2"],
+                    "choice": ["0", "2"],
                 },
             ]
         }
     }
 
 
-# @TODO This tool is still broken (cannot generate "pick")
+# @TODO This tool is still broken (cannot generate "choice")
 # The consumer should embed the options directly
 # in the prompt (query) so the LLM can see them. Expected format:
 #
@@ -59,7 +59,7 @@ class Params(BaseModel):
 # contain user-provided or LLM-generated text. The XML boundary prevents
 # adversarial option values from being interpreted as instructions.
 async def main(**kwargs: Params) -> List[Union[bool, int, str]]:
-    chosen_indexes = kwargs.get("pick", [])
+    chosen_indexes = kwargs.get("choice", [])
     options = kwargs.get("options", dict())
 
     # Fallback: read options from context_items (passed by frontend)
@@ -71,7 +71,7 @@ async def main(**kwargs: Params) -> List[Union[bool, int, str]]:
                 break
 
     if not chosen_indexes:
-        raise ValueError("No pick was generated.")
+        raise ValueError("No choice was generated.")
     if not options:
         raise ValueError("No options are provided.")
 

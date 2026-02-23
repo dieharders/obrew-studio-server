@@ -1,14 +1,14 @@
-"""Extract a numeric value from input data based on a prompt."""
+"""Return a numeric value from input data based on a prompt."""
 
 from pydantic import BaseModel, Field
 
 
 class Params(BaseModel):
-    """Extract a numeric value from the input data according to the user's instructions."""
+    """Return a numeric value from the input data according to the user's instructions."""
 
     value: float = Field(
         ...,
-        description="The extracted numeric value. Return only the number, not text like '5 items'.",
+        description="The numeric value. Return only the number, not text like '5 items'.",
     )
 
     model_config = {
@@ -25,7 +25,7 @@ class Params(BaseModel):
 
 async def main(**kwargs) -> dict:
     """
-    Return the extracted numeric value.
+    Return the numeric value.
     The LLM provides the value parameter which is constrained to be a number.
     """
     value = kwargs.get("value")

@@ -6,12 +6,12 @@ from . import (
     data_transform,  # @TODO See if we need this anymore
     enhance_text,
     retrieval,  # @TODO Rename to embeddings_query
-    extract_array_of_strings,
-    extract_boolean,
-    extract_json,
-    extract_number,
-    extract_object,
-    extract_string,
+    return_array_of_strings,
+    return_json,
+    return_number,
+    return_object,
+    return_string,
+    return_boolean,
     file_glob,
     file_grep,
     file_parse,
@@ -48,13 +48,13 @@ TOOLS = {
     "enhance_text.py": enhance_text,
     # Embeddings tools
     "retrieval.py": retrieval,
-    # Data extraction and transform tools
-    "extract_array_of_strings.py": extract_array_of_strings,
-    "extract_boolean.py": extract_boolean,
-    "extract_json.py": extract_json,
-    "extract_number.py": extract_number,
-    "extract_object.py": extract_object,
-    "extract_string.py": extract_string,
+    # Data return tools
+    "return_array_of_strings.py": return_array_of_strings,
+    "return_boolean.py": return_boolean,
+    "return_json.py": return_json,
+    "return_number.py": return_number,
+    "return_object.py": return_object,
+    "return_string.py": return_string,
     # File-system tools
     "file_glob.py": file_glob,
     "file_grep.py": file_grep,
@@ -68,7 +68,7 @@ TOOLS = {
     "item_query.py": item_query,
     "item_read.py": item_read,
     "item_scan.py": item_scan,
-    # Agent harness tools
+    # Agent tools
     # "agent_todo.py": agent_todo,
     "agent_choices.py": agent_choices,
     "agent_choose.py": agent_choose,

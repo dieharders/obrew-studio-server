@@ -1,14 +1,13 @@
-"""Extract a boolean value from input data based on a prompt."""
-
 from pydantic import BaseModel, Field
 
 
 class Params(BaseModel):
-    """Extract a boolean (true/false) value from the input data according to the user's instructions."""
+    # Required - A description is needed for prompt injection
+    """Return a boolean (True/False) value. Use this for binary YES/NO decisions, binary comparisons, or branch logic based on the user's instructions."""
 
     value: bool = Field(
         ...,
-        description="The extracted boolean value. Return true or false based on the analysis.",
+        description="True or False based on evaluating the input against the user's instruction.",
     )
 
     model_config = {
@@ -23,8 +22,7 @@ class Params(BaseModel):
 
 async def main(**kwargs) -> dict:
     """
-    Return the extracted boolean value.
-    The LLM provides the value parameter which is constrained to be a boolean.
+    This is a simple, general purpose tool. The LLM provides a generic `value` parameter constrained to a boolean.
     """
     value = kwargs.get("value")
 
