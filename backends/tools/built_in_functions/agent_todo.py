@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 
 class Params(BaseModel):
-    """Execute a list of tasks sequentially. Use this tool to process multiple related tasks in order, optionally stopping on errors."""
+    """Generate a todo list of sequential tasks."""
 
     tasks: List[str] = Field(
         ...,
@@ -36,7 +36,7 @@ class Params(BaseModel):
     }
 
 
-# @TODO This is a stub. This tool needs to take a prompt and break it down in order to output a todo. This list contains "tasks" which are the arguments used to call the "agent_task" tool. The harness calling this tool will use each task's value to call the "agent_task" tool until it has completed the last task in the todo.
+# @TODO This is a stub. This tool needs to take a prompt and break it down in order to generate a todo. This list contains "tasks" which are the arguments used to call the "agent_task" tool. The harness calling this tool will use each task's value to call the "agent_task" tool until it has completed the last task in the todo.
 async def main(**kwargs: Params) -> dict:
     tasks = kwargs.get("tasks", [])
     stop_on_error = kwargs.get("stop_on_error", True)
