@@ -1,4 +1,4 @@
-"""Extract an array of strings from input data based on a prompt."""
+"""Return an array of strings from input data based on a prompt."""
 
 import json
 from typing import List
@@ -6,11 +6,11 @@ from pydantic import BaseModel, Field
 
 
 class Params(BaseModel):
-    """Extract a list of string values from the input data according to the user's instructions."""
+    """Return a list of string values from the input data according to the user's instructions."""
 
     value: List[str] = Field(
         ...,
-        description="The extracted array of strings. Each item should be a separate string element.",
+        description="The array of strings. Each item should be a separate string element.",
     )
 
     model_config = {
@@ -27,7 +27,7 @@ class Params(BaseModel):
 
 async def main(**kwargs) -> dict:
     """
-    Return the extracted array of strings.
+    Return the array of strings.
     The LLM provides the value parameter which is constrained to be a list of strings.
     """
     value = kwargs.get("value")
