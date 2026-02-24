@@ -23,7 +23,7 @@ from . import (
     item_query,
     item_read,
     item_scan,
-    # agent_todo,
+    agent_todo,
     agent_choices,
     agent_choose,
     agent_judge,
@@ -69,7 +69,7 @@ TOOLS = {
     "item_read.py": item_read,
     "item_scan.py": item_scan,
     # Agent tools
-    # "agent_todo.py": agent_todo,
+    "agent_todo.py": agent_todo,
     "agent_choices.py": agent_choices,
     "agent_choose.py": agent_choose,
     "agent_judge.py": agent_judge,
