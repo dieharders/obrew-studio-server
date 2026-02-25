@@ -147,7 +147,11 @@ class LLAMA_CPP:
             "--frequency-penalty": settings.frequency_penalty,
             "--ctx-size": self.model_init_kwargs.get("--ctx-size"),
             "--temp": settings.temperature,
-            "--seed": settings.seed if settings.seed is not None else self.model_init_kwargs.get("--seed"),
+            "--seed": (
+                settings.seed
+                if settings.seed is not None
+                else self.model_init_kwargs.get("--seed")
+            ),
             "--n-predict": settings.max_tokens,
         }
         if stopwords:
@@ -365,6 +369,11 @@ class LLAMA_CPP:
                     messageFormat=self.message_format,
                     native_tool_defs=native_tool_defs,
                 )
+
+            # Debug: log the formatted prompt written to temp file
+            # print(
+            #     f"[LLAMA] Formatted prompt for temp file:\n{formatted_prompt[:2000]}..."
+            # )
 
             # Write prompt to temp file to avoid Windows command line length limit (8191 chars)
             # Using --file instead of --prompt prevents [WinError 206] for large prompts
