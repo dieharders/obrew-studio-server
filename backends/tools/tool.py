@@ -408,6 +408,11 @@ class Tool:
             tool_system_message = pattern.sub(
                 lambda m: replacements[m.group(0)], tool_instruction
             )
+            # Prepend the original system message (if any) so caller-provided
+            # context (e.g. real-world date/time, user info) is preserved
+            # alongside the tool definition.
+            if system_message:
+                tool_system_message = f"{system_message}\n\n{tool_system_message}"
             # Prompt the LLM for a response using the tool's schema.
             # A lower temperature is better for tool use.
             llm_tool_use_response = await llm.text_completion(
