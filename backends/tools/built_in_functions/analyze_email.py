@@ -65,11 +65,11 @@ class Params(BaseModel):
     )
     event_1_suggested_start_date: str = Field(
         default="",
-        description="ISO 8601 datetime string (YYYY-MM-DDTHH:MM:SSZ) for the EARLIEST date the event could occur. For a range like 'next week', use the coming Monday. For 'sometime this week', use today. Leave empty if the email implies 'anytime' or 'as soon as possible'. IMPORTANT: this must differ from the target date when the email implies a range of days.",
+        description="Start of time range. ISO 8601 datetime string (YYYY-MM-DDTHH:MM:SSZ) for the EARLIEST date the event could occur. Leave empty if the email implies 'anytime' or 'as soon as possible'.",
     )
     event_1_suggested_target_date: str = Field(
         default="",
-        description="ISO 8601 datetime string (YYYY-MM-DDTHH:MM:SSZ) for the LATEST date the event should occur by. For a range like 'next week', use the Friday of that week. For a specific day like 'next Tuesday', use that Tuesday (same as start). Leave empty if unknown. IMPORTANT: for date ranges this MUST be later than the start date.",
+        description="End of time range. ISO 8601 datetime string (YYYY-MM-DDTHH:MM:SSZ) for the LATEST date the event should occur by. Leave empty if unknown. IMPORTANT: this MUST be later than the start date.",
     )
     event_1_duration_minutes: int = Field(
         default=30,
@@ -95,11 +95,11 @@ class Params(BaseModel):
     )
     event_2_suggested_start_date: str = Field(
         default="",
-        description="ISO 8601 datetime (YYYY-MM-DDTHH:MM:SSZ) for the EARLIEST date the second event could occur. For date ranges, use the first possible day. Leave empty if the email implies 'anytime'.",
+        description="Start of time range. ISO 8601 datetime (YYYY-MM-DDTHH:MM:SSZ) for the EARLIEST date the second event could occur. Use the first possible day. Leave empty if the email implies 'anytime'.",
     )
     event_2_suggested_target_date: str = Field(
         default="",
-        description="ISO 8601 datetime (YYYY-MM-DDTHH:MM:SSZ) for the LATEST date the second event should occur by. For date ranges this MUST be later than the start date. Leave empty if unknown.",
+        description="End of time range. ISO 8601 datetime (YYYY-MM-DDTHH:MM:SSZ) for the LATEST date the second event should occur by. MUST be later than the start date. Leave empty if unknown.",
     )
     event_2_duration_minutes: int = Field(
         default=30,
