@@ -1,5 +1,3 @@
-"""Backend tool for structured email analysis with schema-constrained LLM output."""
-
 from pydantic import BaseModel, Field
 
 
@@ -11,7 +9,7 @@ class Params(BaseModel):
         description="A concise summary of the email in 3 sentences or fewer. Capture the key intent, any action items, and relevant context.",
     )
 
-    # ── Suggested Responses (3 fixed slots) ──────────────────────
+    # Suggested Responses (3 fixed slots)
 
     response_1_label: str = Field(
         default="",
@@ -55,7 +53,7 @@ class Params(BaseModel):
         options=["formal", "casual", "brief"],
     )
 
-    # ── Suggested Events (2 fixed slots) ─────────────────────────
+    # Suggested Events (2 fixed slots)
 
     event_1_title: str = Field(
         default="",
@@ -67,11 +65,11 @@ class Params(BaseModel):
     )
     event_1_suggested_start_date: str = Field(
         default="",
-        description="ISO 8601 datetime string for the EARLIEST date the event could occur. For a range like 'next week', use the coming Monday. For 'sometime this week', use today. Leave empty if the email implies 'anytime' or 'as soon as possible'. IMPORTANT: this must differ from the target date when the email implies a range of days.",
+        description="ISO 8601 datetime string (YYYY-MM-DDTHH:MM:SSZ) for the EARLIEST date the event could occur. For a range like 'next week', use the coming Monday. For 'sometime this week', use today. Leave empty if the email implies 'anytime' or 'as soon as possible'. IMPORTANT: this must differ from the target date when the email implies a range of days.",
     )
     event_1_suggested_target_date: str = Field(
         default="",
-        description="ISO 8601 datetime string for the LATEST date the event should occur by. For a range like 'next week', use the Friday of that week. For a specific day like 'next Tuesday', use that Tuesday (same as start). Leave empty if unknown. IMPORTANT: for date ranges this MUST be later than the start date.",
+        description="ISO 8601 datetime string (YYYY-MM-DDTHH:MM:SSZ) for the LATEST date the event should occur by. For a range like 'next week', use the Friday of that week. For a specific day like 'next Tuesday', use that Tuesday (same as start). Leave empty if unknown. IMPORTANT: for date ranges this MUST be later than the start date.",
     )
     event_1_duration_minutes: int = Field(
         default=30,
@@ -97,11 +95,11 @@ class Params(BaseModel):
     )
     event_2_suggested_start_date: str = Field(
         default="",
-        description="ISO 8601 datetime for the EARLIEST date the second event could occur. For date ranges, use the first possible day. Leave empty if the email implies 'anytime'.",
+        description="ISO 8601 datetime (YYYY-MM-DDTHH:MM:SSZ) for the EARLIEST date the second event could occur. For date ranges, use the first possible day. Leave empty if the email implies 'anytime'.",
     )
     event_2_suggested_target_date: str = Field(
         default="",
-        description="ISO 8601 datetime for the LATEST date the second event should occur by. For date ranges this MUST be later than the start date. Leave empty if unknown.",
+        description="ISO 8601 datetime (YYYY-MM-DDTHH:MM:SSZ) for the LATEST date the second event should occur by. For date ranges this MUST be later than the start date. Leave empty if unknown.",
     )
     event_2_duration_minutes: int = Field(
         default=30,
@@ -155,6 +153,7 @@ VALID_TONES = {"formal", "casual", "brief"}
 VALID_EVENT_TYPES = {"meeting", "follow-up", "recurring", "deadline"}
 
 
+# Backend tool for structured email analysis with schema-constrained LLM output
 async def main(**kwargs) -> dict:
     """
     Return the structured email analysis as JSON.
