@@ -65,9 +65,13 @@ class Params(BaseModel):
         default="",
         description="Brief description of the first suggested event.",
     )
-    event_1_suggested_date: str = Field(
+    event_1_suggested_start_date: str = Field(
         default="",
-        description="ISO 8601 datetime string for when the first event should occur. Leave empty if unknown.",
+        description="ISO 8601 datetime string for the earliest date the event could occur. For example, 'next week' means the coming Monday. Leave empty if the email implies 'anytime' or 'as soon as possible'.",
+    )
+    event_1_suggested_target_date: str = Field(
+        default="",
+        description="ISO 8601 datetime string for the target/end date when the event should ideally occur. For a specific day this equals the start date. For a range like 'next week', this is the last day of that range (e.g. Friday). Leave empty if unknown.",
     )
     event_1_duration_minutes: int = Field(
         default=30,
@@ -91,9 +95,13 @@ class Params(BaseModel):
         default="",
         description="Brief description of the second suggested event.",
     )
-    event_2_suggested_date: str = Field(
+    event_2_suggested_start_date: str = Field(
         default="",
-        description="ISO 8601 datetime for the second event.",
+        description="ISO 8601 datetime for the earliest date the second event could occur. Leave empty if the email implies 'anytime'.",
+    )
+    event_2_suggested_target_date: str = Field(
+        default="",
+        description="ISO 8601 datetime for the target/end date of the second event. Leave empty if unknown.",
     )
     event_2_duration_minutes: int = Field(
         default=30,
@@ -120,21 +128,23 @@ class Params(BaseModel):
                     "response_2_label": "Request reschedule",
                     "response_2_body": "Hi John,\n\nI'm unable to make Tuesday. Would Wednesday or Thursday work instead?\n\nBest",
                     "response_2_tone": "formal",
-                    "response_3_label": "",
-                    "response_3_body": "",
-                    "response_3_tone": "formal",
+                    "response_3_label": "Acknowledge and defer",
+                    "response_3_body": "Hi John,\n\nThanks for the heads up. Let me check my schedule and get back to you by tomorrow.\n\nBest",
+                    "response_3_tone": "casual",
                     "event_1_title": "Q3 Budget Discussion",
                     "event_1_description": "Review Q3 budget projections with John",
-                    "event_1_suggested_date": "2025-01-14T10:00:00Z",
+                    "event_1_suggested_start_date": "2025-01-14T10:00:00Z",
+                    "event_1_suggested_target_date": "2025-01-14T10:00:00Z",
                     "event_1_duration_minutes": 60,
                     "event_1_attendees": "john@example.com",
                     "event_1_type": "meeting",
-                    "event_2_title": "",
-                    "event_2_description": "",
-                    "event_2_suggested_date": "",
-                    "event_2_duration_minutes": 30,
-                    "event_2_attendees": "",
-                    "event_2_type": "meeting",
+                    "event_2_title": "Share Q3 Projections Spreadsheet",
+                    "event_2_description": "Send the latest Q3 projections spreadsheet to John before the budget meeting",
+                    "event_2_suggested_start_date": "2025-01-13T09:00:00Z",
+                    "event_2_suggested_target_date": "2025-01-13T17:00:00Z",
+                    "event_2_duration_minutes": 15,
+                    "event_2_attendees": "john@example.com",
+                    "event_2_type": "deadline",
                 },
             ]
         }
@@ -167,11 +177,13 @@ async def main(**kwargs) -> dict:
         if label and body:
             if tone not in VALID_TONES:
                 tone = "formal"
-            suggested_responses.append({
-                "label": label,
-                "body": body,
-                "tone": tone,
-            })
+            suggested_responses.append(
+                {
+                    "label": label,
+                    "body": body,
+                    "tone": tone,
+                }
+            )
 
     # Assemble suggested events (filter out empty slots)
     suggested_events = []
@@ -179,20 +191,29 @@ async def main(**kwargs) -> dict:
         title = (kwargs.get(f"event_{i}_title") or "").strip()
         if title:
             attendees_str = (kwargs.get(f"event_{i}_attendees") or "").strip()
-            attendees = [
-                a.strip() for a in attendees_str.split(",") if a.strip()
-            ] if attendees_str else []
+            attendees = (
+                [a.strip() for a in attendees_str.split(",") if a.strip()]
+                if attendees_str
+                else []
+            )
             event_type = (kwargs.get(f"event_{i}_type") or "meeting").strip()
             if event_type not in VALID_EVENT_TYPES:
                 event_type = "meeting"
-            suggested_events.append({
-                "title": title,
-                "description": (kwargs.get(f"event_{i}_description") or "").strip(),
-                "suggestedDate": (kwargs.get(f"event_{i}_suggested_date") or "").strip(),
-                "durationMinutes": kwargs.get(f"event_{i}_duration_minutes", 30),
-                "attendees": attendees,
-                "type": event_type,
-            })
+            suggested_events.append(
+                {
+                    "title": title,
+                    "description": (kwargs.get(f"event_{i}_description") or "").strip(),
+                    "suggestedStartDate": (
+                        kwargs.get(f"event_{i}_suggested_start_date") or ""
+                    ).strip(),
+                    "suggestedDate": (
+                        kwargs.get(f"event_{i}_suggested_target_date") or ""
+                    ).strip(),
+                    "durationMinutes": kwargs.get(f"event_{i}_duration_minutes", 30),
+                    "attendees": attendees,
+                    "type": event_type,
+                }
+            )
 
     result = {
         "summary": summary,
