@@ -67,11 +67,11 @@ class Params(BaseModel):
     )
     event_1_suggested_start_date: str = Field(
         default="",
-        description="ISO 8601 datetime string for the earliest date the event could occur. For example, 'next week' means the coming Monday. Leave empty if the email implies 'anytime' or 'as soon as possible'.",
+        description="ISO 8601 datetime string for the EARLIEST date the event could occur. For a range like 'next week', use the coming Monday. For 'sometime this week', use today. Leave empty if the email implies 'anytime' or 'as soon as possible'. IMPORTANT: this must differ from the target date when the email implies a range of days.",
     )
     event_1_suggested_target_date: str = Field(
         default="",
-        description="ISO 8601 datetime string for the target/end date when the event should ideally occur. For a specific day this equals the start date. For a range like 'next week', this is the last day of that range (e.g. Friday). Leave empty if unknown.",
+        description="ISO 8601 datetime string for the LATEST date the event should occur by. For a range like 'next week', use the Friday of that week. For a specific day like 'next Tuesday', use that Tuesday (same as start). Leave empty if unknown. IMPORTANT: for date ranges this MUST be later than the start date.",
     )
     event_1_duration_minutes: int = Field(
         default=30,
@@ -97,11 +97,11 @@ class Params(BaseModel):
     )
     event_2_suggested_start_date: str = Field(
         default="",
-        description="ISO 8601 datetime for the earliest date the second event could occur. Leave empty if the email implies 'anytime'.",
+        description="ISO 8601 datetime for the EARLIEST date the second event could occur. For date ranges, use the first possible day. Leave empty if the email implies 'anytime'.",
     )
     event_2_suggested_target_date: str = Field(
         default="",
-        description="ISO 8601 datetime for the target/end date of the second event. Leave empty if unknown.",
+        description="ISO 8601 datetime for the LATEST date the second event should occur by. For date ranges this MUST be later than the start date. Leave empty if unknown.",
     )
     event_2_duration_minutes: int = Field(
         default=30,
@@ -133,15 +133,15 @@ class Params(BaseModel):
                     "response_3_tone": "casual",
                     "event_1_title": "Q3 Budget Discussion",
                     "event_1_description": "Review Q3 budget projections with John",
-                    "event_1_suggested_start_date": "2025-01-14T10:00:00Z",
-                    "event_1_suggested_target_date": "2025-01-14T10:00:00Z",
+                    "event_1_suggested_start_date": "2025-01-14T00:00:00Z",
+                    "event_1_suggested_target_date": "2025-01-14T23:59:59Z",
                     "event_1_duration_minutes": 60,
                     "event_1_attendees": "john@example.com",
                     "event_1_type": "meeting",
                     "event_2_title": "Share Q3 Projections Spreadsheet",
                     "event_2_description": "Send the latest Q3 projections spreadsheet to John before the budget meeting",
-                    "event_2_suggested_start_date": "2025-01-13T09:00:00Z",
-                    "event_2_suggested_target_date": "2025-01-13T17:00:00Z",
+                    "event_2_suggested_start_date": "2025-01-13T00:00:00Z",
+                    "event_2_suggested_target_date": "2025-01-13T23:59:59Z",
                     "event_2_duration_minutes": 15,
                     "event_2_attendees": "john@example.com",
                     "event_2_type": "deadline",
