@@ -92,6 +92,10 @@ class ProgressCaptureTqdm(tqdm):
     """
     Custom tqdm class that captures progress and sends to a queue.
     Used to intercept huggingface_hub download progress in subprocess.
+
+    Tracks bytes independently from tqdm internals to handle edge cases
+    where tqdm's self.n doesn't update (e.g. XET Rust downloads on macOS
+    where the Rust→Python callback doesn't propagate to tqdm correctly).
     """
 
     def __init__(
@@ -105,12 +109,19 @@ class ProgressCaptureTqdm(tqdm):
         self._task_id = task_id
         self._last_update_time = time.time()
         self._update_interval = 0.2  # Minimum seconds between updates
+        # Independent byte tracking (does not rely on tqdm's self.n)
+        self._tracked_bytes = 0
+        self._prev_tracked_bytes = 0
+        self._prev_speed_time = time.time()
         # Filter out huggingface-hub v1.x XET-specific arguments that tqdm doesn't recognize
         kwargs.pop("name", None)
         super().__init__(*args, **kwargs)
 
-    def update(self, n: int = 1) -> bool | None:
+    def update(self, n=1):
         result = super().update(n)
+
+        # Always track bytes ourselves as a fallback
+        self._tracked_bytes += n
 
         # Throttle progress updates to avoid overwhelming the queue
         current_time = time.time()
@@ -120,24 +131,36 @@ class ProgressCaptureTqdm(tqdm):
         self._last_update_time = current_time
 
         if self._progress_queue and self.total:
-            # Calculate speed in MB/s
+            # Use tqdm's self.n if it was updated, otherwise fall back to our tracker
+            downloaded = self.n if self.n > 0 else self._tracked_bytes
+
+            # Try tqdm's rate first, fall back to our own calculation
             rate = self.format_dict.get("rate", 0) or 0
             speed_mbps = rate / (1024 * 1024) if rate else 0.0
 
-            # Calculate ETA
+            if speed_mbps == 0:
+                elapsed = current_time - self._prev_speed_time
+                if elapsed > 0:
+                    bytes_diff = self._tracked_bytes - self._prev_tracked_bytes
+                    speed_mbps = bytes_diff / elapsed / (1024 * 1024)
+
+            self._prev_speed_time = current_time
+            self._prev_tracked_bytes = self._tracked_bytes
+
+            # Calculate ETA from downloaded bytes and speed
             eta = None
-            if rate and rate > 0:
-                remaining = self.total - self.n
-                eta = int(remaining / rate)
+            if speed_mbps > 0:
+                remaining_bytes = self.total - downloaded
+                eta = int(remaining_bytes / (speed_mbps * 1024 * 1024))
 
             try:
                 self._progress_queue.put_nowait(
                     {
                         "type": "progress",
                         "task_id": self._task_id,
-                        "downloaded_bytes": self.n,
+                        "downloaded_bytes": int(downloaded),
                         "total_bytes": self.total,
-                        "percent": (self.n / self.total * 100) if self.total else 0,
+                        "percent": (downloaded / self.total * 100) if self.total else 0,
                         "speed_mbps": round(speed_mbps, 2),
                         "eta_seconds": eta,
                     }
