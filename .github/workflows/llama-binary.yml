@@ -51,6 +51,7 @@ jobs:
             -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
             -DGGML_METAL=ON \
             -DLLAMA_CURL=OFF \
+            -DLLAMA_SERVER_SSL=OFF \
             -DLLAMA_BUILD_TESTS=OFF \
             -DLLAMA_BUILD_EXAMPLES=ON \
             -DLLAMA_NATIVE=OFF
