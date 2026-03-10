@@ -1,6 +1,6 @@
 {
   "name": "obrew-studio-server",
-  "version": "0.14.16",
+  "version": "0.14.17",
   "author": "OpenBrewAi",
   "license": "MIT",
   "productName": "Obrew Studio Engine",
@@ -13,7 +13,7 @@
       "description": "File management and knowledge base interface for your documents."
     }
   ],
-  "llamacpp_tag": "b7087",
+  "llamacpp_tag": "b8252",
   "scripts": {
     "dev": "python ./backends/main.py --mode=dev --headless=False",
     "prod": "python ./backends/main.py --mode=prod --headless=False",

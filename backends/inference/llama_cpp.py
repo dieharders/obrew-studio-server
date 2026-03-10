@@ -215,6 +215,108 @@ class LLAMA_CPP:
             self.process = None
             self.task_logging = None
 
+    async def _drain_startup_banner(self, timeout: float = 120.0):
+        """Drain the startup banner from stdout in -cnv mode.
+        Reads and discards all output until the interactive prompt appears,
+        indicating llama-cli is ready for user input."""
+        buffer = ""
+        try:
+            while True:
+                byte = await asyncio.wait_for(
+                    self.process.stdout.read(1), timeout=timeout
+                )
+                if not byte:
+                    # Process exited — read stderr for crash info
+                    stderr_output = ""
+                    if self.process and self.process.stderr:
+                        try:
+                            stderr_data = await asyncio.wait_for(
+                                self.process.stderr.read(), timeout=2.0
+                            )
+                            stderr_output = stderr_data.decode(
+                                "utf-8", errors="ignore"
+                            ).strip()
+                        except asyncio.TimeoutError:
+                            pass
+                    print(
+                        f"{common.PRNT_LLAMA} Process exited during banner drain."
+                        f"\nStdout captured:\n{buffer[-500:]}"
+                        f"\nStderr:\n{stderr_output[-1000:]}",
+                        flush=True,
+                    )
+                    raise Exception(
+                        f"llama-cli process exited during startup. {stderr_output[-500:]}"
+                    )
+                char = byte.decode("utf-8", errors="ignore")
+                buffer += char
+                # In -cnv mode, llama-cli prints "> " when ready for input
+                if buffer.endswith("> "):
+                    print(
+                        f"{common.PRNT_LLAMA} Banner drained, process ready.",
+                        flush=True,
+                    )
+                    break
+        except asyncio.TimeoutError:
+            print(
+                f"{common.PRNT_LLAMA} Timeout waiting for banner drain ({timeout}s)",
+                flush=True,
+            )
+
+    @staticmethod
+    def _strip_startup_banner(content: str) -> str:
+        """Strip the llama.cpp startup banner from captured stdout.
+        Newer versions (b8252+) print the banner to stdout instead of stderr."""
+        banner_markers = ["modalities :", "available commands:"]
+        lines = content.split("\n")
+        last_banner_line = -1
+        for i, line in enumerate(lines):
+            stripped = line.strip().lower()
+            for marker in banner_markers:
+                if marker in stripped:
+                    last_banner_line = i
+        if last_banner_line >= 0:
+            # Skip indented command lines and blank lines after the marker
+            idx = last_banner_line + 1
+            while idx < len(lines) and (
+                lines[idx].startswith("  ") or lines[idx].strip() == ""
+            ):
+                idx += 1
+            return "\n".join(lines[idx:]).strip()
+        return content
+
+    @staticmethod
+    def _clean_response(content: str) -> str:
+        """Clean model response of artifacts from llama.cpp CLI output."""
+        import re
+
+        # Log thinking blocks before stripping them
+        for pattern in [
+            r"\[Start thinking\](.*?)\[End thinking\]",
+            r"<think>(.*?)</think>",
+        ]:
+            for match in re.finditer(pattern, content, flags=re.DOTALL):
+                print(
+                    f"{common.PRNT_LLAMA} Thinking: {match.group(1).strip()}",
+                    flush=True,
+                )
+
+        # Strip thinking blocks: [Start thinking]...[End thinking] or <think>...</think>
+        content = re.sub(
+            r"\[Start thinking\].*?\[End thinking\]",
+            "",
+            content,
+            flags=re.DOTALL,
+        )
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL)
+
+        # Strip CLI metrics line: [ Prompt: X t/s | Generation: Y t/s ]
+        content = re.sub(r"\[\s*Prompt:.*?Generation:.*?\]", "", content)
+
+        # Strip trailing CLI prompt ">"
+        content = re.sub(r"\n\s*>\s*$", "", content)
+
+        return content.strip()
+
     async def read_logs(self):
         async for line in self.process.stderr:
             # Print logs in real-time
@@ -239,6 +341,7 @@ class LLAMA_CPP:
             "--model",
             self.model_path,
             "--no-display-prompt",
+            "--log-disable",
             "--no-context-shift",
             "--simple-io",
             "--multiline-input",  # dont have to type "/" to add a new line
@@ -287,18 +390,13 @@ class LLAMA_CPP:
                 # Constrain output using json schema
                 cmd_args.append("--json-schema")
                 cmd_args.append(json.dumps(constrain_json_output))
-            # Configure args
-            cmd_args.append("--in-prefix")
-            cmd_args.append("")
-            cmd_args.append("--in-suffix")
-            cmd_args.append("")
             # Sets system message when using "-cnv" mode.
             # Use temp file to avoid Windows command line length limit (8191 chars).
             # The user prompt is sent via stdin (not a CLI arg), so it is not
             # subject to the Windows char limit and does not need a temp file.
             if system_message:
                 prompt_file_path = write_prompt_to_temp_file(system_message)
-                cmd_args.append("--file")  # prev used "--prompt"
+                cmd_args.append("--system-prompt-file")  # dedicated system prompt flag
                 cmd_args.append(prompt_file_path)
             # Add stop words
             if self.generate_kwargs.get("--reverse-prompt"):
@@ -320,8 +418,14 @@ class LLAMA_CPP:
                 # Read logs
                 if self.debug:
                     self.task_logging = asyncio.create_task(self.read_logs())
+                # Drain startup banner from stdout before sending prompt
+                # In -cnv mode, llama-cli prints banner + "> " to stdout
+                await self._drain_startup_banner()
             # Send command to llama-cli
-            command = f"{prompt.strip()}\\"  # @TODO No need to apply msg format ?
+            # In --multiline-input mode, lines without trailing "\" are submitted
+            # immediately. Escape internal newlines so the entire prompt is sent
+            # as a single message, with the final line unescaped to trigger submission.
+            command = prompt.strip().replace("\n", "\\\n")
             print(f"{common.PRNT_LLAMA} Generating chat with command: {command}")
             self.process.stdin.write(command.encode("utf-8") + b"\n")
             await self.process.stdin.drain()
@@ -483,15 +587,24 @@ class LLAMA_CPP:
         request: Request,
         prompt_file_path: Optional[str] = None,
     ):
-        """Parse incoming tokens/text and stop generation when necessary"""
+        """Parse incoming tokens/text and stop generation when necessary.
+        Buffers output to strip the startup banner and thinking blocks before
+        streaming tokens to the client."""
+        import re
+
         self.process_type = gen_type
         content = ""
         marker_num = 0
         was_aborted = False
         decoder = codecs.getincrementaldecoder("utf-8")()
         eos_llama_token = "[end of text]"  # Corresponds to special token (number 2) in LLaMa embedding
-        eos_deepseek_token = "</think"  # @TODO Include
         has_gen_started = False
+        # Buffering state: absorb banner + thinking blocks before streaming
+        is_buffering = True
+        buffer = ""
+        # Patterns that mark the end of content we want to discard
+        think_end_markers = ["[End thinking]", "</think>"]
+        banner_end_markers = ["available commands:", "modalities :"]
         try:
             # Start of generation
             yield event_payload(FEEDING_PROMPT)
@@ -517,27 +630,79 @@ class LLAMA_CPP:
                 # Stop incomplete bytes from passing
                 except (UnicodeEncodeError, UnicodeDecodeError) as e:
                     continue
+                # Add text to accumulated content
+                content += byte_text
+
+                # --- Buffering phase: absorb banner and thinking blocks ---
+                if is_buffering:
+                    buffer += byte_text
+                    # Check if we've passed a thinking end marker
+                    found_think_end = any(
+                        m in buffer for m in think_end_markers
+                    )
+                    if found_think_end:
+                        # Log thinking content before discarding
+                        for pattern in [
+                            r"\[Start thinking\](.*?)\[End thinking\]",
+                            r"<think>(.*?)</think>",
+                        ]:
+                            for match in re.finditer(
+                                pattern, buffer, flags=re.DOTALL
+                            ):
+                                print(
+                                    f"{common.PRNT_LLAMA} Thinking: {match.group(1).strip()}",
+                                    flush=True,
+                                )
+                        # Strip everything up to and including the think end marker
+                        for marker in think_end_markers:
+                            idx = buffer.rfind(marker)
+                            if idx >= 0:
+                                buffer = buffer[idx + len(marker) :]
+                                break
+                        # Flush remaining buffer as streamable content
+                        is_buffering = False
+                        cleaned = buffer.strip()
+                        if stream and cleaned:
+                            for char in cleaned:
+                                yield json.dumps(token_payload(char))
+                        buffer = ""
+                        continue
+                    # Check if banner ended (no thinking block follows)
+                    found_banner_end = any(
+                        m in buffer.lower() for m in banner_end_markers
+                    )
+                    # After banner, look for the "> " ready prompt to know banner is done
+                    if found_banner_end and buffer.rstrip().endswith(">"):
+                        # Discard the entire banner
+                        is_buffering = False
+                        buffer = ""
+                        continue
+                    # Safety: if buffer grows large without finding markers, stop buffering
+                    # (model may not have banner or thinking blocks)
+                    if len(buffer) > 8000:
+                        is_buffering = False
+                        # No markers found — the buffer is likely real content
+                        if stream:
+                            for char in buffer:
+                                yield json.dumps(token_payload(char))
+                        buffer = ""
+                    continue
+
+                # --- Normal streaming phase ---
                 # Bail if end of sequence token found
                 if content.endswith(eos_llama_token):
                     break
-                # Check CLI "turn" token
-                if byte_text == ">":
+                # Check CLI "turn" token — in chat mode, the banner "> "
+                # is consumed by _drain_startup_banner or the buffer phase,
+                # so the first ">" here is the end-of-turn marker.
+                if byte_text == ">" and gen_type == "chat":
                     marker_num += 1
-                    # Bail if llama-cli ">" token found
-                    if gen_type == "completion":
+                    if marker_num >= 1:
                         break
-                    if gen_type == "chat":
-                        # Bail on subsequent occurrence
-                        if marker_num > 1:
-                            break
-                if (
-                    len(content) > len("\r\n>")
-                    and content.endswith("\r\n>")
-                    and gen_type == "chat"
+                if gen_type == "chat" and (
+                    content.endswith("\r\n>") or content.endswith("\n>")
                 ):
                     break
-                # Add text to accumulated content
-                content += byte_text
                 # Send tokens
                 if stream:
                     payload = token_payload(byte_text)
@@ -555,6 +720,10 @@ class LLAMA_CPP:
             # Finally, send all tokens together
             content += decoder.decode(b"", final=True)
             content = content.rstrip(eos_llama_token).strip()
+            # Strip startup banner that newer llama.cpp prints to stdout
+            content = self._strip_startup_banner(content)
+            # Clean response artifacts (thinking blocks, metrics, CLI prompt)
+            content = self._clean_response(content)
             if not content:
                 errMsg = "No response from model. Check available memory, try to lower amount of GPU Layers or offload to CPU only."
                 print(f"{common.PRNT_LLAMA} {errMsg}")
