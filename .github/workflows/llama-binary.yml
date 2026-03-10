@@ -52,6 +52,7 @@ jobs:
             -DGGML_METAL=ON \
             -DLLAMA_CURL=OFF \
             -DLLAMA_SERVER_SSL=OFF \
+            -DCMAKE_DISABLE_FIND_PACKAGE_OpenSSL=TRUE \
             -DLLAMA_BUILD_TESTS=OFF \
             -DLLAMA_BUILD_EXAMPLES=ON \
             -DLLAMA_NATIVE=OFF
