@@ -6,7 +6,7 @@ Follows the same pattern as vision/embedding_server.py.
 """
 
 import os
-import asyncio
+import time
 import platform
 import subprocess
 from typing import List
@@ -16,11 +16,9 @@ from core.classes import FastAPIApp
 
 LOG_PREFIX = "[GGUF-EMBEDDER-SERVER]"
 
-# Default port for the text embedding server
-DEFAULT_PORT = 8083
-
-# Port scan range
-PORT_RANGE_START = 8083
+# Port range for the text embedding server (non-overlapping with LlamaServer 8082-8085)
+DEFAULT_PORT = 8086
+PORT_RANGE_START = 8086
 PORT_RANGE_END = 8090
 
 # Timeout for server readiness
@@ -47,7 +45,7 @@ class GGUFEmbedderServer:
         self.app = app
         self.model_name = embed_model or "GGUF Embedding Model"
         self.model_path = model_path
-        self.process = None
+        self.process: subprocess.Popen = None
         self._is_ready = False
 
         # Find llama-server binary
@@ -72,9 +70,13 @@ class GGUFEmbedderServer:
         print(f"{LOG_PREFIX} Binary path: {self.binary_path}", flush=True)
         print(f"{LOG_PREFIX} Model path: {self.model_path}", flush=True)
 
-    async def _start_server(self) -> bool:
-        """Start llama-server with --embedding flag."""
-        if self._is_ready and self.process and self.process.returncode is None:
+    def _start_server(self) -> bool:
+        """Start llama-server with --embedding flag (synchronous).
+
+        Uses subprocess.Popen so this can be called safely from background
+        threads without needing an asyncio event loop.
+        """
+        if self._is_ready and self.process and self.process.poll() is None:
             return True
 
         if not self.model_path or not os.path.exists(self.model_path):
@@ -99,71 +101,62 @@ class GGUFEmbedderServer:
             creation_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
         try:
-            self.process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            self.process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
                 **creation_kwargs,
             )
 
-            self._is_ready = await self._wait_for_ready(timeout=SERVER_READY_TIMEOUT)
+            self._is_ready = self._wait_for_ready(timeout=SERVER_READY_TIMEOUT)
 
             if self._is_ready:
                 print(f"{LOG_PREFIX} Embedding server is ready", flush=True)
                 return True
             else:
                 print(f"{LOG_PREFIX} Server failed to become ready", flush=True)
-                await self.stop()
+                self._stop_process()
                 return False
 
         except Exception as e:
             print(f"{LOG_PREFIX} Failed to start server: {e}", flush=True)
-            await self.stop()
+            self._stop_process()
             raise
 
-    async def _wait_for_ready(self, timeout: int = SERVER_READY_TIMEOUT) -> bool:
-        """Poll /health until the server is ready."""
+    def _wait_for_ready(self, timeout: int = SERVER_READY_TIMEOUT) -> bool:
+        """Poll /health synchronously until the server is ready."""
         health_url = f"{self.base_url}/health"
-        start_time = asyncio.get_event_loop().time()
+        start_time = time.monotonic()
 
-        async with httpx.AsyncClient() as client:
-            while (asyncio.get_event_loop().time() - start_time) < timeout:
+        with httpx.Client() as client:
+            while (time.monotonic() - start_time) < timeout:
                 try:
-                    response = await client.get(health_url, timeout=2.0)
+                    response = client.get(health_url, timeout=2.0)
                     if response.status_code == 200:
                         return True
                 except (httpx.ConnectError, httpx.TimeoutException):
                     pass
 
-                if self.process and self.process.returncode is not None:
-                    stderr = await self.process.stderr.read()
+                if self.process and self.process.poll() is not None:
+                    stderr = self.process.stderr.read() if self.process.stderr else b""
                     print(
                         f"{LOG_PREFIX} Server process died: {stderr.decode(errors='ignore')}",
                         flush=True,
                     )
                     return False
 
-                await asyncio.sleep(1)
+                time.sleep(1)
 
         return False
 
-    async def _ensure_server(self):
-        """Start the server if not already running."""
-        if not self._is_ready or not self.process or self.process.returncode is not None:
-            success = await self._start_server()
-            if not success:
-                raise RuntimeError("Failed to start embedding server")
-
-    async def stop(self):
-        """Stop the embedding server."""
-        self._is_ready = False
-
+    def _stop_process(self):
+        """Synchronously stop the server process."""
         if self.process:
             print(f"{LOG_PREFIX} Stopping embedding server", flush=True)
             try:
                 self.process.terminate()
-                await asyncio.wait_for(self.process.wait(), timeout=5.0)
-            except asyncio.TimeoutError:
+                self.process.wait(timeout=5.0)
+            except subprocess.TimeoutExpired:
                 print(f"{LOG_PREFIX} Force killing server", flush=True)
                 self.process.kill()
             except Exception as e:
@@ -171,7 +164,12 @@ class GGUFEmbedderServer:
             finally:
                 self.process = None
 
-    def embed_text(self, text: str, normalize: bool = True) -> List[float]:
+    async def stop(self):
+        """Stop the embedding server (async interface for shutdown path)."""
+        self._is_ready = False
+        self._stop_process()
+
+    def embed_text(self, text: str) -> List[float]:
         """
         Create vector embeddings from text using llama-server /embeddings endpoint.
 
@@ -184,25 +182,11 @@ class GGUFEmbedderServer:
                 "Please ensure the GGUF embedding model is downloaded."
             )
 
-        # Start server if needed (sync wrapper for the async start)
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-
+        # Start server if needed (fully synchronous — no event loop required)
         if not self._is_ready:
-            if loop and loop.is_running():
-                # We're in an async context but called synchronously - use a new event loop in a thread
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    future = pool.submit(asyncio.run, self._start_server())
-                    result = future.result(timeout=SERVER_READY_TIMEOUT + 10)
-                    if not result:
-                        raise RuntimeError("Failed to start embedding server")
-            else:
-                result = asyncio.run(self._start_server())
-                if not result:
-                    raise RuntimeError("Failed to start embedding server")
+            result = self._start_server()
+            if not result:
+                raise RuntimeError("Failed to start embedding server")
 
         print(
             f"{LOG_PREFIX} Embedding text of length {len(text)} characters",
@@ -251,4 +235,4 @@ class GGUFEmbedderServer:
 
     def get_text_embedding(self, text: str) -> List[float]:
         """Alias for embed_text for compatibility with HuggingFaceEmbedding interface."""
-        return self.embed_text(text, normalize=True)
+        return self.embed_text(text)

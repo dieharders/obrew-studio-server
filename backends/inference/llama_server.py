@@ -50,7 +50,7 @@ DEFAULT_PORT = 8082
 
 # Port range to scan if default is taken
 PORT_RANGE_START = 8082
-PORT_RANGE_END = 8090
+PORT_RANGE_END = 8085
 
 # CLI arg name -> HTTP API body parameter name
 CLI_TO_API = {
@@ -135,6 +135,7 @@ class LlamaServer:
         self.process_type = ""
         self.task_logging = None
         self._abort_event: Optional[asyncio.Event] = None  # per-request abort signal
+        self._active_client: Optional[httpx.AsyncClient] = None  # active streaming client
         self.prompt_template = None
         self.message_format = message_format
         self.response_mode = response_mode
@@ -207,6 +208,13 @@ class LlamaServer:
         if value:
             if self._abort_event is not None:
                 self._abort_event.set()
+            # Force-close active HTTP client to unblock hanging streams
+            if self._active_client and not self._active_client.is_closed:
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(self._active_client.aclose())
+                except RuntimeError:
+                    pass  # No running loop — generator cleanup will handle it
         else:
             # Reset is handled by _new_abort_event() at the start of each request
             pass
@@ -318,14 +326,13 @@ class LlamaServer:
                 **creation_kwargs,
             )
 
-            # Read logs in background
-            if self.debug:
-                self.task_logging = asyncio.create_task(self._read_logs())
-
             # Wait for /health to respond
             self._is_ready = await self._wait_for_ready(timeout=SERVER_READY_TIMEOUT)
 
             if self._is_ready:
+                # Start log streaming after health check to avoid stderr contention
+                if self.debug:
+                    self.task_logging = asyncio.create_task(self._read_logs())
                 print(f"{LOG_PREFIX} Server is ready on port {self.port}", flush=True)
                 return True
             else:
@@ -341,10 +348,10 @@ class LlamaServer:
     async def _wait_for_ready(self, timeout: int = SERVER_READY_TIMEOUT) -> bool:
         """Poll /health until the server is ready."""
         health_url = f"{self.base_url}/health"
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
 
         async with httpx.AsyncClient() as client:
-            while (asyncio.get_event_loop().time() - start_time) < timeout:
+            while (asyncio.get_running_loop().time() - start_time) < timeout:
                 try:
                     response = await client.get(health_url, timeout=2.0)
                     if response.status_code == 200:
@@ -475,6 +482,7 @@ class LlamaServer:
 
         except asyncio.CancelledError:
             print(f"{LOG_PREFIX} Completion task was cancelled", flush=True)
+            raise
         except Exception as e:
             print(f"{LOG_PREFIX} Error in text_completion: {e}", flush=True)
             raise Exception(f"Failed to query llama-server: {e}")
@@ -489,50 +497,51 @@ class LlamaServer:
         was_aborted = False
         url = f"{self.base_url}/completion"
 
+        client = httpx.AsyncClient()
+        self._active_client = client
         try:
-            async with httpx.AsyncClient() as client:
-                async with client.stream("POST", url, json=body, timeout=None) as response:
-                    response.raise_for_status()
+            async with client.stream("POST", url, json=body, timeout=None) as response:
+                response.raise_for_status()
 
-                    # Connection established and valid — safe to signal prompt feeding
-                    yield event_payload(FEEDING_PROMPT)
+                # Connection established and valid — safe to signal prompt feeding
+                yield event_payload(FEEDING_PROMPT)
 
-                    async for line in response.aiter_lines():
-                        # Check abort (per-request event, not shared boolean)
-                        aborted = await request.is_disconnected() if request else False
-                        if aborted or (abort_event and abort_event.is_set()):
-                            print(f"{LOG_PREFIX} Generation aborted", flush=True)
-                            was_aborted = True
-                            break
+                async for line in response.aiter_lines():
+                    # Check abort (per-request event, not shared boolean)
+                    aborted = await request.is_disconnected() if request else False
+                    if aborted or (abort_event and abort_event.is_set()):
+                        print(f"{LOG_PREFIX} Generation aborted", flush=True)
+                        was_aborted = True
+                        break
 
-                        # Parse SSE line: "data: {...}"
-                        if not line.startswith("data: "):
-                            continue
-                        data_str = line[6:]
-                        if data_str.strip() == "[DONE]":
-                            break
+                    # Parse SSE line: "data: {...}"
+                    if not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
 
-                        try:
-                            data = json.loads(data_str)
-                        except json.JSONDecodeError:
-                            continue
+                    try:
+                        data = json.loads(data_str)
+                    except json.JSONDecodeError:
+                        continue
 
-                        token_text = data.get("content", "")
-                        if not token_text:
-                            continue
+                    token_text = data.get("content", "")
+                    if not token_text:
+                        continue
 
-                        if not has_gen_started:
-                            has_gen_started = True
-                            yield event_payload(GENERATING_TOKENS)
+                    if not has_gen_started:
+                        has_gen_started = True
+                        yield event_payload(GENERATING_TOKENS)
 
-                        content += token_text
+                    content += token_text
 
-                        if stream:
-                            yield json.dumps(token_payload(token_text))
+                    if stream:
+                        yield json.dumps(token_payload(token_text))
 
-                        # Check if generation is done
-                        if data.get("stop"):
-                            break
+                    # Check if generation is done
+                    if data.get("stop"):
+                        break
 
             # Skip final if aborted
             if was_aborted:
@@ -556,6 +565,15 @@ class LlamaServer:
         except httpx.HTTPStatusError as e:
             print(f"{LOG_PREFIX} HTTP error: {e.response.status_code}", flush=True)
             raise Exception(f"Server returned error: {e.response.status_code}")
+        except (httpx.ReadError, httpx.CloseError, httpx.RemoteProtocolError):
+            # Stream interrupted by abort handler closing the client
+            if abort_event and abort_event.is_set():
+                return
+            raise
+        finally:
+            self._active_client = None
+            if not client.is_closed:
+                await client.aclose()
 
     # ──────────────────────────────────────────────
     # Text chat (CHAT mode) - POST /v1/chat/completions
@@ -608,6 +626,7 @@ class LlamaServer:
 
         except asyncio.CancelledError:
             print(f"{LOG_PREFIX} Chat task was cancelled", flush=True)
+            raise
         except Exception as e:
             print(f"{LOG_PREFIX} Error in text_chat: {e}", flush=True)
             raise Exception(f"Failed to query llama-server: {e}")
@@ -622,54 +641,55 @@ class LlamaServer:
         was_aborted = False
         url = f"{self.base_url}/v1/chat/completions"
 
+        client = httpx.AsyncClient()
+        self._active_client = client
         try:
-            async with httpx.AsyncClient() as client:
-                async with client.stream("POST", url, json=body, timeout=None) as response:
-                    response.raise_for_status()
+            async with client.stream("POST", url, json=body, timeout=None) as response:
+                response.raise_for_status()
 
-                    # Connection established and valid — safe to signal prompt feeding
-                    yield event_payload(FEEDING_PROMPT)
+                # Connection established and valid — safe to signal prompt feeding
+                yield event_payload(FEEDING_PROMPT)
 
-                    async for line in response.aiter_lines():
-                        # Check abort (per-request event, not shared boolean)
-                        aborted = await request.is_disconnected() if request else False
-                        if aborted or (abort_event and abort_event.is_set()):
-                            print(f"{LOG_PREFIX} Chat generation aborted", flush=True)
-                            was_aborted = True
-                            break
+                async for line in response.aiter_lines():
+                    # Check abort (per-request event, not shared boolean)
+                    aborted = await request.is_disconnected() if request else False
+                    if aborted or (abort_event and abort_event.is_set()):
+                        print(f"{LOG_PREFIX} Chat generation aborted", flush=True)
+                        was_aborted = True
+                        break
 
-                        # Parse SSE: "data: {...}"
-                        if not line.startswith("data: "):
-                            continue
-                        data_str = line[6:]
-                        if data_str.strip() == "[DONE]":
-                            break
+                    # Parse SSE: "data: {...}"
+                    if not line.startswith("data: "):
+                        continue
+                    data_str = line[6:]
+                    if data_str.strip() == "[DONE]":
+                        break
 
-                        try:
-                            data = json.loads(data_str)
-                        except json.JSONDecodeError:
-                            continue
+                    try:
+                        data = json.loads(data_str)
+                    except json.JSONDecodeError:
+                        continue
 
-                        # OpenAI format: choices[0].delta.content
-                        choices = data.get("choices", [])
-                        if not choices:
-                            continue
-                        delta = choices[0].get("delta", {})
-                        token_text = delta.get("content", "")
-                        finish_reason = choices[0].get("finish_reason")
+                    # OpenAI format: choices[0].delta.content
+                    choices = data.get("choices", [])
+                    if not choices:
+                        continue
+                    delta = choices[0].get("delta", {})
+                    token_text = delta.get("content", "")
+                    finish_reason = choices[0].get("finish_reason")
 
-                        if token_text:
-                            if not has_gen_started:
-                                has_gen_started = True
-                                yield event_payload(GENERATING_TOKENS)
+                    if token_text:
+                        if not has_gen_started:
+                            has_gen_started = True
+                            yield event_payload(GENERATING_TOKENS)
 
-                            content += token_text
+                        content += token_text
 
-                            if stream:
-                                yield json.dumps(token_payload(token_text))
+                        if stream:
+                            yield json.dumps(token_payload(token_text))
 
-                        if finish_reason:
-                            break
+                    if finish_reason:
+                        break
 
             # Skip final if aborted
             if was_aborted:
@@ -693,6 +713,15 @@ class LlamaServer:
         except httpx.HTTPStatusError as e:
             print(f"{LOG_PREFIX} HTTP error: {e.response.status_code}", flush=True)
             raise Exception(f"Server returned error: {e.response.status_code}")
+        except (httpx.ReadError, httpx.CloseError, httpx.RemoteProtocolError):
+            # Stream interrupted by abort handler closing the client
+            if abort_event and abort_event.is_set():
+                return
+            raise
+        finally:
+            self._active_client = None
+            if not client.is_closed:
+                await client.aclose()
 
     # ──────────────────────────────────────────────
     # Vision completion - POST /v1/chat/completions with images
@@ -746,13 +775,13 @@ class LlamaServer:
                 })
 
             # Add text prompt
-            full_prompt = prompt.strip()
-            if system_message:
-                full_prompt = f"{system_message}\n\n{prompt.strip()}"
-            content_parts.append({"type": "text", "text": full_prompt})
+            content_parts.append({"type": "text", "text": prompt.strip()})
 
             # Build messages
-            messages = [{"role": "user", "content": content_parts}]
+            messages = []
+            if system_message:
+                messages.append({"role": "system", "content": system_message})
+            messages.append({"role": "user", "content": content_parts})
 
             # Build request body
             body = {
@@ -790,6 +819,7 @@ class LlamaServer:
 
         except asyncio.CancelledError:
             print(f"{LOG_PREFIX} Vision task was cancelled", flush=True)
+            raise
         except (ValueError, UnicodeEncodeError) as e:
             err_msg = str(e) if str(e) else f"{type(e).__name__} (no message)"
             print(f"{LOG_PREFIX} Error in vision inference: {err_msg}", flush=True)
