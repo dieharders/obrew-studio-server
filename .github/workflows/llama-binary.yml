@@ -60,15 +60,6 @@ jobs:
         run: |
           cmake --build build --config Release -j$(sysctl -n hw.ncpu)
 
-      - name: Test Metal support
-        working-directory: llama-cpp-build
-        run: |
-          # Verify binaries are built
-          if [ -f "build/bin/llama-cli" ]; then
-            file build/bin/llama-cli
-            echo "Binary built successfully"
-          fi
-
       - name: Fix dylib paths for distribution
         working-directory: llama-cpp-build/build/bin
         run: |
