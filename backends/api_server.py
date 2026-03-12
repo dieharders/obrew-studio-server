@@ -126,6 +126,9 @@ class ApiServer:
             app.state.vision_embedder = (
                 None  # Set each time user loads a vision embedding model
             )
+            app.state.text_embedder = (
+                None  # Cached GGUF text embedder (GGUFEmbedderServer singleton)
+            )
             # https://www.python-httpx.org/quickstart/
             app.state.requests_client = httpx.Client()
             # Initialize download manager for concurrent model downloads
@@ -185,6 +188,9 @@ class ApiServer:
             if self.app.state.vision_embedder:
                 # vision_embedder.unload() is async (spawns a server process)
                 self._run_async_cleanup(self.app.state.vision_embedder.unload())
+            if self.app.state.text_embedder:
+                # text_embedder uses GGUFEmbedderServer which spawns a llama-server process
+                self._run_async_cleanup(self.app.state.text_embedder.stop())
             if self.app.state.download_manager:
                 # Shutdown download manager and cancel pending downloads
                 self.app.state.download_manager.shutdown()
