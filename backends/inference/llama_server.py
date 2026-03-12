@@ -134,7 +134,7 @@ class LlamaServer:
         self.process: Process = None
         self.process_type = ""
         self.task_logging = None
-        self.abort_requested = False
+        self._abort_event: Optional[asyncio.Event] = None  # per-request abort signal
         self.prompt_template = None
         self.message_format = message_format
         self.response_mode = response_mode
@@ -186,6 +186,30 @@ class LlamaServer:
         if call.stop:
             params["stop"] = [call.stop] if isinstance(call.stop, str) else call.stop
         return params
+
+    # ──────────────────────────────────────────────
+    # Per-request abort signaling
+    # ──────────────────────────────────────────────
+
+    def _new_abort_event(self) -> asyncio.Event:
+        """Create a fresh abort event for a new inference request."""
+        self._abort_event = asyncio.Event()
+        return self._abort_event
+
+    @property
+    def abort_requested(self) -> bool:
+        """Check if the current request has been aborted."""
+        return self._abort_event is not None and self._abort_event.is_set()
+
+    @abort_requested.setter
+    def abort_requested(self, value: bool):
+        """Set or clear the abort signal. Setting True signals the current generator to stop."""
+        if value:
+            if self._abort_event is not None:
+                self._abort_event.set()
+        else:
+            # Reset is handled by _new_abort_event() at the start of each request
+            pass
 
     # Getter - returns CLI-style dict for backward compat (used by get_text_model endpoint)
     @property
@@ -413,7 +437,7 @@ class LlamaServer:
         constrain_json_output: Optional[dict] = None,
     ):
         try:
-            self.abort_requested = False
+            abort_event = self._new_abort_event()
             await self._ensure_server()
 
             # Format prompt (same logic as LLAMA_CPP)
@@ -445,7 +469,7 @@ class LlamaServer:
             self.process_type = "completion"
 
             generator = self._completion_generator(
-                body=body, stream=stream, request=request
+                body=body, stream=stream, request=request, abort_event=abort_event
             )
             return generator
 
@@ -456,7 +480,8 @@ class LlamaServer:
             raise Exception(f"Failed to query llama-server: {e}")
 
     async def _completion_generator(
-        self, body: dict, stream: bool, request: Request
+        self, body: dict, stream: bool, request: Request,
+        abort_event: asyncio.Event = None,
     ):
         """Stream tokens from POST /completion and yield SSE events."""
         content = ""
@@ -465,19 +490,19 @@ class LlamaServer:
         url = f"{self.base_url}/completion"
 
         try:
-            yield event_payload(FEEDING_PROMPT)
-
             async with httpx.AsyncClient() as client:
                 async with client.stream("POST", url, json=body, timeout=None) as response:
                     response.raise_for_status()
 
+                    # Connection established and valid — safe to signal prompt feeding
+                    yield event_payload(FEEDING_PROMPT)
+
                     async for line in response.aiter_lines():
-                        # Check abort
+                        # Check abort (per-request event, not shared boolean)
                         aborted = await request.is_disconnected() if request else False
-                        if aborted or self.abort_requested:
+                        if aborted or (abort_event and abort_event.is_set()):
                             print(f"{LOG_PREFIX} Generation aborted", flush=True)
                             was_aborted = True
-                            self.abort_requested = False
                             break
 
                         # Parse SSE line: "data: {...}"
@@ -546,7 +571,7 @@ class LlamaServer:
         constrain_json_output: Optional[dict] = None,
     ):
         try:
-            self.abort_requested = False
+            abort_event = self._new_abort_event()
             await self._ensure_server()
 
             # Build messages array
@@ -577,7 +602,7 @@ class LlamaServer:
             self.process_type = "chat"
 
             generator = self._chat_generator(
-                body=body, stream=stream, request=request
+                body=body, stream=stream, request=request, abort_event=abort_event
             )
             return generator
 
@@ -588,7 +613,8 @@ class LlamaServer:
             raise Exception(f"Failed to query llama-server: {e}")
 
     async def _chat_generator(
-        self, body: dict, stream: bool, request: Request
+        self, body: dict, stream: bool, request: Request,
+        abort_event: asyncio.Event = None,
     ):
         """Stream tokens from POST /v1/chat/completions and yield SSE events."""
         content = ""
@@ -597,19 +623,19 @@ class LlamaServer:
         url = f"{self.base_url}/v1/chat/completions"
 
         try:
-            yield event_payload(FEEDING_PROMPT)
-
             async with httpx.AsyncClient() as client:
                 async with client.stream("POST", url, json=body, timeout=None) as response:
                     response.raise_for_status()
 
+                    # Connection established and valid — safe to signal prompt feeding
+                    yield event_payload(FEEDING_PROMPT)
+
                     async for line in response.aiter_lines():
-                        # Check abort
+                        # Check abort (per-request event, not shared boolean)
                         aborted = await request.is_disconnected() if request else False
-                        if aborted or self.abort_requested:
+                        if aborted or (abort_event and abort_event.is_set()):
                             print(f"{LOG_PREFIX} Chat generation aborted", flush=True)
                             was_aborted = True
-                            self.abort_requested = False
                             break
 
                         # Parse SSE: "data: {...}"
@@ -682,7 +708,7 @@ class LlamaServer:
         override_args: Optional[dict] = None,
     ):
         try:
-            self.abort_requested = False
+            abort_event = self._new_abort_event()
             await self._ensure_server()
 
             # Verify mmproj
@@ -758,7 +784,7 @@ class LlamaServer:
 
             # Reuse the chat generator (same SSE format from /v1/chat/completions)
             generator = self._chat_generator(
-                body=body, stream=stream, request=request
+                body=body, stream=stream, request=request, abort_event=abort_event
             )
             return generator
 
