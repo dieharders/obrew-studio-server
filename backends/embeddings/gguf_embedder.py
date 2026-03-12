@@ -2,6 +2,7 @@ import os
 import subprocess
 import json
 import tempfile
+import warnings
 from typing import List
 from core import common
 from core.classes import FastAPIApp
@@ -10,7 +11,13 @@ LOG_PREFIX = "[GGUF-EMBEDDER]"
 
 
 class GGUFEmbedder:
-    """Handle GGUF embedding models using llama-embedding binary."""
+    """Handle GGUF embedding models using llama-embedding binary.
+
+    .. deprecated::
+        GGUFEmbedder is deprecated. Use ``GGUFEmbedderServer`` from
+        ``embeddings.gguf_embedder_server`` instead, which uses the llama-server
+        HTTP API rather than spawning the llama-embedding CLI binary.
+    """
 
     def __init__(
         self,
@@ -21,6 +28,12 @@ class GGUFEmbedder:
         self.app = app
         self.model_name = embed_model or "GGUF Embedding Model"
         self.model_path = model_path
+
+        warnings.warn(
+            "GGUFEmbedder is deprecated, use GGUFEmbedderServer from embeddings.gguf_embedder_server instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
         # Get path to llama-embedding binary
         deps_path = common.dep_path()

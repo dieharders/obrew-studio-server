@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from collections.abc import Callable
 
 if TYPE_CHECKING:
-    from inference.llama_cpp import LLAMA_CPP
+    from inference.llama_server import LlamaServer
     from backends.vision.image_embedder import ImageEmbedder
     from core.download_manager import DownloadManager
 
@@ -43,7 +43,7 @@ class AppState(dict):
     request_queue: Type[asyncio.Queue] | None
     db_client: Type[ClientAPI] | None
     api: Type[ApiServerClass] | None
-    llm: "LLAMA_CPP"  # Unified model for text and vision (when mmproj is loaded)
+    llm: "LlamaServer"  # Unified model for text and vision (when mmproj is loaded)
     vision_embedder: "ImageEmbedder"
     download_manager: "DownloadManager"
 

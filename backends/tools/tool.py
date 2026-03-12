@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from tools.classes import TOOL_SCHEMA_TYPES
 from core import common
 from core.classes import FastAPIApp, ToolDefinition, ToolFunctionSchema
-from inference.llama_cpp import LLAMA_CPP
+from inference.llama_server import LlamaServer
 from inference.classes import AgentOutput, LoadTextInferenceCall, LoadTextInferenceInit
 from tools.helpers import (
     KEY_TOOL_NAME,
@@ -135,7 +135,7 @@ class Tool:
     # Used by Workers
     async def choose_tool_from_query(
         self,
-        llm: Type[LLAMA_CPP],
+        llm: Type[LlamaServer],
         query_prompt: str,
         assigned_tools: List[ToolDefinition],
     ):
@@ -194,7 +194,7 @@ class Tool:
     # Used by Workers
     async def choose_tool_from_description(
         self,
-        llm: Type[LLAMA_CPP],
+        llm: Type[LlamaServer],
         query_prompt: str,
         assigned_tools: List[ToolDefinition],
     ) -> str:
@@ -253,7 +253,7 @@ class Tool:
     async def native_call(
         self,
         tool_defs: List[ToolDefinition],
-        llm: Type[LLAMA_CPP] = None,
+        llm: Type[LlamaServer] = None,
         query: str = "",
         prompt_template: str = None,
         system_message: str = None,
@@ -339,7 +339,7 @@ class Tool:
     async def universal_call(
         self,
         tool_def: ToolDefinition,
-        llm: Type[LLAMA_CPP] = None,
+        llm: Type[LlamaServer] = None,
         query: str = "",
         prompt_template: str = None,
         system_message: str = None,
