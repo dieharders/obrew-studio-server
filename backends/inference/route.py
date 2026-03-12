@@ -3,7 +3,7 @@ import json
 import shutil
 from fastapi import APIRouter, Request, HTTPException, Depends
 from inference.agent import Agent
-from .llama_cpp import LLAMA_CPP
+from .llama_server import LlamaServer
 from core import classes, common
 from core.common import get_model_install_config, get_prompt_formats
 from core.download_manager import DownloadManager
@@ -168,7 +168,7 @@ async def load_text_inference(
         # Load the prompt formats
         message_template = get_prompt_formats(message_format_id)
         # Load the specified Ai model using a specific inference backend
-        app.state.llm = LLAMA_CPP(
+        app.state.llm = LlamaServer(
             model_url=None,
             model_path=model_path,
             model_name=model_name,
@@ -182,6 +182,8 @@ async def load_text_inference(
             generate_kwargs=data.call,
             model_init_kwargs=data.init,
         )
+        # Start the llama-server process and wait for it to be ready
+        await app.state.llm.start_server()
         if data.responseMode == CHAT_MODES.CHAT.value:
             # @TODO webui needs to pass messages list with a system_message as first msg
             await app.state.llm.load_chat(chat_history=data.messages)
@@ -800,15 +802,6 @@ async def stop_text(request: Request):
     llm = app.state.llm
     if llm:
         llm.abort_requested = True
-        process = llm.process
-        process_type = llm.process_type
-        if process_type == "completion" and process:
-            # Only terminate /completion processes
-            process.terminate()
-            process = None
-        elif process_type == "chat":
-            # Otherwise send "turn" command to cli to pause the chat
-            await llm.pause_text_chat()
     return {
         "success": True,
         "message": "Closed connection and stopped inference.",

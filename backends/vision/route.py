@@ -10,7 +10,7 @@ from .image_embedder import ImageEmbedder
 from core import classes, common
 from core.common import get_model_install_config
 from core.download_manager import DownloadManager
-from inference.llama_cpp import LLAMA_CPP
+from inference.llama_server import LlamaServer
 from inference.classes import (
     CHAT_MODES,
     AgentOutput,
@@ -87,7 +87,7 @@ async def load_vision_model(
         model_name = model_config.get("model_name")
 
         # Create unified model instance with mmproj for vision capability
-        app.state.llm = LLAMA_CPP(
+        app.state.llm = LlamaServer(
             model_path=model_path,
             mmproj_path=mmproj_path,
             model_name=model_name,
@@ -96,6 +96,8 @@ async def load_vision_model(
             model_init_kwargs=data.init,
             generate_kwargs=data.call,
         )
+        # Start the llama-server process and wait for it to be ready
+        await app.state.llm.start_server()
 
         print(f"{common.PRNT_API} Vision model {model_id} loaded")
         return {

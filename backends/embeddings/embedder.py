@@ -15,7 +15,7 @@ from .text_splitters import (
 )
 from .chunking import chunks_from_documents, create_source_record
 from .file_loaders import documents_from_sources
-from .gguf_embedder import GGUFEmbedder
+from .gguf_embedder_server import GGUFEmbedderServer
 
 if TYPE_CHECKING:
     from embeddings.vector_storage import Vector_Storage
@@ -72,7 +72,7 @@ class Embedder:
 
         # For GGUF models, we need to find the model file path
         model_path = self._find_gguf_model_path()
-        self.embed_model = GGUFEmbedder(
+        self.embed_model = GGUFEmbedderServer(
             app=app,
             model_path=model_path,
             embed_model=self.embed_model_name,
