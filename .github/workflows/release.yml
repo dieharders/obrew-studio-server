@@ -133,34 +133,70 @@ jobs:
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "Using llama.cpp tag: $TAG"
 
-      # Download llama.cpp artifacts from llama-binary workflow
-      - name: Download llama.cpp artifacts (${{ matrix.platform }})
-        uses: dawidd6/action-download-artifact@v11
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: llama-binary.yml
-          name: llama-${{ matrix.platform }}-${{ steps.llama_tag.outputs.tag }}
-          path: llama-artifact
-          search_artifacts: true # finds most recent artifact (if dupes exist)
-          if_no_artifact_found: fail
+      # Download llama.cpp artifacts from our own llama-binary workflow
+      # - name: Download llama.cpp artifacts (${{ matrix.platform }})
+      #   uses: dawidd6/action-download-artifact@v11
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     workflow: llama-binary.yml
+      #     name: llama-${{ matrix.platform }}-${{ steps.llama_tag.outputs.tag }}
+      #     path: llama-artifact
+      #     search_artifacts: true # finds most recent artifact (if dupes exist)
+      #     if_no_artifact_found: fail
 
-      # Extract and copy llama.cpp files to servers directory
-      - name: Extract llama.cpp artifacts (macOS)
+      # Download pre-built llama.cpp binaries from official GitHub releases
+      - name: Download llama.cpp release (${{ matrix.platform }})
+        shell: bash
+        run: |
+          TAG="${{ steps.llama_tag.outputs.tag }}"
+          mkdir -p llama-artifact
+
+          case "${{ matrix.llama_variant }}" in
+            metal)
+              gh release download "${TAG}" --repo ggml-org/llama.cpp \
+                --pattern "llama-${TAG}-bin-macos-arm64.zip" --dir llama-artifact
+              ;;
+            cuda)
+              gh release download "${TAG}" --repo ggml-org/llama.cpp \
+                --pattern "llama-${TAG}-bin-win-cuda-cu12.4-x64.zip" --dir llama-artifact
+              gh release download "${TAG}" --repo ggml-org/llama.cpp \
+                --pattern "cudart-llama-bin-win-cu12.4-x64.zip" --dir llama-artifact
+              ;;
+            cpu)
+              gh release download "${TAG}" --repo ggml-org/llama.cpp \
+                --pattern "llama-${TAG}-bin-win-avx2-x64.zip" --dir llama-artifact
+              ;;
+          esac
+
+          echo "Downloaded llama.cpp release artifacts:"
+          ls -lh llama-artifact/
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Extract llama.cpp binaries to servers directory
+      - name: Extract llama.cpp binaries (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
           mkdir -p servers/llama.cpp
-          cd llama-artifact
-          unzip -o llama-${{ matrix.platform }}.zip -d ../servers/llama.cpp/
+          for zip in llama-artifact/*.zip; do
+            echo "Extracting $zip..."
+            unzip -o "$zip" -d servers/llama.cpp/
+          done
+          # Make binaries executable
+          chmod +x servers/llama.cpp/llama-server 2>/dev/null || true
           echo "Extracted llama.cpp files:"
-          ls -lh ../servers/llama.cpp/
+          ls -lh servers/llama.cpp/
 
-      - name: Extract llama.cpp artifacts (Windows)
+      - name: Extract llama.cpp binaries (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -Path "servers/llama.cpp" -ItemType Directory -Force
-          Expand-Archive -Path "llama-artifact/llama-${{ matrix.platform }}.zip" -DestinationPath "servers/llama.cpp/" -Force
+          Get-ChildItem "llama-artifact/*.zip" | ForEach-Object {
+            Write-Host "Extracting $($_.Name)..."
+            Expand-Archive -Path $_.FullName -DestinationPath "servers/llama.cpp/" -Force
+          }
           Write-Host "Extracted llama.cpp files:"
           Get-ChildItem "servers/llama.cpp/" | Format-Table Name, Length
 
