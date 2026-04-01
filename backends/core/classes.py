@@ -13,6 +13,7 @@ from collections.abc import Callable
 if TYPE_CHECKING:
     from inference.llama_server import LlamaServer
     from backends.vision.image_embedder import ImageEmbedder
+    from backends.embeddings.gguf_embedder_server import GGUFEmbedderServer
     from core.download_manager import DownloadManager
 
 
@@ -45,6 +46,7 @@ class AppState(dict):
     api: Type[ApiServerClass] | None
     llm: "LlamaServer"  # Unified model for text and vision (when mmproj is loaded)
     vision_embedder: "ImageEmbedder"
+    text_embedder: "GGUFEmbedderServer"
     download_manager: "DownloadManager"
 
 
@@ -899,13 +901,13 @@ class WipeAllModelsResponse(BaseModel):
                         "freed_space_breakdown": {
                             "text_models": "1.5 GB",
                             "embedding_models": "500 MB",
-                            "vision_embedding_models": "300 MB"
+                            "vision_embedding_models": "300 MB",
                         },
                         "caches_cleared": 3,
                         "metadata_files_reset": 2,
                         "errors": [],
-                        "warnings": []
-                    }
+                        "warnings": [],
+                    },
                 }
             ]
         }
