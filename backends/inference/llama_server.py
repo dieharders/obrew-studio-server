@@ -309,18 +309,20 @@ class LlamaServer:
         try:
             self.process = await asyncio.create_subprocess_exec(
                 *cmd,
-                stdout=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.PIPE,
                 **creation_kwargs,
             )
+
+            # Always drain stderr to prevent pipe buffer deadlock on Windows.
+            # llama-server logs to stderr; if the buffer fills (~4KB) the
+            # process blocks on write, which stalls HTTP responses.
+            self.task_logging = asyncio.create_task(self._read_logs())
 
             # Wait for /health to respond
             self._is_ready = await self._wait_for_ready(timeout=SERVER_READY_TIMEOUT)
 
             if self._is_ready:
-                # Start log streaming after health check to avoid stderr contention
-                if self.debug:
-                    self.task_logging = asyncio.create_task(self._read_logs())
                 print(f"{LOG_PREFIX} Server is ready on port {self.port}", flush=True)
                 return True
             else:
@@ -361,10 +363,12 @@ class LlamaServer:
         return False
 
     async def _read_logs(self):
-        """Stream server stderr to console."""
+        """Drain server stderr to prevent pipe buffer deadlock on Windows.
+        Always consumes output; only prints when debug is enabled."""
         try:
             async for line in self.process.stderr:
-                print(f"{LOG_PREFIX} {line.decode('utf-8', errors='ignore').strip()}")
+                if self.debug:
+                    print(f"{LOG_PREFIX} {line.decode('utf-8', errors='ignore').strip()}")
         except asyncio.CancelledError:
             pass
 
