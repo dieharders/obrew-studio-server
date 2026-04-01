@@ -418,6 +418,7 @@ async def embed_image(
                     await embedder.load_model(
                         model_path=model_path,
                         mmproj_path=mmproj_path,
+                        model_name=payload.repo_id,
                         port=VISION_SERVER_PORT,
                     )
             else:
@@ -930,6 +931,7 @@ async def query_image_collection(
                     await embedder.load_model(
                         model_path=model_path,
                         mmproj_path=mmproj_path,
+                        model_name=collection_embedding_model,
                         port=VISION_SERVER_PORT,
                     )
             else:
