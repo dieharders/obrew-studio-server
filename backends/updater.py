@@ -357,7 +357,9 @@ class Updater:
         Note: llama.cpp binaries are now compiled and bundled during the build process.
         This method is kept for backward compatibility but no longer downloads binaries.
         """
-        print("[UPDATER] Skipping binary download - binaries are pre-bundled.", flush=True)
+        print(
+            "[UPDATER] Skipping binary download - binaries are pre-bundled.", flush=True
+        )
 
         self.status = "progress"
 
@@ -371,17 +373,15 @@ class Updater:
         # Build list of required files based on platform
         required_files = []
         if platform.system() == "Darwin":
-            # macOS - llama-server, llama-cli (deprecated) and llama-embedding (deprecated) binaries
+            # macOS - llama-server binary
             required_files = [
                 os.path.join(target_path, "llama-server"),
-                os.path.join(target_path, "llama-cli"),
                 os.path.join(target_path, "llama-embedding"),
             ]
         elif platform.system() == "Windows":
-            # Windows - llama-server.exe, llama-cli.exe (deprecated), llama-embedding.exe (deprecated) + CUDA DLLs
+            # Windows - llama-server.exe + CUDA DLLs
             required_files = [
                 os.path.join(target_path, "llama-server.exe"),
-                os.path.join(target_path, "llama-cli.exe"),
                 os.path.join(target_path, "llama-embedding.exe"),
                 os.path.join(target_path, "cublas64_12.dll"),
                 os.path.join(target_path, "cublasLt64_12.dll"),
@@ -391,7 +391,9 @@ class Updater:
         print("[UPDATER] Checking for bundled binaries...", flush=True)
         missing_files = [f for f in required_files if not os.path.exists(f)]
         if missing_files:
-            print(f"[UPDATER] Warning: Missing bundled files: {missing_files}", flush=True)
+            print(
+                f"[UPDATER] Warning: Missing bundled files: {missing_files}", flush=True
+            )
             print("[UPDATER] The application may not work correctly.", flush=True)
         else:
             print("[UPDATER] All bundled binaries found.", flush=True)
