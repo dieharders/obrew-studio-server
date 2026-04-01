@@ -57,6 +57,7 @@ class Embedder:
         app: FastAPIApp,
         embed_model: str = None,
         cache_path: str = None,
+        pooling: str = "mean",
     ):
         self.app = app
         self.cache = cache_path or EMBEDDING_MODEL_CACHE_PATH
@@ -88,6 +89,7 @@ class Embedder:
                 app=app,
                 model_path=model_path,
                 embed_model=self.embed_model_name,
+                pooling=pooling,
             )
             # Cache on app.state for reuse
             app.state.text_embedder = self.embed_model
