@@ -802,8 +802,9 @@ async def stop_text(request: Request):
     llm = app.state.llm
     if llm:
         llm.abort_requested = True
-        # For completion mode, also cancel the active HTTP stream so the
-        # server stops generating immediately instead of buffering.
+        # Cancel server-side generation so the server stops immediately
+        # instead of buffering remaining tokens.
+        await llm.cancel_server_generation()
         if llm.process_type == "chat":
             await llm.pause_text_chat()
     return {
