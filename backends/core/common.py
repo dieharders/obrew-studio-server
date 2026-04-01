@@ -1102,6 +1102,7 @@ def check_open_port(p: int) -> int:
 _PORT_RANGE_START = 8082
 _PORT_RANGE_END = 8095
 _reserved_ports: set = set()
+_port_lock = __import__("threading").Lock()
 
 
 def allocate_server_port(start: int = _PORT_RANGE_START, end: int = _PORT_RANGE_END) -> int:
@@ -1109,19 +1110,22 @@ def allocate_server_port(start: int = _PORT_RANGE_START, end: int = _PORT_RANGE_
 
     Returns the allocated port number. The port is reserved in-process so that
     concurrent server instances (inference, embedding, vision) never collide.
+    Thread-safe via _port_lock.
     """
-    for port in range(start, end + 1):
-        if port in _reserved_ports:
-            continue
-        if check_open_port(port) != 0:
-            _reserved_ports.add(port)
-            return port
+    with _port_lock:
+        for port in range(start, end + 1):
+            if port in _reserved_ports:
+                continue
+            if check_open_port(port) != 0:
+                _reserved_ports.add(port)
+                return port
     raise RuntimeError(f"No available port found in range {start}-{end}")
 
 
 def release_server_port(port: int):
     """Release a previously allocated port so it can be reused."""
-    _reserved_ports.discard(port)
+    with _port_lock:
+        _reserved_ports.discard(port)
 
 
 def get_model_install_config(model_id: str = None) -> dict:
