@@ -28,10 +28,12 @@ class GGUFEmbedderServer:
         app: FastAPIApp,
         model_path: str = None,
         embed_model: str = None,
+        pooling: str = "mean",
     ):
         self.app = app
         self.model_name = embed_model or "GGUF Embedding Model"
         self.model_path = model_path
+        self.pooling = pooling or "mean"
         self.process: subprocess.Popen = None
         self._is_ready = False
         self._http_client: httpx.Client = None
@@ -50,13 +52,18 @@ class GGUFEmbedderServer:
                 "Please restart the server to download required binaries."
             )
 
-        # Pick port via shared allocator (prevents collisions with LlamaServer)
+        # Pick port via shared allocator (prevents collisions with LlamaServer).
+        # If anything after this point raises, release the port so it isn't leaked.
         self.port = common.allocate_server_port()
-        self.base_url = f"http://127.0.0.1:{self.port}"
+        try:
+            self.base_url = f"http://127.0.0.1:{self.port}"
 
-        print(f"{LOG_PREFIX} Initialized with model: {self.model_name}", flush=True)
-        print(f"{LOG_PREFIX} Binary path: {self.binary_path}", flush=True)
-        print(f"{LOG_PREFIX} Model path: {self.model_path}", flush=True)
+            print(f"{LOG_PREFIX} Initialized with model: {self.model_name}", flush=True)
+            print(f"{LOG_PREFIX} Binary path: {self.binary_path}", flush=True)
+            print(f"{LOG_PREFIX} Model path: {self.model_path}", flush=True)
+        except Exception:
+            common.release_server_port(self.port)
+            raise
 
     def _start_server(self) -> bool:
         """Start llama-server with --embedding flag (synchronous).
@@ -77,7 +84,7 @@ class GGUFEmbedderServer:
             self.binary_path,
             "-m", self.model_path,
             "--embedding",
-            "--pooling", "mean",
+            "--pooling", self.pooling,
             "--port", str(self.port),
             "-ngl", "99",
         ]
@@ -166,6 +173,21 @@ class GGUFEmbedderServer:
         self._is_ready = False
         self._stop_process()
 
+    def _parse_embedding_response(self, data) -> List[float]:
+        """Parse embedding from the various response formats llama-server can return."""
+        if isinstance(data, list) and len(data) > 0:
+            if isinstance(data[0], dict) and "embedding" in data[0]:
+                return data[0]["embedding"]
+            elif isinstance(data[0], list):
+                return data[0]
+        elif isinstance(data, dict):
+            if "embedding" in data:
+                return data["embedding"]
+            elif "data" in data and isinstance(data["data"], list):
+                if len(data["data"]) > 0 and "embedding" in data["data"][0]:
+                    return data["data"][0]["embedding"]
+        raise ValueError(f"Unexpected embedding response format: {data}")
+
     def _get_http_client(self) -> httpx.Client:
         """Return the persistent HTTP client, creating one if needed."""
         if self._http_client is None or self._http_client.is_closed:
@@ -213,29 +235,12 @@ class GGUFEmbedderServer:
             response.raise_for_status()
 
             data = response.json()
-
-            # Parse response -- handle different formats
-            raw_embedding = None
-            if isinstance(data, list) and len(data) > 0:
-                if isinstance(data[0], dict) and "embedding" in data[0]:
-                    raw_embedding = data[0]["embedding"]
-                elif isinstance(data[0], list):
-                    raw_embedding = data[0]
-            elif isinstance(data, dict):
-                if "embedding" in data:
-                    raw_embedding = data["embedding"]
-                elif "data" in data and isinstance(data["data"], list):
-                    if len(data["data"]) > 0 and "embedding" in data["data"][0]:
-                        raw_embedding = data["data"][0]["embedding"]
-
-            if raw_embedding is not None:
-                print(
-                    f"{LOG_PREFIX} Generated embedding with {len(raw_embedding)} dimensions",
-                    flush=True,
-                )
-                return raw_embedding
-
-            raise ValueError(f"Unexpected response format: {data}")
+            raw_embedding = self._parse_embedding_response(data)
+            print(
+                f"{LOG_PREFIX} Generated embedding with {len(raw_embedding)} dimensions",
+                flush=True,
+            )
+            return raw_embedding
 
         except (httpx.ConnectError, httpx.RemoteProtocolError):
             # Server may have crashed mid-request — restart once and retry
@@ -247,12 +252,7 @@ class GGUFEmbedderServer:
             response = client.post(url, json=payload, timeout=60.0)
             response.raise_for_status()
             data = response.json()
-            # Simplified parse for retry path
-            if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
-                return data[0].get("embedding", [])
-            if isinstance(data, dict) and "data" in data:
-                return data["data"][0].get("embedding", [])
-            raise RuntimeError(f"Unexpected response format on retry: {data}")
+            return self._parse_embedding_response(data)
         except httpx.HTTPStatusError as e:
             raise RuntimeError(
                 f"Embedding server returned error: {e.response.status_code} - {e.response.text}"

@@ -152,12 +152,17 @@ class LlamaServer:
         )
         self.BINARY_PATH = os.path.join(binary_folder, binary_name)
 
-        # Pick an available port via shared allocator
+        # Pick an available port via shared allocator.
+        # If anything after this point raises, release the port so it isn't leaked.
         self.port = common.allocate_server_port()
-        self.base_url = f"http://127.0.0.1:{self.port}"
+        try:
+            self.base_url = f"http://127.0.0.1:{self.port}"
 
-        # Persistent HTTP client for streaming requests (closed on unload)
-        self._http_client: Optional[httpx.AsyncClient] = None
+            # Persistent HTTP client for streaming requests (closed on unload)
+            self._http_client: Optional[httpx.AsyncClient] = None
+        except Exception:
+            common.release_server_port(self.port)
+            raise
 
     def _build_api_kwargs_from_call(self, call: LoadTextInferenceCall) -> dict:
         """Build HTTP API kwargs from a LoadTextInferenceCall model."""
@@ -373,11 +378,19 @@ class LlamaServer:
             pass
 
     async def _ensure_server(self):
-        """Start the server if not already running."""
-        if not self._is_ready or not self.process or self.process.returncode is not None:
-            success = await self.start_server()
-            if not success:
-                raise RuntimeError("Failed to start llama-server")
+        """Start the server if not already running. Warns if restarting after a crash."""
+        if self._is_ready and self.process and self.process.returncode is None:
+            return
+        if self.process and self.process.returncode is not None:
+            print(
+                f"{LOG_PREFIX} WARNING: Server process crashed (exit code "
+                f"{self.process.returncode}). Restarting — KV cache and context "
+                f"have been lost.",
+                flush=True,
+            )
+        success = await self.start_server()
+        if not success:
+            raise RuntimeError("Failed to start llama-server")
 
     def _get_http_client(self) -> httpx.AsyncClient:
         """Return the persistent async HTTP client, creating one if needed."""
@@ -426,6 +439,21 @@ class LlamaServer:
     async def load_chat(self, chat_history: List[ChatMessage] | None):
         if not chat_history:
             return
+
+    async def cancel_server_generation(self):
+        """Cancel active generation on the server via POST /slots/0?action=erase.
+
+        This tells llama-server to stop generating immediately rather than
+        buffering remaining tokens. Called from stop_text for completion mode.
+        """
+        try:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    f"{self.base_url}/slots/0?action=erase", timeout=3.0
+                )
+                print(f"{LOG_PREFIX} Server-side generation cancelled", flush=True)
+        except Exception as e:
+            print(f"{LOG_PREFIX} Could not cancel server generation: {e}", flush=True)
 
     async def pause_text_chat(self):
         """No-op: server-based chat doesn't use stdin signals."""
