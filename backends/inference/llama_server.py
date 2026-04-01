@@ -45,13 +45,6 @@ SERVER_READY_TIMEOUT = 120
 # Timeout for waiting on process termination during cleanup
 PROCESS_TERMINATION_TIMEOUT = 5.0
 
-# Default port for the inference server
-DEFAULT_PORT = 8082
-
-# Port range to scan if default is taken
-PORT_RANGE_START = 8082
-PORT_RANGE_END = 8085
-
 # CLI arg name -> HTTP API body parameter name
 CLI_TO_API = {
     "--temp": "temperature",
@@ -65,14 +58,6 @@ CLI_TO_API = {
     "--mirostat-ent": "mirostat_tau",
     "--seed": "seed",
 }
-
-
-def _find_available_port(start: int = PORT_RANGE_START, end: int = PORT_RANGE_END) -> int:
-    """Find an available port in the given range."""
-    for port in range(start, end + 1):
-        if common.check_open_port(port) != 0:
-            return port
-    raise RuntimeError(f"No available port found in range {start}-{end}")
 
 
 def _override_args_to_api(override_args: dict) -> dict:
@@ -98,7 +83,7 @@ class LlamaServer:
         raw_input: bool = None,
         func_calling: TOOL_USE_MODES = None,
         tool_schema_type: str = None,
-        message_format: Optional[dict] = {},
+        message_format: Optional[dict] = None,
         verbose=False,
         debug=False,
         model_init_kwargs: LoadTextInferenceInit = None,
@@ -137,7 +122,7 @@ class LlamaServer:
         self._abort_event: Optional[asyncio.Event] = None  # per-request abort signal
         self._active_client: Optional[httpx.AsyncClient] = None  # active streaming client
         self.prompt_template = None
-        self.message_format = message_format
+        self.message_format = message_format or {}
         self.response_mode = response_mode
         self.func_calling = func_calling
         self.raw_input = raw_input or False
@@ -167,9 +152,12 @@ class LlamaServer:
         )
         self.BINARY_PATH = os.path.join(binary_folder, binary_name)
 
-        # Pick an available port
-        self.port = _find_available_port()
+        # Pick an available port via shared allocator
+        self.port = common.allocate_server_port()
         self.base_url = f"http://127.0.0.1:{self.port}"
+
+        # Persistent HTTP client for streaming requests (closed on unload)
+        self._http_client: Optional[httpx.AsyncClient] = None
 
     def _build_api_kwargs_from_call(self, call: LoadTextInferenceCall) -> dict:
         """Build HTTP API kwargs from a LoadTextInferenceCall model."""
@@ -387,10 +375,20 @@ class LlamaServer:
             if not success:
                 raise RuntimeError("Failed to start llama-server")
 
+    def _get_http_client(self) -> httpx.AsyncClient:
+        """Return the persistent async HTTP client, creating one if needed."""
+        if self._http_client is None or self._http_client.is_closed:
+            self._http_client = httpx.AsyncClient()
+        return self._http_client
+
     async def unload(self):
-        """Stop the server process."""
+        """Stop the server process and release resources."""
         self._is_ready = False
         try:
+            # Close persistent HTTP client
+            if self._http_client and not self._http_client.is_closed:
+                await self._http_client.aclose()
+            self._http_client = None
             if self.task_logging:
                 self.task_logging.cancel()
             if self.process:
@@ -410,6 +408,7 @@ class LlamaServer:
         finally:
             self.process = None
             self.task_logging = None
+            common.release_server_port(self.port)
 
     # ──────────────────────────────────────────────
     # Chat history (same stubs as LLAMA_CPP)
@@ -497,7 +496,7 @@ class LlamaServer:
         was_aborted = False
         url = f"{self.base_url}/completion"
 
-        client = httpx.AsyncClient()
+        client = self._get_http_client()
         self._active_client = client
         try:
             async with client.stream("POST", url, json=body, timeout=None) as response:
@@ -572,8 +571,6 @@ class LlamaServer:
             raise
         finally:
             self._active_client = None
-            if not client.is_closed:
-                await client.aclose()
 
     # ──────────────────────────────────────────────
     # Text chat (CHAT mode) - POST /v1/chat/completions
@@ -641,7 +638,7 @@ class LlamaServer:
         was_aborted = False
         url = f"{self.base_url}/v1/chat/completions"
 
-        client = httpx.AsyncClient()
+        client = self._get_http_client()
         self._active_client = client
         try:
             async with client.stream("POST", url, json=body, timeout=None) as response:
@@ -720,8 +717,6 @@ class LlamaServer:
             raise
         finally:
             self._active_client = None
-            if not client.is_closed:
-                await client.aclose()
 
     # ──────────────────────────────────────────────
     # Vision completion - POST /v1/chat/completions with images

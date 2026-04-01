@@ -16,21 +16,8 @@ from core.classes import FastAPIApp
 
 LOG_PREFIX = "[GGUF-EMBEDDER-SERVER]"
 
-# Port range for the text embedding server (non-overlapping with LlamaServer 8082-8085)
-DEFAULT_PORT = 8086
-PORT_RANGE_START = 8086
-PORT_RANGE_END = 8090
-
 # Timeout for server readiness
 SERVER_READY_TIMEOUT = 60
-
-
-def _find_available_port(start: int = PORT_RANGE_START, end: int = PORT_RANGE_END) -> int:
-    """Find an available port in the given range."""
-    for port in range(start, end + 1):
-        if common.check_open_port(port) != 0:
-            return port
-    raise RuntimeError(f"No available port found in range {start}-{end}")
 
 
 class GGUFEmbedderServer:
@@ -47,6 +34,7 @@ class GGUFEmbedderServer:
         self.model_path = model_path
         self.process: subprocess.Popen = None
         self._is_ready = False
+        self._http_client: httpx.Client = None
 
         # Find llama-server binary
         deps_path = common.dep_path()
@@ -62,8 +50,8 @@ class GGUFEmbedderServer:
                 "Please restart the server to download required binaries."
             )
 
-        # Pick port
-        self.port = _find_available_port()
+        # Pick port via shared allocator (prevents collisions with LlamaServer)
+        self.port = common.allocate_server_port()
         self.base_url = f"http://127.0.0.1:{self.port}"
 
         print(f"{LOG_PREFIX} Initialized with model: {self.model_name}", flush=True)
@@ -124,7 +112,12 @@ class GGUFEmbedderServer:
             raise
 
     def _wait_for_ready(self, timeout: int = SERVER_READY_TIMEOUT) -> bool:
-        """Poll /health synchronously until the server is ready."""
+        """Poll /health synchronously until the server is ready.
+
+        This intentionally busy-polls with time.sleep() because it runs from
+        background threads (via BackgroundTasks) that have no asyncio event loop.
+        The sleep interval is short to detect readiness quickly.
+        """
         health_url = f"{self.base_url}/health"
         start_time = time.monotonic()
 
@@ -145,12 +138,15 @@ class GGUFEmbedderServer:
                     )
                     return False
 
-                time.sleep(1)
+                time.sleep(0.5)
 
         return False
 
     def _stop_process(self):
-        """Synchronously stop the server process."""
+        """Synchronously stop the server process and release resources."""
+        if self._http_client and not self._http_client.is_closed:
+            self._http_client.close()
+        self._http_client = None
         if self.process:
             print(f"{LOG_PREFIX} Stopping embedding server", flush=True)
             try:
@@ -163,11 +159,30 @@ class GGUFEmbedderServer:
                 print(f"{LOG_PREFIX} Error stopping server: {e}", flush=True)
             finally:
                 self.process = None
+                common.release_server_port(self.port)
 
     async def stop(self):
         """Stop the embedding server (async interface for shutdown path)."""
         self._is_ready = False
         self._stop_process()
+
+    def _get_http_client(self) -> httpx.Client:
+        """Return the persistent HTTP client, creating one if needed."""
+        if self._http_client is None or self._http_client.is_closed:
+            self._http_client = httpx.Client()
+        return self._http_client
+
+    def _ensure_server(self):
+        """Start the server if not running, or restart if the process has crashed."""
+        if self._is_ready and self.process and self.process.poll() is None:
+            return
+        # Process died or was never started — reset and (re)start
+        if self.process and self.process.poll() is not None:
+            print(f"{LOG_PREFIX} Server process crashed, restarting...", flush=True)
+        self._is_ready = False
+        result = self._start_server()
+        if not result:
+            raise RuntimeError("Failed to start embedding server")
 
     def embed_text(self, text: str) -> List[float]:
         """
@@ -182,11 +197,7 @@ class GGUFEmbedderServer:
                 "Please ensure the GGUF embedding model is downloaded."
             )
 
-        # Start server if needed (fully synchronous — no event loop required)
-        if not self._is_ready:
-            result = self._start_server()
-            if not result:
-                raise RuntimeError("Failed to start embedding server")
+        self._ensure_server()
 
         print(
             f"{LOG_PREFIX} Embedding text of length {len(text)} characters",
@@ -195,43 +206,59 @@ class GGUFEmbedderServer:
 
         url = f"{self.base_url}/embeddings"
         payload = {"content": text}
+        client = self._get_http_client()
 
-        with httpx.Client() as client:
-            try:
-                response = client.post(url, json=payload, timeout=60.0)
-                response.raise_for_status()
+        try:
+            response = client.post(url, json=payload, timeout=60.0)
+            response.raise_for_status()
 
-                data = response.json()
+            data = response.json()
 
-                # Parse response -- handle different formats
-                raw_embedding = None
-                if isinstance(data, list) and len(data) > 0:
-                    if isinstance(data[0], dict) and "embedding" in data[0]:
-                        raw_embedding = data[0]["embedding"]
-                    elif isinstance(data[0], list):
-                        raw_embedding = data[0]
-                elif isinstance(data, dict):
-                    if "embedding" in data:
-                        raw_embedding = data["embedding"]
-                    elif "data" in data and isinstance(data["data"], list):
-                        if len(data["data"]) > 0 and "embedding" in data["data"][0]:
-                            raw_embedding = data["data"][0]["embedding"]
+            # Parse response -- handle different formats
+            raw_embedding = None
+            if isinstance(data, list) and len(data) > 0:
+                if isinstance(data[0], dict) and "embedding" in data[0]:
+                    raw_embedding = data[0]["embedding"]
+                elif isinstance(data[0], list):
+                    raw_embedding = data[0]
+            elif isinstance(data, dict):
+                if "embedding" in data:
+                    raw_embedding = data["embedding"]
+                elif "data" in data and isinstance(data["data"], list):
+                    if len(data["data"]) > 0 and "embedding" in data["data"][0]:
+                        raw_embedding = data["data"][0]["embedding"]
 
-                if raw_embedding is not None:
-                    print(
-                        f"{LOG_PREFIX} Generated embedding with {len(raw_embedding)} dimensions",
-                        flush=True,
-                    )
-                    return raw_embedding
-
-                raise ValueError(f"Unexpected response format: {data}")
-
-            except httpx.HTTPStatusError as e:
-                raise RuntimeError(
-                    f"Embedding server returned error: {e.response.status_code} - {e.response.text}"
+            if raw_embedding is not None:
+                print(
+                    f"{LOG_PREFIX} Generated embedding with {len(raw_embedding)} dimensions",
+                    flush=True,
                 )
-            except Exception as e:
-                raise RuntimeError(f"Failed to generate embedding: {e}")
+                return raw_embedding
+
+            raise ValueError(f"Unexpected response format: {data}")
+
+        except (httpx.ConnectError, httpx.RemoteProtocolError):
+            # Server may have crashed mid-request — restart once and retry
+            print(f"{LOG_PREFIX} Connection lost, restarting server and retrying...", flush=True)
+            self._is_ready = False
+            self._ensure_server()
+            # Get a fresh client in case the old connection is stale
+            client = self._get_http_client()
+            response = client.post(url, json=payload, timeout=60.0)
+            response.raise_for_status()
+            data = response.json()
+            # Simplified parse for retry path
+            if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
+                return data[0].get("embedding", [])
+            if isinstance(data, dict) and "data" in data:
+                return data["data"][0].get("embedding", [])
+            raise RuntimeError(f"Unexpected response format on retry: {data}")
+        except httpx.HTTPStatusError as e:
+            raise RuntimeError(
+                f"Embedding server returned error: {e.response.status_code} - {e.response.text}"
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to generate embedding: {e}")
 
     def get_text_embedding(self, text: str) -> List[float]:
         """Alias for embed_text for compatibility with HuggingFaceEmbedding interface."""
