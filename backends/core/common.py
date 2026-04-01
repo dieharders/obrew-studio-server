@@ -1097,6 +1097,33 @@ def check_open_port(p: int) -> int:
         return 0
 
 
+# Shared port allocator — prevents port conflicts between llama-server instances
+# (e.g. LlamaServer for inference and GGUFEmbedderServer for embeddings).
+_PORT_RANGE_START = 8082
+_PORT_RANGE_END = 8095
+_reserved_ports: set = set()
+
+
+def allocate_server_port(start: int = _PORT_RANGE_START, end: int = _PORT_RANGE_END) -> int:
+    """Find and reserve an available port in the given range.
+
+    Returns the allocated port number. The port is reserved in-process so that
+    concurrent server instances (inference, embedding, vision) never collide.
+    """
+    for port in range(start, end + 1):
+        if port in _reserved_ports:
+            continue
+        if check_open_port(port) != 0:
+            _reserved_ports.add(port)
+            return port
+    raise RuntimeError(f"No available port found in range {start}-{end}")
+
+
+def release_server_port(port: int):
+    """Release a previously allocated port so it can be reused."""
+    _reserved_ports.discard(port)
+
+
 def get_model_install_config(model_id: str = None) -> dict:
     """Get model installation config from text_model_configs.json"""
     try:
