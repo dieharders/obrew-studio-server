@@ -376,13 +376,11 @@ class Updater:
             # macOS - llama-server binary
             required_files = [
                 os.path.join(target_path, "llama-server"),
-                os.path.join(target_path, "llama-embedding"),
             ]
         elif platform.system() == "Windows":
             # Windows - llama-server.exe + CUDA DLLs
             required_files = [
                 os.path.join(target_path, "llama-server.exe"),
-                os.path.join(target_path, "llama-embedding.exe"),
                 os.path.join(target_path, "cublas64_12.dll"),
                 os.path.join(target_path, "cublasLt64_12.dll"),
                 os.path.join(target_path, "cudart64_12.dll"),
