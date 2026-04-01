@@ -198,6 +198,8 @@ jobs:
             -G "Visual Studio 17 2022" `
             -A x64 `
             -DCMAKE_BUILD_TYPE=Release `
+            -DGGML_NATIVE=OFF `
+            -DGGML_CPU_ALL_VARIANTS=ON `
             -DGGML_CUDA=ON `
             -DLLAMA_CURL=OFF `
             -DLLAMA_BUILD_TESTS=OFF `
@@ -334,13 +336,11 @@ jobs:
             -G "Visual Studio 17 2022" `
             -A x64 `
             -DCMAKE_BUILD_TYPE=Release `
+            -DGGML_NATIVE=OFF `
+            -DGGML_CPU_ALL_VARIANTS=ON `
             -DLLAMA_CURL=OFF `
             -DLLAMA_BUILD_TESTS=OFF `
-            -DLLAMA_BUILD_EXAMPLES=ON `
-            -DGGML_AVX2=ON `
-            -DGGML_AVX=ON `
-            -DGGML_F16C=ON `
-            -DGGML_FMA=ON
+            -DLLAMA_BUILD_EXAMPLES=ON
 
       - name: Build
         working-directory: llama-cpp-build
