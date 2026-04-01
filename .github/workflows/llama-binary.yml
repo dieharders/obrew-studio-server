@@ -183,6 +183,9 @@ jobs:
       - name: Setup MSVC
         uses: microsoft/setup-msbuild@v2
 
+      # TODO: Add a separate CUDA 13.1 build job for newer GPUs (Blackwell/GB200).
+      # The installer app could detect the user's CUDA version at first launch
+      # and download the optimal build (12.4 vs 13.1) for their device.
       - name: Install CUDA Toolkit
         uses: Jimver/cuda-toolkit@v0.2.16
         with:
