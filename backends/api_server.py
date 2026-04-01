@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import signal
 import uvicorn
 import asyncio
 import httpx
@@ -55,6 +56,7 @@ class ApiServer:
             self.on_startup_callback = on_startup_callback
             self.server = None  # Store uvicorn server instance
             self.server_thread = None  # Store server thread
+            self._server_loop = None  # Uvicorn's asyncio event loop (captured at startup)
             # Get version from package file
             package_json = common.get_package_json()
             self.api_version = package_json.get("version")
@@ -118,6 +120,8 @@ class ApiServer:
         @asynccontextmanager
         async def lifespan(app: classes.FastAPIApp):
             print(f"{common.PRNT_API} Lifespan startup", flush=True)
+            # Capture uvicorn's event loop so shutdown() can schedule cleanup on it
+            self._server_loop = asyncio.get_running_loop()
             # Initialize global data here
             app.state.api = self
             app.state.request_queue = asyncio.Queue()
@@ -163,34 +167,55 @@ class ApiServer:
     def _run_async_cleanup(self, coro):
         """
         Helper to run async cleanup coroutines from sync context.
-        Uses run_coroutine_threadsafe for proper integration with running loops.
+        Targets uvicorn's event loop (captured at startup) since subprocess
+        handles are bound to the loop that created them.
         """
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # Schedule coroutine on the running loop from this sync context
+            loop = self._server_loop
+            if loop and loop.is_running():
                 future = asyncio.run_coroutine_threadsafe(coro, loop)
-                future.result(timeout=10.0)  # Wait up to 10s for cleanup
+                future.result(timeout=10.0)
             else:
-                loop.run_until_complete(coro)
+                raise RuntimeError("Server event loop is not available or not running")
         except Exception as e:
             print(
-                f"{common.PRNT_API} Async cleanup error (non-fatal): {e}",
+                f"{common.PRNT_API} Async cleanup error: {e}",
                 flush=True,
             )
+            raise
+
+    def _force_kill_process(self, obj):
+        """Synchronous fallback to kill a subprocess by PID when async cleanup fails."""
+        proc = getattr(obj, "process", None)
+        if proc is None:
+            return
+        pid = getattr(proc, "pid", None)
+        if pid:
+            try:
+                os.kill(pid, signal.SIGTERM)
+                print(f"{common.PRNT_API} Force killed subprocess PID {pid}", flush=True)
+            except (ProcessLookupError, OSError):
+                pass
 
     def shutdown(self, *args):
         try:
             print(f"{common.PRNT_API} Server forced to shutdown.", flush=True)
             if self.app.state.llm:
-                # llm.unload() is now async
-                self._run_async_cleanup(self.app.state.llm.unload())
+                # llm.unload() is now async — fall back to sync kill if it fails
+                try:
+                    self._run_async_cleanup(self.app.state.llm.unload())
+                except Exception:
+                    self._force_kill_process(self.app.state.llm)
             if self.app.state.vision_embedder:
-                # vision_embedder.unload() is async (spawns a server process)
-                self._run_async_cleanup(self.app.state.vision_embedder.unload())
+                try:
+                    self._run_async_cleanup(self.app.state.vision_embedder.unload())
+                except Exception:
+                    self._force_kill_process(self.app.state.vision_embedder)
             if self.app.state.text_embedder:
-                # text_embedder uses GGUFEmbedderServer which spawns a llama-server process
-                self._run_async_cleanup(self.app.state.text_embedder.stop())
+                try:
+                    self._run_async_cleanup(self.app.state.text_embedder.stop())
+                except Exception:
+                    self._force_kill_process(self.app.state.text_embedder)
             if self.app.state.download_manager:
                 # Shutdown download manager and cancel pending downloads
                 self.app.state.download_manager.shutdown()
