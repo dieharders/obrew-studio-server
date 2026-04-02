@@ -158,13 +158,13 @@ jobs:
               ;;
             cuda)
               gh release download "${TAG}" --repo ggml-org/llama.cpp \
-                --pattern "llama-${TAG}-bin-win-cuda-cu12.4-x64.zip" --dir llama-artifact
+                --pattern "llama-${TAG}-bin-win-cuda-12.4-x64.zip" --dir llama-artifact
               gh release download "${TAG}" --repo ggml-org/llama.cpp \
-                --pattern "cudart-llama-bin-win-cu12.4-x64.zip" --dir llama-artifact
+                --pattern "cudart-llama-bin-win-cuda-12.4-x64.zip" --dir llama-artifact
               ;;
             cpu)
               gh release download "${TAG}" --repo ggml-org/llama.cpp \
-                --pattern "llama-${TAG}-bin-win-avx2-x64.zip" --dir llama-artifact
+                --pattern "llama-${TAG}-bin-win-cpu-x64.zip" --dir llama-artifact
               ;;
           esac
 
