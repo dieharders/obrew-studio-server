@@ -82,6 +82,8 @@ class Embedder:
             cached_server
             and hasattr(cached_server, "model_path")
             and cached_server.model_path == model_path
+            and cached_server.process
+            and cached_server.process.poll() is None
         ):
             self.embed_model = cached_server
         else:
