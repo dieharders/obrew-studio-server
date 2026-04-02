@@ -303,9 +303,13 @@ class LlamaServer:
         sanitized = sanitize_kwargs(kwargs=self.model_init_kwargs)
         cmd.extend(sanitized)
 
+        cmd_str = " ".join(str(a) for a in cmd)
         print(f"{LOG_PREFIX} Starting llama-server on port {self.port}", flush=True)
-        if self.verbose:
-            print(f"{LOG_PREFIX} Command: {' '.join(str(a) for a in cmd)}", flush=True)
+        print(f"{LOG_PREFIX} Command: {cmd_str}", flush=True)
+
+        # Write to a log file for debugging packaged builds (no console)
+        log_path = os.path.join(common.app_path(), "llama-server.log")
+        self._log_path = log_path
 
         # Spawn process
         creation_kwargs = {}
@@ -317,6 +321,12 @@ class LlamaServer:
 
         try:
             self._last_stderr_lines = []
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(f"\n--- start_server ---\n")
+                f.write(f"Command: {cmd_str}\n")
+                f.write(f"Binary dir (cwd): {binary_dir}\n")
+                f.write(f"Model path exists: {os.path.exists(self.model_path)}\n")
+
             self.process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.DEVNULL,
@@ -365,11 +375,15 @@ class LlamaServer:
                     # Give _read_logs a moment to drain remaining output
                     await asyncio.sleep(0.2)
                     stderr_tail = "\n".join(self._last_stderr_lines)
-                    print(
-                        f"{LOG_PREFIX} Server process died (exit code "
-                        f"{self.process.returncode}):\n{stderr_tail}",
-                        flush=True,
+                    msg = (
+                        f"Server process died (exit code "
+                        f"{self.process.returncode}):\n{stderr_tail}"
                     )
+                    print(f"{LOG_PREFIX} {msg}", flush=True)
+                    # Also write to log file for packaged builds
+                    if hasattr(self, "_log_path"):
+                        with open(self._log_path, "a", encoding="utf-8") as f:
+                            f.write(f"{msg}\n")
                     return False
 
                 await asyncio.sleep(1)
