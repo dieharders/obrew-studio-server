@@ -20,7 +20,7 @@ jobs:
 
     steps:
       - name: Checkout project repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Read llama.cpp tag from package.json
         id: llama_tag
@@ -30,7 +30,7 @@ jobs:
           echo "Building llama.cpp at tag: $LLAMA_TAG"
 
       - name: Clone llama.cpp repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ggml-org/llama.cpp
           ref: ${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
@@ -150,7 +150,7 @@ jobs:
           cd "llama-output" && zip -r "../llama-macos-metal.zip" . && cd ..
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: llama-macos-metal-${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
           path: llama-macos-metal.zip
@@ -162,7 +162,7 @@ jobs:
 
     steps:
       - name: Checkout project repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Read llama.cpp tag from package.json
         id: llama_tag
@@ -173,7 +173,7 @@ jobs:
           echo "Building llama.cpp at tag: $LLAMA_TAG"
 
       - name: Clone llama.cpp repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ggml-org/llama.cpp
           ref: ${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
@@ -301,7 +301,7 @@ jobs:
           }
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: llama-windows-cuda-${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
           path: llama-windows-cuda.zip
@@ -314,7 +314,7 @@ jobs:
 
     steps:
       - name: Checkout project repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Read llama.cpp tag from package.json
         id: llama_tag
@@ -325,7 +325,7 @@ jobs:
           echo "Building llama.cpp at tag: $LLAMA_TAG"
 
       - name: Clone llama.cpp repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: ggml-org/llama.cpp
           ref: ${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
@@ -425,7 +425,7 @@ jobs:
           }
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: llama-windows-cpu-${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
           path: llama-windows-cpu.zip
@@ -438,7 +438,7 @@ jobs:
 
     steps:
       - name: Checkout project repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Read llama.cpp tag from package.json
         id: llama_tag
@@ -448,7 +448,7 @@ jobs:
           echo "Using llama.cpp tag: $LLAMA_TAG"
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: artifacts
 
@@ -521,7 +521,7 @@ jobs:
           cat build-summary.md
 
       - name: Upload summary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: build-summary-${{ github.event.inputs.release_tag || steps.llama_tag.outputs.tag }}
           path: build-summary.md

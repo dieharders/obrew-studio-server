@@ -48,7 +48,7 @@ jobs:
     steps:
       # 1. Pull down repo
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0 # Fetch all history for proper Git submodule initialization
           ref: ${{ github.event.inputs.ref || github.ref }} # checks out code you specify in github UI
@@ -56,7 +56,7 @@ jobs:
       # 2. Install Python
       - name: Install Python
         id: setup_python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12.8'
           # cache: 'pip' # caches the downloaded package installers only, if you cache the venv then disabling this will save about 20s
@@ -64,7 +64,7 @@ jobs:
       # 3. Load the cached python virtual environment
       - name: Restore cached venv
         id: restore-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.txt') }}
           path: .venv
@@ -97,7 +97,7 @@ jobs:
       # 5. Cache python virtual environment for later runs
       - name: Save cached venv
         if: steps.restore-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           key: venv-${{ runner.os }}-${{ steps.setup_python.outputs.python-version }}-${{ hashFiles('requirements.txt') }}
           path: .venv
@@ -304,7 +304,7 @@ jobs:
 
       # 7a. Package with Inno-Setup (Windows)
       - name: Create Installer (Inno-Setup)
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.7
         if: runner.os == 'Windows'
         with:
           path: inno-setup-config-github.iss
@@ -396,7 +396,7 @@ jobs:
 
       # 10. Upload Installer Artifact
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ matrix.platform }}-artifact
           path: ./artifacts/${{ matrix.platform }}/${{ matrix.platform }}-artifacts.zip # upload from
@@ -410,21 +410,21 @@ jobs:
     steps:
       - name: Download Windows CUDA artifact
         if: always()
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: windows-cuda-artifact
           path: ./artifacts/windows-cuda
 
       - name: Download Windows CPU artifact
         if: always()
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: windows-cpu-artifact
           path: ./artifacts/windows-cpu
 
       - name: Download macOS artifact
         if: always()
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: macos-metal-artifact
           path: ./artifacts/macos
