@@ -119,6 +119,7 @@ class LlamaServer:
         self.process: Process = None
         self.process_type = ""
         self.task_logging = None
+        self._last_stderr_lines: list = []  # recent stderr for crash diagnostics
         self._abort_event: Optional[asyncio.Event] = None  # per-request abort signal
         self._active_client: Optional[httpx.AsyncClient] = None  # active streaming client
         self.prompt_template = None
@@ -311,11 +312,16 @@ class LlamaServer:
         if platform.system() == "Windows":
             creation_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
+        # Set cwd to binary directory so DLLs next to the exe are found
+        binary_dir = os.path.dirname(self.BINARY_PATH)
+
         try:
+            self._last_stderr_lines = []
             self.process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.PIPE,
+                cwd=binary_dir,
                 **creation_kwargs,
             )
 
@@ -356,9 +362,12 @@ class LlamaServer:
 
                 # Check if process died
                 if self.process and self.process.returncode is not None:
-                    stderr = await self.process.stderr.read()
+                    # Give _read_logs a moment to drain remaining output
+                    await asyncio.sleep(0.2)
+                    stderr_tail = "\n".join(self._last_stderr_lines)
                     print(
-                        f"{LOG_PREFIX} Server process died: {stderr.decode(errors='ignore')}",
+                        f"{LOG_PREFIX} Server process died (exit code "
+                        f"{self.process.returncode}):\n{stderr_tail}",
                         flush=True,
                     )
                     return False
@@ -369,11 +378,18 @@ class LlamaServer:
 
     async def _read_logs(self):
         """Drain server stderr to prevent pipe buffer deadlock on Windows.
-        Always consumes output; only prints when debug is enabled."""
+        Always consumes output; only prints when debug is enabled.
+        Keeps the last 20 lines for crash diagnostics."""
         try:
             async for line in self.process.stderr:
+                text = line.decode("utf-8", errors="ignore").strip()
+                if text:
+                    self._last_stderr_lines.append(text)
+                    # Keep only the last 20 lines to limit memory use
+                    if len(self._last_stderr_lines) > 20:
+                        self._last_stderr_lines.pop(0)
                 if self.debug:
-                    print(f"{LOG_PREFIX} {line.decode('utf-8', errors='ignore').strip()}")
+                    print(f"{LOG_PREFIX} {text}")
         except asyncio.CancelledError:
             pass
         except Exception as e:

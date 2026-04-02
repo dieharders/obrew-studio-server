@@ -90,11 +90,15 @@ class GGUFEmbedderServer:
         if platform.system() == "Windows":
             creation_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
+        # Set cwd to binary directory so DLLs next to the exe are found
+        binary_dir = os.path.dirname(self.binary_path)
+
         try:
             self.process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
+                cwd=binary_dir,
                 **creation_kwargs,
             )
 
