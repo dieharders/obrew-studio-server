@@ -805,8 +805,6 @@ async def stop_text(request: Request):
         # Cancel server-side generation so the server stops immediately
         # instead of buffering remaining tokens.
         await llm.cancel_server_generation()
-        if llm.process_type == "chat":
-            await llm.pause_text_chat()
     return {
         "success": True,
         "message": "Closed connection and stopped inference.",
