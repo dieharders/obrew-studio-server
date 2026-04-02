@@ -154,7 +154,7 @@ jobs:
           case "${{ matrix.llama_variant }}" in
             metal)
               gh release download "${TAG}" --repo ggml-org/llama.cpp \
-                --pattern "llama-${TAG}-bin-macos-arm64.zip" --dir llama-artifact
+                --pattern "llama-${TAG}-bin-macos-arm64.tar.gz" --dir llama-artifact
               ;;
             cuda)
               gh release download "${TAG}" --repo ggml-org/llama.cpp \
@@ -179,9 +179,9 @@ jobs:
         shell: bash
         run: |
           mkdir -p servers/llama.cpp
-          for zip in llama-artifact/*.zip; do
-            echo "Extracting $zip..."
-            unzip -o "$zip" -d servers/llama.cpp/
+          for archive in llama-artifact/*.tar.gz; do
+            echo "Extracting $archive..."
+            tar -xzf "$archive" -C servers/llama.cpp/
           done
           # Make binaries executable
           chmod +x servers/llama.cpp/llama-server 2>/dev/null || true
