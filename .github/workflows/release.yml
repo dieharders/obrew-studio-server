@@ -396,7 +396,7 @@ jobs:
 
       # 10. Upload Installer Artifact
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.platform }}-artifact
           path: ./artifacts/${{ matrix.platform }}/${{ matrix.platform }}-artifacts.zip # upload from
@@ -410,21 +410,21 @@ jobs:
     steps:
       - name: Download Windows CUDA artifact
         if: always()
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: windows-cuda-artifact
           path: ./artifacts/windows-cuda
 
       - name: Download Windows CPU artifact
         if: always()
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: windows-cpu-artifact
           path: ./artifacts/windows-cpu
 
       - name: Download macOS artifact
         if: always()
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: macos-metal-artifact
           path: ./artifacts/macos
