@@ -376,6 +376,8 @@ class LlamaServer:
                     print(f"{LOG_PREFIX} {line.decode('utf-8', errors='ignore').strip()}")
         except asyncio.CancelledError:
             pass
+        except Exception as e:
+            print(f"{LOG_PREFIX} Log reader error: {e}", flush=True)
 
     async def _ensure_server(self):
         """Start the server if not already running. Warns if restarting after a crash."""
@@ -444,7 +446,9 @@ class LlamaServer:
         """Cancel active generation on the server via POST /slots/0?action=erase.
 
         This tells llama-server to stop generating immediately rather than
-        buffering remaining tokens. Called from stop_text for completion mode.
+        buffering remaining tokens. Uses slot 0 because this server is
+        configured with a single slot (the default). If multi-slot support
+        is added later, this will need to target the correct slot ID.
         """
         try:
             async with httpx.AsyncClient() as client:
