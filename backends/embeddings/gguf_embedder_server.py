@@ -53,17 +53,12 @@ class GGUFEmbedderServer:
             )
 
         # Pick port via shared allocator (prevents collisions with LlamaServer).
-        # If anything after this point raises, release the port so it isn't leaked.
         self.port = common.allocate_server_port()
-        try:
-            self.base_url = f"http://127.0.0.1:{self.port}"
+        self.base_url = f"http://127.0.0.1:{self.port}"
 
-            print(f"{LOG_PREFIX} Initialized with model: {self.model_name}", flush=True)
-            print(f"{LOG_PREFIX} Binary path: {self.binary_path}", flush=True)
-            print(f"{LOG_PREFIX} Model path: {self.model_path}", flush=True)
-        except Exception:
-            common.release_server_port(self.port)
-            raise
+        print(f"{LOG_PREFIX} Initialized with model: {self.model_name}", flush=True)
+        print(f"{LOG_PREFIX} Binary path: {self.binary_path}", flush=True)
+        print(f"{LOG_PREFIX} Model path: {self.model_path}", flush=True)
 
     def _start_server(self) -> bool:
         """Start llama-server with --embedding flag (synchronous).
@@ -151,22 +146,24 @@ class GGUFEmbedderServer:
 
     def _stop_process(self):
         """Synchronously stop the server process and release resources."""
-        if self._http_client and not self._http_client.is_closed:
-            self._http_client.close()
-        self._http_client = None
-        if self.process:
-            print(f"{LOG_PREFIX} Stopping embedding server", flush=True)
-            try:
-                self.process.terminate()
-                self.process.wait(timeout=5.0)
-            except subprocess.TimeoutExpired:
-                print(f"{LOG_PREFIX} Force killing server", flush=True)
-                self.process.kill()
-            except Exception as e:
-                print(f"{LOG_PREFIX} Error stopping server: {e}", flush=True)
-            finally:
-                self.process = None
-                common.release_server_port(self.port)
+        try:
+            if self._http_client and not self._http_client.is_closed:
+                self._http_client.close()
+            self._http_client = None
+            if self.process:
+                print(f"{LOG_PREFIX} Stopping embedding server", flush=True)
+                try:
+                    self.process.terminate()
+                    self.process.wait(timeout=5.0)
+                except subprocess.TimeoutExpired:
+                    print(f"{LOG_PREFIX} Force killing server", flush=True)
+                    self.process.kill()
+                except Exception as e:
+                    print(f"{LOG_PREFIX} Error stopping server: {e}", flush=True)
+                finally:
+                    self.process = None
+        finally:
+            common.release_server_port(self.port)
 
     async def stop(self):
         """Stop the embedding server (async interface for shutdown path)."""
