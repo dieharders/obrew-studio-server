@@ -24,6 +24,7 @@
 - [Getting Started](assets/getting-started.md)
 - [How to Connect Apps](assets/how-to-connect-apps.md)
 - [API Documentation](assets/api-docs.md)
+- [Inference Architecture](assets/inference-architecture.md)
 - [Build Steps](assets/build-steps.md)
 - [Bundling for Release](assets/bundling-for-release.md)
 - [Deploy](assets/deploy.md)
@@ -118,4 +119,4 @@ This is a local first project. The ultimate goal is to support many providers vi
 - Backend: [FastAPI](https://fastapi.tiangolo.com/) - learn about FastAPI features and API.
 - Inference: [llama-cpp](https://github.com/ggerganov/llama.cpp) for LLM inference.
 - Memory: [ChromaDB](https://github.com/chroma-core/chroma) for vector database.
-- WebUI: React for front-end UI and [Pywebview](https://github.com/r0x0r/pywebview) for rendering the webview.
+- WebUI: React for front-end UI and [PyWebview](https://github.com/r0x0r/pywebview) for rendering the webview.

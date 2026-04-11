@@ -62,7 +62,7 @@ Allows for people with any device to build AI apps. Users are also provided a fr
 
 The backend is written in Python and performs inference locally. The user interacts with the backend via a web UI hosted at https://studio.openbrewai.com.
 
-Text inference is performed using llama-cpp-python. The RAG implementation uses Llama-Index and ChromaDB for the vector database. The server uses FastAPI. The web front-end uses Next.js and TailwindCSS.
+Text inference, text embeddings, and vision (multimodal) are all powered by [llama.cpp](https://github.com/ggerganov/llama.cpp). Rather than using the `llama-cpp-python` bindings, the backend ships pre-compiled `llama-server` binaries (in [servers/llama.cpp/](../servers/llama.cpp/)) and spawns them as child processes, talking to each over loopback HTTP — one subprocess per purpose (inference, text embedding, vision embedding), with dynamically-allocated ports and isolated lifecycles. See [inference-architecture.md](inference-architecture.md) for the full technical breakdown. The RAG implementation uses Llama-Index and ChromaDB for the vector database. The server uses FastAPI. The web front-end uses Next.js and TailwindCSS.
 
 Everything else (agents, tools, workflows) is implemented in-house to keep complexity and dependencies low.
 
