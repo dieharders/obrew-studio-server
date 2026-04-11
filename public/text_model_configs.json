@@ -331,7 +331,7 @@
   "unsloth/Qwen3.5-9B-GGUF": {
     "repoId": "unsloth/Qwen3.5-9B-GGUF",
     "name": "Qwen 3.5 9B",
-    "description": "A 9B parameter model featuring 256K context, vision capabilities, tool calling, and support for 200+ languages. Strong performance in mathematics, science, and coding with efficient inference.",
+    "description": "A 9B parameter dense model featuring 256K context, vision capabilities, tool calling, and support for 200+ languages. Strong performance in mathematics, science, and coding with efficient inference.",
     "messageFormat": "qwen",
     "tags": ["vision", "instruct", "multilingual", "long-context", "function-calling"],
     "vision": {
