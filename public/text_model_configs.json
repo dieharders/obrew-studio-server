@@ -333,7 +333,7 @@
     "name": "Qwen 3.5 9B",
     "description": "A 9B parameter dense model featuring 256K context, vision capabilities, tool calling, and support for 200+ languages. Strong performance in mathematics, science, and coding with efficient inference.",
     "messageFormat": "qwen",
-    "tags": ["vision", "instruct", "multilingual", "long-context", "function-calling"],
+    "tags": ["vision", "instruct", "reasoning", "multilingual", "long-context", "function-calling"],
     "vision": {
       "enabled": true,
       "mmproj": {

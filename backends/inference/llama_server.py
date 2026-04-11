@@ -19,9 +19,11 @@ from core import common
 from inference.helpers import (
     FEEDING_PROMPT,
     GENERATING_TOKENS,
+    GENERATING_REASONING,
     completion_to_prompt,
     event_payload,
     token_payload,
+    reasoning_token_payload,
     content_payload,
     sanitize_kwargs,
     inference_call_to_cli_args,
@@ -64,6 +66,7 @@ class LlamaServer:
         debug=False,
         model_init_kwargs: LoadTextInferenceInit = None,
         generate_kwargs: LoadTextInferenceCall = None,
+        is_reasoning_model: bool = False,
     ):
         # Build model init kwargs (used as CLI flags for server startup)
         n_ctx = model_init_kwargs.n_ctx or DEFAULT_CONTEXT_WINDOW
@@ -110,6 +113,7 @@ class LlamaServer:
         self.debug = debug
         self.model_path = model_path
         self.mmproj_path = mmproj_path
+        self.is_reasoning_model = is_reasoning_model
         self.model_init_kwargs = init_kwargs
         self._is_ready = False
 
@@ -246,6 +250,17 @@ class LlamaServer:
         if grammar:
             self._api_generate_kwargs["grammar"] = grammar
 
+        # Reasoning/thinking-mode controls.
+        # enable_thinking is forwarded via chat_template_kwargs so the Jinja chat
+        # template (Qwen3/Qwen3.5) can toggle the <think> block on/off.
+        # reasoning_budget is a top-level llama-server field (-1 unlimited, 0 disabled, N cap).
+        if settings.enable_thinking is not None:
+            self._api_generate_kwargs["chat_template_kwargs"] = {
+                "enable_thinking": bool(settings.enable_thinking)
+            }
+        if settings.reasoning_budget is not None:
+            self._api_generate_kwargs["reasoning_budget"] = settings.reasoning_budget
+
     # ──────────────────────────────────────────────
     # Server lifecycle
     # ──────────────────────────────────────────────
@@ -274,6 +289,12 @@ class LlamaServer:
         # Add mmproj for vision models
         if self.mmproj_path and os.path.exists(self.mmproj_path):
             cmd.extend(["--mmproj", self.mmproj_path])
+
+        # Enable reasoning_content splitting for reasoning-capable models.
+        # Uses --reasoning-format deepseek so llama-server emits delta.reasoning_content
+        # separately from delta.content (applies to Qwen3, QwQ, DeepSeek-R1, etc.).
+        if self.is_reasoning_model:
+            cmd.extend(["--reasoning-format", "deepseek"])
 
         # Add model init kwargs as CLI flags
         sanitized = sanitize_kwargs(kwargs=self.model_init_kwargs)
@@ -676,7 +697,9 @@ class LlamaServer:
     ):
         """Stream tokens from POST /v1/chat/completions and yield SSE events."""
         content = ""
+        reasoning = ""
         has_gen_started = False
+        has_reasoning_started = False
         was_aborted = False
         url = f"{self.base_url}/v1/chat/completions"
 
@@ -710,12 +733,25 @@ class LlamaServer:
                         continue
 
                     # OpenAI format: choices[0].delta.content
+                    # With --reasoning-format deepseek, llama-server also populates
+                    # choices[0].delta.reasoning_content for thinking blocks.
                     choices = data.get("choices", [])
                     if not choices:
                         continue
                     delta = choices[0].get("delta", {})
                     token_text = delta.get("content", "")
+                    reasoning_text = delta.get("reasoning_content", "")
                     finish_reason = choices[0].get("finish_reason")
+
+                    if reasoning_text:
+                        if not has_reasoning_started:
+                            has_reasoning_started = True
+                            yield event_payload(GENERATING_REASONING)
+
+                        reasoning += reasoning_text
+
+                        if stream:
+                            yield json.dumps(reasoning_token_payload(reasoning_text))
 
                     if token_text:
                         if not has_gen_started:
@@ -744,6 +780,8 @@ class LlamaServer:
                 raise Exception(errMsg)
 
             payload = content_payload(content)
+            if reasoning:
+                payload["data"]["reasoning"] = reasoning.strip()
             if stream:
                 yield json.dumps(payload)
             else:
