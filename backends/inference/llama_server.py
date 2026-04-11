@@ -45,30 +45,6 @@ SERVER_READY_TIMEOUT = 120
 # Timeout for waiting on process termination during cleanup
 PROCESS_TERMINATION_TIMEOUT = 5.0
 
-# CLI arg name -> HTTP API body parameter name
-CLI_TO_API = {
-    "--temp": "temperature",
-    "--top-k": "top_k",
-    "--top-p": "top_p",
-    "--min-p": "min_p",
-    "--repeat-penalty": "repeat_penalty",
-    "--presence-penalty": "presence_penalty",
-    "--frequency-penalty": "frequency_penalty",
-    "--n-predict": "n_predict",
-    "--mirostat-ent": "mirostat_tau",
-    "--seed": "seed",
-}
-
-
-def _override_args_to_api(override_args: dict) -> dict:
-    """Convert CLI-style override args (e.g. {'--temp': 0.5}) to API params."""
-    api_params = {}
-    for cli_key, value in override_args.items():
-        if cli_key in CLI_TO_API:
-            api_params[CLI_TO_API[cli_key]] = value
-    return api_params
-
-
 class LlamaServer:
     """Run inference via llama-server HTTP API (replaces LLAMA_CPP CLI)."""
 
@@ -535,7 +511,7 @@ class LlamaServer:
 
             # Apply overrides
             if override_args:
-                body.update(_override_args_to_api(override_args))
+                body.update(override_args)
 
             print(f"{LOG_PREFIX} Generating completion", flush=True)
             self.process_type = "completion"
@@ -677,7 +653,7 @@ class LlamaServer:
 
             # Apply overrides
             if override_args:
-                body.update(_override_args_to_api(override_args))
+                body.update(override_args)
 
             print(f"{LOG_PREFIX} Generating chat response", flush=True)
             self.process_type = "chat"
@@ -866,7 +842,7 @@ class LlamaServer:
 
             # Apply overrides
             if override_args:
-                body.update(_override_args_to_api(override_args))
+                body.update(override_args)
 
             print(f"{LOG_PREFIX} Starting vision inference", flush=True)
             print(f"{LOG_PREFIX} Images: {image_paths}", flush=True)

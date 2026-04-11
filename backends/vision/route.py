@@ -168,12 +168,12 @@ async def generate_vision(
         # Build override args from vision request (don't use generate_kwargs setter
         # since VisionInferenceRequest has different fields than InferenceRequest)
         override_args = {
-            "--temp": payload.temperature,
-            "--n-predict": payload.max_tokens,
-            "--top-k": payload.top_k,
-            "--top-p": payload.top_p,
-            "--min-p": payload.min_p,
-            "--repeat-penalty": payload.repeat_penalty,
+            "temperature": payload.temperature,
+            "n_predict": payload.max_tokens,
+            "top_k": payload.top_k,
+            "top_p": payload.top_p,
+            "min_p": payload.min_p,
+            "repeat_penalty": payload.repeat_penalty,
         }
 
         # Process images
