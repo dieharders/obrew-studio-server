@@ -13,7 +13,7 @@ from inference.classes import (
     AgentOutput,
     SSEResponse,
 )
-from inference.llama_cpp import LLAMA_CPP
+from inference.llama_server import LlamaServer
 from core import common
 from core.classes import ToolDefinition
 
@@ -23,7 +23,7 @@ class Agent:
     def __init__(
         self,
         app,
-        llm: Type[LLAMA_CPP],
+        llm: Type[LlamaServer],
         tools: List[str],
         func_calling: TOOL_USE_MODES = None,
     ):

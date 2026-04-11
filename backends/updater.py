@@ -245,7 +245,8 @@ def install_llama_cpp(gpu: dict, tag: str, target_path: str):
     if platform.system() == "Darwin":
         # Extract llama-cli binary and other files required for GPU acceleration
         files_to_extract = [
-            "llama-cli",  # Main CLI (also used for embeddings with --embedding flag)
+            "llama-server",  # HTTP server for inference, embeddings, and vision
+            "llama-cli",  # CLI binary (deprecated, kept for backward compat)
             # "llama-embedding",  # Embedding binary for GGUF models - This will be compiled and bundled
             "ggml-metal.metal",  # Metal shader source (loaded at runtime)
             "ggml-common.h",  # Common headers (required by Metal shader)
@@ -275,7 +276,7 @@ def install_llama_cpp(gpu: dict, tag: str, target_path: str):
             files_to_extract=files_to_extract,
         )
         # Make the binaries executable on Unix-like systems
-        for binary_name in ["llama-cli"]:
+        for binary_name in ["llama-server", "llama-cli"]:
             binary_path = os.path.join(target_path, binary_name)
             if os.path.exists(binary_path):
                 os.chmod(binary_path, 0o755)  # rwxr-xr-x permissions
@@ -288,8 +289,8 @@ def install_llama_cpp(gpu: dict, tag: str, target_path: str):
     # For Windows - Nvidia
     elif platform.system() == "Windows":
         if is_nvidia_gpu:
-            # Extract llama-cli binaries
-            llama_files = ["llama-cli.exe"]
+            # Extract llama binaries
+            llama_files = ["llama-server.exe", "llama-cli.exe"]
 
             # Download llama.cpp binaries
             download_and_extract(
@@ -356,7 +357,9 @@ class Updater:
         Note: llama.cpp binaries are now compiled and bundled during the build process.
         This method is kept for backward compatibility but no longer downloads binaries.
         """
-        print("[UPDATER] Skipping binary download - binaries are pre-bundled.", flush=True)
+        print(
+            "[UPDATER] Skipping binary download - binaries are pre-bundled.", flush=True
+        )
 
         self.status = "progress"
 
@@ -370,16 +373,14 @@ class Updater:
         # Build list of required files based on platform
         required_files = []
         if platform.system() == "Darwin":
-            # macOS - llama-cli and llama-embedding binaries
+            # macOS - llama-server binary
             required_files = [
-                os.path.join(target_path, "llama-cli"),
-                os.path.join(target_path, "llama-embedding"),
+                os.path.join(target_path, "llama-server"),
             ]
         elif platform.system() == "Windows":
-            # Windows - llama-cli.exe, llama-embedding.exe + CUDA DLLs
+            # Windows - llama-server.exe + CUDA DLLs
             required_files = [
-                os.path.join(target_path, "llama-cli.exe"),
-                os.path.join(target_path, "llama-embedding.exe"),
+                os.path.join(target_path, "llama-server.exe"),
                 os.path.join(target_path, "cublas64_12.dll"),
                 os.path.join(target_path, "cublasLt64_12.dll"),
                 os.path.join(target_path, "cudart64_12.dll"),
@@ -388,7 +389,9 @@ class Updater:
         print("[UPDATER] Checking for bundled binaries...", flush=True)
         missing_files = [f for f in required_files if not os.path.exists(f)]
         if missing_files:
-            print(f"[UPDATER] Warning: Missing bundled files: {missing_files}", flush=True)
+            print(
+                f"[UPDATER] Warning: Missing bundled files: {missing_files}", flush=True
+            )
             print("[UPDATER] The application may not work correctly.", flush=True)
         else:
             print("[UPDATER] All bundled binaries found.", flush=True)

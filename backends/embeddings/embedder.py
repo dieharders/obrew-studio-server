@@ -15,7 +15,7 @@ from .text_splitters import (
 )
 from .chunking import chunks_from_documents, create_source_record
 from .file_loaders import documents_from_sources
-from .gguf_embedder import GGUFEmbedder
+from .gguf_embedder_server import GGUFEmbedderServer
 
 if TYPE_CHECKING:
     from embeddings.vector_storage import Vector_Storage
@@ -57,6 +57,7 @@ class Embedder:
         app: FastAPIApp,
         embed_model: str = None,
         cache_path: str = None,
+        pooling: str = "mean",
     ):
         self.app = app
         self.cache = cache_path or EMBEDDING_MODEL_CACHE_PATH
@@ -72,11 +73,29 @@ class Embedder:
 
         # For GGUF models, we need to find the model file path
         model_path = self._find_gguf_model_path()
-        self.embed_model = GGUFEmbedder(
-            app=app,
-            model_path=model_path,
-            embed_model=self.embed_model_name,
-        )
+
+        # Reuse cached server from app.state if the model path matches,
+        # otherwise create a new one. This prevents spawning a new llama-server
+        # process on every embedding request.
+        cached_server = getattr(app.state, "text_embedder", None)
+        if (
+            cached_server
+            and hasattr(cached_server, "model_path")
+            and cached_server.model_path == model_path
+            and cached_server.process
+            and cached_server.process.poll() is None
+        ):
+            self.embed_model = cached_server
+        else:
+            self.embed_model = GGUFEmbedderServer(
+                app=app,
+                model_path=model_path,
+                embed_model=self.embed_model_name,
+                pooling=pooling,
+            )
+            # Cache on app.state for reuse
+            app.state.text_embedder = self.embed_model
+
         print(
             f"{common.PRNT_EMBED} Using GGUF embedder with model: {self.embed_model_name}",
             flush=True,

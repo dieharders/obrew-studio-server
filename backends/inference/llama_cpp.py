@@ -5,6 +5,7 @@ import signal
 import asyncio
 import subprocess
 import platform
+import warnings
 from asyncio.subprocess import Process
 from fastapi import Request
 from typing import List, Optional
@@ -43,7 +44,13 @@ PROCESS_TERMINATION_TIMEOUT = 5.0
 
 # https://github.com/ggerganov/llama.cpp/blob/master/examples/main/README.md#common-options
 class LLAMA_CPP:
-    """Run a llama.cpp cli binary"""
+    """Run a llama.cpp cli binary.
+
+    .. deprecated::
+        LLAMA_CPP is deprecated. Use ``LlamaServer`` from ``inference.llama_server``
+        instead, which communicates via the llama-server HTTP API rather than
+        spawning CLI subprocesses.
+    """
 
     def __init__(
         self,
@@ -62,6 +69,11 @@ class LLAMA_CPP:
         model_init_kwargs: LoadTextInferenceInit = None,  # kwargs to pass when loading the model
         generate_kwargs: LoadTextInferenceCall = None,  # kwargs to pass when generating text
     ):
+        warnings.warn(
+            "LLAMA_CPP is deprecated, use LlamaServer from inference.llama_server instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         # Set args
         n_ctx = model_init_kwargs.n_ctx or DEFAULT_CONTEXT_WINDOW
         if n_ctx <= 0:

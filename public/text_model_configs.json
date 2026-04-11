@@ -314,6 +314,34 @@
     "messageFormat": "qwen",
     "tags": ["reasoning", "agent", "multilingual", "long-context", "function-calling"]
   },
+  "unsloth/Qwen3.5-35B-A3B-GGUF": {
+    "repoId": "unsloth/Qwen3.5-35B-A3B-GGUF",
+    "name": "Qwen 3.5 35B",
+    "description": "A 35B MoE model with ~3B active parameters featuring 256K context, hybrid reasoning with thinking mode, vision capabilities, advanced tool calling, and support for 200+ languages. Excels at agentic coding, vision, chat, and long-context tasks.",
+    "messageFormat": "qwen",
+    "tags": ["vision", "instruct", "reasoning", "multilingual", "long-context", "function-calling"],
+    "vision": {
+      "enabled": true,
+      "mmproj": {
+        "repoId": "unsloth/Qwen3.5-35B-A3B-GGUF",
+        "filename": "mmproj-F16.gguf"
+      }
+    }
+  },
+  "unsloth/Qwen3.5-9B-GGUF": {
+    "repoId": "unsloth/Qwen3.5-9B-GGUF",
+    "name": "Qwen 3.5 9B",
+    "description": "A 9B parameter dense model featuring 256K context, vision capabilities, tool calling, and support for 200+ languages. Strong performance in mathematics, science, and coding with efficient inference.",
+    "messageFormat": "qwen",
+    "tags": ["vision", "instruct", "multilingual", "long-context", "function-calling"],
+    "vision": {
+      "enabled": true,
+      "mmproj": {
+        "repoId": "unsloth/Qwen3.5-9B-GGUF",
+        "filename": "mmproj-F16.gguf"
+      }
+    }
+  },
   "unsloth/gpt-oss-20b-GGUF": {
     "repoId": "unsloth/gpt-oss-20b-GGUF",
     "name": "GPT-OSS 20B",

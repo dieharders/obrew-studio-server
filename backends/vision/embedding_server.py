@@ -146,11 +146,15 @@ class EmbeddingServer:
         if platform.system() == "Windows":
             creation_kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
 
+        # Set cwd to binary directory so DLLs next to the exe are found
+        binary_dir = os.path.dirname(self.binary_path)
+
         try:
             self.process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                cwd=binary_dir,
                 **creation_kwargs,
             )
 
