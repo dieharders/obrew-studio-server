@@ -13,7 +13,7 @@
       "description": "File management and knowledge base interface for your documents."
     }
   ],
-  "llamacpp_tag": "b8611",
+  "llamacpp_tag": "b8757",
   "scripts": {
     "dev": "python ./backends/main.py --mode=dev --headless=False",
     "prod": "python ./backends/main.py --mode=prod --headless=False",
