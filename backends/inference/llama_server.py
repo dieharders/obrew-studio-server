@@ -47,6 +47,7 @@ SERVER_READY_TIMEOUT = 120
 # Timeout for waiting on process termination during cleanup
 PROCESS_TERMINATION_TIMEOUT = 5.0
 
+
 class LlamaServer:
     """Run inference via llama-server HTTP API (replaces LLAMA_CPP CLI)."""
 
@@ -100,7 +101,9 @@ class LlamaServer:
         self.task_logging = None
         self._last_stderr_lines: list = []  # recent stderr for crash diagnostics
         self._abort_event: Optional[asyncio.Event] = None  # per-request abort signal
-        self._active_client: Optional[httpx.AsyncClient] = None  # active streaming client
+        self._active_client: Optional[httpx.AsyncClient] = (
+            None  # active streaming client
+        )
         self.prompt_template = None
         self.message_format = message_format or {}
         self.response_mode = response_mode
@@ -281,8 +284,10 @@ class LlamaServer:
         # Build command
         cmd = [
             self.BINARY_PATH,
-            "-m", self.model_path,
-            "--port", str(self.port),
+            "-m",
+            self.model_path,
+            "--port",
+            str(self.port),
             "--jinja",  # enable jinja chat templates
         ]
 
@@ -438,7 +443,10 @@ class LlamaServer:
             if self.task_logging:
                 self.task_logging.cancel()
             if self.process:
-                print(f"{LOG_PREFIX} Stopping llama-server on port {self.port}", flush=True)
+                print(
+                    f"{LOG_PREFIX} Stopping llama-server on port {self.port}",
+                    flush=True,
+                )
                 try:
                     self.process.terminate()
                     await asyncio.wait_for(
@@ -479,9 +487,7 @@ class LlamaServer:
         """
         try:
             async with httpx.AsyncClient() as client:
-                await client.post(
-                    f"{self.base_url}/slots/0?action=erase", timeout=3.0
-                )
+                await client.post(f"{self.base_url}/slots/0?action=erase", timeout=3.0)
                 print(f"{LOG_PREFIX} Server-side generation cancelled", flush=True)
         except Exception as e:
             print(f"{LOG_PREFIX} Could not cancel server generation: {e}", flush=True)
@@ -550,7 +556,10 @@ class LlamaServer:
             raise Exception(f"Failed to query llama-server: {e}")
 
     async def _completion_generator(
-        self, body: dict, stream: bool, request: Request,
+        self,
+        body: dict,
+        stream: bool,
+        request: Request,
         abort_event: asyncio.Event = None,
     ):
         """Stream tokens from POST /completion and yield SSE events."""
@@ -692,7 +701,10 @@ class LlamaServer:
             raise Exception(f"Failed to query llama-server: {e}")
 
     async def _chat_generator(
-        self, body: dict, stream: bool, request: Request,
+        self,
+        body: dict,
+        stream: bool,
+        request: Request,
         abort_event: asyncio.Event = None,
     ):
         """Stream tokens from POST /v1/chat/completions and yield SSE events."""
@@ -746,9 +758,11 @@ class LlamaServer:
                     if reasoning_text:
                         if not has_reasoning_started:
                             has_reasoning_started = True
+                            print(f"{LOG_PREFIX} Reasoning: ", end="", flush=True)
                             yield event_payload(GENERATING_REASONING)
 
                         reasoning += reasoning_text
+                        print(reasoning_text, end="", flush=True)
 
                         if stream:
                             yield json.dumps(reasoning_token_payload(reasoning_text))
@@ -756,6 +770,8 @@ class LlamaServer:
                     if token_text:
                         if not has_gen_started:
                             has_gen_started = True
+                            if has_reasoning_started:
+                                print("", flush=True)  # newline after reasoning block
                             yield event_payload(GENERATING_TOKENS)
 
                         content += token_text
@@ -781,7 +797,12 @@ class LlamaServer:
 
             payload = content_payload(content)
             if reasoning:
-                payload["data"]["reasoning"] = reasoning.strip()
+                payload["data"]["reasoningText"] = reasoning.strip()
+            print(
+                f"{LOG_PREFIX} Final payload keys: {list(payload['data'].keys())}, "
+                f"reasoning_len={len(reasoning)}",
+                flush=True,
+            )
             if stream:
                 yield json.dumps(payload)
             else:
@@ -844,10 +865,12 @@ class LlamaServer:
                 }
                 mime = mime_types.get(ext, "image/png")
 
-                content_parts.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:{mime};base64,{img_data}"},
-                })
+                content_parts.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime};base64,{img_data}"},
+                    }
+                )
 
             # Add text prompt
             content_parts.append({"type": "text", "text": prompt.strip()})
@@ -875,7 +898,9 @@ class LlamaServer:
                 "seed": self._api_generate_kwargs.get("seed"),
             }
             # Remove None values
-            vision_api_args = {k: v for k, v in vision_api_args.items() if v is not None}
+            vision_api_args = {
+                k: v for k, v in vision_api_args.items() if v is not None
+            }
             body.update(vision_api_args)
 
             # Apply overrides
