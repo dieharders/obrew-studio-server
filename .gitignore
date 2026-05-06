@@ -76,3 +76,6 @@ next-env.d.ts
 
 # runtime installation
 /servers
+
+# logs
+llama-server.log
