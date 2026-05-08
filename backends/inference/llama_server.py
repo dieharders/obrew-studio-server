@@ -511,6 +511,27 @@ class LlamaServer:
         native_tool_defs: Optional[str] = None,
         constrain_json_output: Optional[dict] = None,
     ):
+        # Reasoning models emit <think> blocks. llama-server only splits these
+        # into reasoning_content on /v1/chat/completions — the raw /completion
+        # endpoint inlines them in content. Route to text_chat so the frontend
+        # gets reasoning and answer on separate streams.
+        if self.is_reasoning_model:
+            chat_system_message = system_message
+            if native_tool_defs:
+                chat_system_message = (
+                    f"{system_message}\n\n{native_tool_defs}"
+                    if system_message
+                    else native_tool_defs
+                )
+            return await self.text_chat(
+                prompt=prompt,
+                request=request,
+                system_message=chat_system_message,
+                stream=stream,
+                override_args=override_args,
+                constrain_json_output=constrain_json_output,
+            )
+
         try:
             abort_event = self._new_abort_event()
             await self._ensure_server()
