@@ -760,6 +760,19 @@ async def generate_text(
             payload.reasoning_budget = 0
             payload.enable_thinking = False
 
+        # Force SSE streaming for all HTTP inference requests. Non-streaming
+        # buffers every token before sending the HTTP response (see agent.py —
+        # it does [item async for item in response] before returning), so the
+        # socket stays silent for the full request duration. Browsers (Safari
+        # in particular) abort idle fetches with "Load failed" / "request timed
+        # out" — this affects any long request, not just reasoning.
+        # EventSourceResponse keeps the connection warm via sse-starlette's
+        # built-in 15s ping. The frontend client routes by content-type, so it
+        # handles the SSE response transparently when stream=false was requested.
+        # Internal agent.call() callers (tool.py, search/harness.py) bypass
+        # this route and keep their buffered dict path.
+        streaming = True
+
         # Update llm props
         llm.generate_kwargs = payload
 

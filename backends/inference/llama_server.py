@@ -20,6 +20,7 @@ from inference.helpers import (
     FEEDING_PROMPT,
     GENERATING_TOKENS,
     GENERATING_REASONING,
+    GENERATING_CONTENT,
     completion_to_prompt,
     event_payload,
     token_payload,
@@ -650,6 +651,9 @@ class LlamaServer:
 
             payload = content_payload(content)
             if stream:
+                # Mark the final SSE frame so the frontend's lastEvent advances
+                # past GENERATING_TOKENS — see the matching comment in text_chat.
+                yield event_payload(GENERATING_CONTENT)
                 yield json.dumps(payload)
             else:
                 yield payload
@@ -825,6 +829,14 @@ class LlamaServer:
                 flush=True,
             )
             if stream:
+                # Emit the GENERATING_CONTENT event marker before the JSON data
+                # line. sse-starlette only writes an `event:` line when a dict
+                # with an `event` key is yielded; a plain string yield becomes
+                # a bare `data:` line. Without this marker the frontend's
+                # lastEvent stays on GENERATING_TOKENS, so it routes the final
+                # payload through the token-append branch and never reads
+                # data.reasoningText for the thinking pulldown.
+                yield event_payload(GENERATING_CONTENT)
                 yield json.dumps(payload)
             else:
                 yield payload
