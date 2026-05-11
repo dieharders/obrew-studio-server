@@ -113,7 +113,7 @@ class LoadTextInferenceCall(BaseModel):
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
     # Reasoning/thinking-mode controls (Qwen3, QwQ, DeepSeek-R1, ...)
     # None = leave template default; forwarded as chat_template_kwargs on /v1/chat/completions
-    enable_thinking: Optional[bool] = None
+    enable_thinking: Optional[bool] = False
     # -1 unlimited, 0 disabled, N token cap
     reasoning_budget: Optional[int] = None
 

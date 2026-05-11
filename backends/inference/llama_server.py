@@ -808,7 +808,7 @@ class LlamaServer:
                 return
 
             content = content.strip()
-            if not content:
+            if not content and not reasoning:
                 errMsg = (
                     "No response from model. Check available memory, "
                     "try to lower amount of GPU Layers or offload to CPU only."

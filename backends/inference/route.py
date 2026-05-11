@@ -167,7 +167,7 @@ async def load_text_inference(
         tags = model_config.get("tags") or []
         # Enable --reasoning-format deepseek at launch time for reasoning-capable models
         # so llama-server splits <think> blocks into delta.reasoning_content.
-        is_reasoning_model = "reasoning" in tags
+        is_reasoning_model = data.call.enable_thinking
         # Load the prompt formats
         message_template = get_prompt_formats(message_format_id)
         # Load the specified Ai model using a specific inference backend
