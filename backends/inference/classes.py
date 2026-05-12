@@ -112,10 +112,10 @@ class LoadTextInferenceCall(BaseModel):
     grammar: Optional[dict] = None
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
     # Reasoning/thinking-mode controls (Qwen3, QwQ, DeepSeek-R1, ...)
-    # None = leave template default; forwarded as chat_template_kwargs on /v1/chat/completions
+    # enable_thinking is forwarded via chat_template_kwargs on /v1/chat/completions
     enable_thinking: Optional[bool] = False
     # -1 unlimited, 0 disabled, N token cap
-    reasoning_budget: Optional[int] = None
+    reasoning_budget: Optional[int] = 0
 
 
 class LoadTextInferenceInit(BaseModel):
@@ -221,10 +221,10 @@ class InferenceRequest(BaseModel):
     )
     similarity_top_k: Optional[int] = None
     # Reasoning/thinking-mode controls (Qwen3, QwQ, DeepSeek-R1, ...)
-    # None = leave template default; forwarded as chat_template_kwargs on /v1/chat/completions
-    enable_thinking: Optional[bool] = None
+    # enable_thinking is forwarded via chat_template_kwargs on /v1/chat/completions
+    enable_thinking: Optional[bool] = False
     # -1 unlimited, 0 disabled, N token cap
-    reasoning_budget: Optional[int] = None
+    reasoning_budget: Optional[int] = 0
     # Contextual raw data items passed through to tool functions (e.g. pre-fetched emails)
     # *Note - Normally we pass this context as a string injected into the prompt, but for
     # things like email that are already fetched on the frontend, we pass them like this

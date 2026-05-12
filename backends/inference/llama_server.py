@@ -258,12 +258,10 @@ class LlamaServer:
         # enable_thinking is forwarded via chat_template_kwargs so the Jinja chat
         # template (Qwen3/Qwen3.5) can toggle the <think> block on/off.
         # reasoning_budget is a top-level llama-server field (-1 unlimited, 0 disabled, N cap).
-        if settings.enable_thinking is not None:
-            self._api_generate_kwargs["chat_template_kwargs"] = {
-                "enable_thinking": bool(settings.enable_thinking)
-            }
-        if settings.reasoning_budget is not None:
-            self._api_generate_kwargs["reasoning_budget"] = settings.reasoning_budget
+        self._api_generate_kwargs["chat_template_kwargs"] = {
+            "enable_thinking": bool(settings.enable_thinking)
+        }
+        self._api_generate_kwargs["reasoning_budget"] = settings.reasoning_budget
 
     # ──────────────────────────────────────────────
     # Server lifecycle
@@ -783,11 +781,15 @@ class LlamaServer:
                     if reasoning_text:
                         if not has_reasoning_started:
                             has_reasoning_started = True
-                            print(f"{LOG_PREFIX} Reasoning: ", end="", flush=True)
+                            print(
+                                f"{LOG_PREFIX} Generating Reasoning: ",
+                                end="",
+                                flush=True,
+                            )
                             yield event_payload(GENERATING_REASONING)
 
                         reasoning += reasoning_text
-                        print(reasoning_text, end="", flush=True)
+                        # print(reasoning_text, end="", flush=True)
 
                         if stream:
                             yield json.dumps(reasoning_token_payload(reasoning_text))
@@ -795,8 +797,8 @@ class LlamaServer:
                     if token_text:
                         if not has_gen_started:
                             has_gen_started = True
-                            if has_reasoning_started:
-                                print("", flush=True)  # newline after reasoning block
+                            # if has_reasoning_started:
+                            #     print("", flush=True)  # newline after reasoning block
                             yield event_payload(GENERATING_TOKENS)
 
                         content += token_text
@@ -823,11 +825,11 @@ class LlamaServer:
             payload = content_payload(content)
             if reasoning:
                 payload["data"]["reasoningText"] = reasoning.strip()
-            print(
-                f"{LOG_PREFIX} Final payload keys: {list(payload['data'].keys())}, "
-                f"reasoning_len={len(reasoning)}",
-                flush=True,
-            )
+            # print(
+            #     f"{LOG_PREFIX} Final payload keys: {list(payload['data'].keys())}, "
+            #     f"reasoning_len={len(reasoning)}",
+            #     flush=True,
+            # )
             if stream:
                 # Emit the GENERATING_CONTENT event marker before the JSON data
                 # line. sse-starlette only writes an `event:` line when a dict
