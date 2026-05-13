@@ -13,7 +13,7 @@ nanoid==2.0.0
 PyQRCode==1.2.1
 pypng
 # .env vars
-python-dotenv==1.0.0
+python-dotenv==1.2.2
 # For type safety
 pydantic==2.11.3
 # For downloading models
