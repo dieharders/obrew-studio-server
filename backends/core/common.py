@@ -1097,15 +1097,53 @@ def check_open_port(p: int) -> int:
         return 0
 
 
+# Shared port allocator — prevents port conflicts between llama-server instances
+# (e.g. LlamaServer for inference and GGUFEmbedderServer for embeddings).
+_PORT_RANGE_START = 8082
+_PORT_RANGE_END = 8095
+_reserved_ports: set = set()
+_port_lock = __import__("threading").Lock()
+
+
+def allocate_server_port(start: int = _PORT_RANGE_START, end: int = _PORT_RANGE_END) -> int:
+    """Find and reserve an available port in the given range.
+
+    Returns the allocated port number. The port is reserved in-process so that
+    concurrent server instances (inference, embedding, vision) never collide.
+    Thread-safe via _port_lock.
+    """
+    with _port_lock:
+        for port in range(start, end + 1):
+            if port in _reserved_ports:
+                continue
+            if check_open_port(port) != 0:
+                _reserved_ports.add(port)
+                return port
+    raise RuntimeError(f"No available port found in range {start}-{end}")
+
+
+def release_server_port(port: int):
+    """Release a previously allocated port so it can be reused."""
+    with _port_lock:
+        _reserved_ports.discard(port)
+
+
 def get_model_install_config(model_id: str = None) -> dict:
-    """Get model installation config from text_model_configs.json"""
+    """Get model installation config from text_model_configs.json.
+
+    Returns the full models list when no model_id is given. When a model_id is
+    given but not present in the registry, returns {} — callers are expected to
+    supply the needed fields (messageFormat, modelName) directly.
+    """
     try:
         config_path = dep_path(os.path.join("public", "text_model_configs.json"))
         with open(config_path, "r") as file:
             text_models = json.load(file)
             if not model_id:
                 return dict(models=text_models)
-            config = text_models[model_id]
+            config = text_models.get(model_id)
+            if config is None:
+                return {}
             message_format = config["messageFormat"]
             model_name = config["name"]
             tags = config.get("tags")

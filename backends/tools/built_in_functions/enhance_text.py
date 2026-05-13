@@ -1,4 +1,3 @@
-import json
 from typing import Literal
 from pydantic import BaseModel, Field
 from core.classes import FastAPIApp
@@ -77,7 +76,7 @@ class Params(BaseModel):
     }
 
 
-async def main(**kwargs: Params) -> str:
+async def main(**kwargs: Params) -> dict:
     """
     Analyze text and return enhancement suggestions in JSON format.
 
@@ -140,4 +139,4 @@ async def main(**kwargs: Params) -> str:
         raise Exception("No enhancement response generated from LLM.")
 
     # Return the JSON text directly - constrain_json_output ensures it's valid
-    return json.dumps(raw_dict)
+    return raw_dict

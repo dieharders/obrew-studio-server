@@ -42,7 +42,7 @@ class Params(BaseModel):
     }
 
 
-async def main(**kwargs: Params) -> str:
+async def main(**kwargs: Params) -> dict:
     transformed_data = kwargs.get("transformed_data")
     data_type = kwargs.get("data_type")
 
@@ -113,4 +113,4 @@ async def main(**kwargs: Params) -> str:
     }
 
     # Return JSON string
-    return json.dumps(result, indent=2)
+    return result

@@ -1,15 +1,15 @@
-"""Extract any JSON value from input data based on a prompt."""
+"""Return any JSON value from input data based on a prompt."""
 
 import json
 from pydantic import BaseModel, Field
 
 
 class Params(BaseModel):
-    """Extract any valid JSON value from the input data according to the user's instructions."""
+    """Return any valid JSON value from the input data according to the user's instructions."""
 
     value: str = Field(
         ...,
-        description="The extracted JSON value as a JSON-serialized string. For objects: '{\"key\": \"value\"}', for arrays: '[1, 2, 3]', for primitives: '42' or '\"text\"' or 'true' or 'null'.",
+        description="The JSON value as a JSON-serialized string. For objects: '{\"key\": \"value\"}', for arrays: '[1, 2, 3]', for primitives: '42' or '\"text\"' or 'true' or 'null'.",
     )
 
     model_config = {
@@ -26,9 +26,9 @@ class Params(BaseModel):
     }
 
 
-async def main(**kwargs) -> str:
+async def main(**kwargs) -> dict:
     """
-    Return the extracted JSON value.
+    Return the JSON value.
     The LLM provides the value parameter as a JSON-serialized string.
     """
     value = kwargs.get("value")
@@ -44,4 +44,4 @@ async def main(**kwargs) -> str:
         parsed_value = value
 
     result = {"value": parsed_value}
-    return json.dumps(result, indent=2)
+    return result

@@ -1,15 +1,14 @@
-"""Extract a string value from input data based on a prompt."""
+"""Return a string value from input data based on a prompt."""
 
-import json
 from pydantic import BaseModel, Field
 
 
 class Params(BaseModel):
-    """Extract a text/string value from the input data according to the user's instructions."""
+    """Return a text/string value from the input data according to the user's instructions."""
 
     value: str = Field(
         ...,
-        description="The extracted string value. Return only the text content requested.",
+        description="The string value. Return only the text content requested.",
     )
 
     model_config = {
@@ -23,9 +22,9 @@ class Params(BaseModel):
     }
 
 
-async def main(**kwargs) -> str:
+async def main(**kwargs) -> dict:
     """
-    Return the extracted string value.
+    Return the string value.
     The LLM provides the value parameter which is already constrained to be a string.
     """
     value = kwargs.get("value")
@@ -34,4 +33,4 @@ async def main(**kwargs) -> str:
         raise ValueError("value is required")
 
     result = {"value": str(value)}
-    return json.dumps(result, indent=2)
+    return result

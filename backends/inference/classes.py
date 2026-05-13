@@ -1,6 +1,6 @@
 from enum import Enum
 from types import NoneType
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 from core.classes import KnowledgeSettings
 from tools.classes import DEFAULT_TOOL_SCHEMA_TYPE
@@ -75,6 +75,9 @@ DEFAULT_SYSTEM_MESSAGE = """You are an AI assistant that answers questions in a 
 
 class AgentOutput(BaseModel):
     text: str  # current tokenized output or entire output
+    reasoningText: Optional[str] = (
+        None  # thinking-block content (delta.reasoning_content)
+    )
     raw: Optional[Any] = None  # tokens, including template tokens
     logging: Optional[List[str]] = None
     metrics: Optional[dict] = None
@@ -108,6 +111,14 @@ class LoadTextInferenceCall(BaseModel):
     temperature: Optional[float] = DEFAULT_TEMPERATURE
     grammar: Optional[dict] = None
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
+    # Reasoning/thinking-mode controls (Qwen3, QwQ, DeepSeek-R1, ...).
+    # Set at load time only — enable_thinking=True launches llama-server with
+    # --reasoning-format deepseek and forwards chat_template_kwargs.enable_thinking
+    # so the Jinja chat template emits the <think> block.
+    enable_thinking: Optional[bool] = False
+    # -1 unlimited, 0 disabled, N token cap
+    reasoning_budget: Optional[int] = 0
+    preserve_thinking: Optional[bool] = False
 
 
 class LoadTextInferenceInit(BaseModel):
@@ -130,6 +141,8 @@ class LoadTextInferenceInit(BaseModel):
 class LoadInferenceRequest(BaseModel):
     modelId: str
     modelPath: Optional[str] = None  # If not provided, looked up from modelId
+    messageFormat: Optional[str] = None  # Prompt format key (e.g. "qwen"). If not provided, looked up from modelId
+    modelName: Optional[str] = None  # Display name. If not provided, looked up from modelId
     raw_input: Optional[bool] = False  # user can send manually formatted messages
     responseMode: Optional[str] = DEFAULT_CHAT_MODE
     toolUseMode: Optional[str] = DEFAULT_TOOL_USE_MODE
@@ -212,6 +225,13 @@ class InferenceRequest(BaseModel):
         0.0  # The penalty to apply to tokens based on their frequency in the prompt
     )
     similarity_top_k: Optional[int] = None
+    # Note: reasoning/thinking-mode controls live on LoadTextInferenceCall only.
+    # They are bound to the loaded model and cannot be toggled per request.
+    # Contextual raw data items passed through to tool functions (e.g. pre-fetched emails)
+    # *Note - Normally we pass this context as a string injected into the prompt, but for
+    # things like email that are already fetched on the frontend, we pass them like this
+    # so the tool func has structured data to work with (instead of inside a wall of plain text).
+    context_items: Optional[List[Dict[str, Any]]] = None
 
     model_config = {
         "json_schema_extra": {
@@ -308,6 +328,7 @@ class LoadVisionInferenceRequest(BaseModel):
     modelId: str
     modelPath: Optional[str] = None  # If not provided, looked up from modelId
     mmprojPath: Optional[str] = None  # If not provided, looked up from modelId
+    modelName: Optional[str] = None  # Display name. If not provided, looked up from modelId
     init: LoadTextInferenceInit
     call: LoadTextInferenceCall
 

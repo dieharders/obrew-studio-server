@@ -413,6 +413,18 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
                 "urlPath": "/v1/search/structured",
                 "method": "POST",
             },
+            # Perform agentic search over email data from MS Graph API
+            {
+                "name": "email",
+                "urlPath": "/v1/search/email",
+                "method": "POST",
+            },
+            # Perform agentic search over SharePoint file data from MS Graph API
+            {
+                "name": "sharepoint",
+                "urlPath": "/v1/search/sharepoint",
+                "method": "POST",
+            },
         ],
     }
     data.append(search_api)

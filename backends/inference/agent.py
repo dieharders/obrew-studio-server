@@ -1,6 +1,8 @@
+import asyncio
 import json
-from typing import List, Type
+from typing import AsyncIterator, List, Type
 from sse_starlette.sse import EventSourceResponse
+from starlette.responses import StreamingResponse
 from fastapi import Request
 from storage.route import get_all_tool_definitions
 from tools.tool import Tool
@@ -13,9 +15,98 @@ from inference.classes import (
     AgentOutput,
     SSEResponse,
 )
-from inference.llama_cpp import LLAMA_CPP
+from inference.llama_server import LlamaServer
 from core import common
 from core.classes import ToolDefinition
+
+
+# Heartbeat interval for non-streaming HTTP responses. Browsers (Safari in
+# particular) abort fetches that receive no bytes for ~30s. Picking 15s mirrors
+# sse-starlette's default ping cadence so streaming and non-streaming paths
+# behave identically on the wire.
+_JSON_HEARTBEAT_INTERVAL = 15.0
+
+
+async def _buffered_json_response(
+    inner: AsyncIterator,
+) -> AsyncIterator[str]:
+    """Drain an inference event generator into a single JSON response body,
+    while flushing response headers immediately and emitting whitespace
+    heartbeats so the connection isn't idle for long inference runs.
+
+    The events emitted by LlamaServer's generators when stream=False are
+    sparse (a handful of event_payload dicts plus one final content_payload
+    dict). Between them we sit on the queue with a timeout, yielding a single
+    space byte to keep the TCP connection warm. RFC 8259 permits leading
+    whitespace before a JSON value, so the final body parses cleanly.
+    """
+    # Flush response headers as soon as the body generator is iterated.
+    yield " "
+
+    queue: asyncio.Queue = asyncio.Queue()
+    DONE = object()
+
+    async def _consume():
+        try:
+            async for ev in inner:
+                await queue.put(ev)
+        except Exception as exc:
+            await queue.put(exc)
+        finally:
+            await queue.put(DONE)
+
+    task = asyncio.create_task(_consume())
+    events: list = []
+    error: Exception = None
+    try:
+        while True:
+            try:
+                item = await asyncio.wait_for(
+                    queue.get(), timeout=_JSON_HEARTBEAT_INTERVAL
+                )
+            except asyncio.TimeoutError:
+                yield " "
+                continue
+            if item is DONE:
+                break
+            if isinstance(item, Exception):
+                error = item
+                break
+            events.append(item)
+    finally:
+        if not task.done():
+            task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):
+            pass
+
+    if error is not None:
+        yield json.dumps(
+            {"text": "", "error": f"Text generation interrupted. Reason: {error}"}
+        )
+        return
+
+    # Inference generators may yield event dicts or JSON strings (token frames
+    # when stream=True at the llama-server layer); normalize so read_event_data
+    # can find the final GENERATING_CONTENT event.
+    normalized: list = []
+    for ev in events:
+        if isinstance(ev, str):
+            try:
+                normalized.append(json.loads(ev))
+            except json.JSONDecodeError:
+                continue
+        else:
+            normalized.append(ev)
+
+    try:
+        data = read_event_data(normalized)
+    except Exception as exc:
+        yield json.dumps({"text": "", "error": str(exc)})
+        return
+
+    yield json.dumps(data)
 
 
 # @TODO Assign "logging": [], "metrics": {} to all final responses.
@@ -23,7 +114,7 @@ class Agent:
     def __init__(
         self,
         app,
-        llm: Type[LLAMA_CPP],
+        llm: Type[LlamaServer],
         tools: List[str],
         func_calling: TOOL_USE_MODES = None,
     ):
@@ -178,7 +269,7 @@ class Agent:
                     # Set tool_call_result to None to trigger error handling below
                     tool_call_result = None
             print(
-                f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4) if tool_call_result else 'None'}"
+                f"{common.PRNT_API} Tool call result:\n{json.dumps(tool_call_result, indent=4, default=str) if tool_call_result else 'None'}"
             )
             # Handle tool response
             failed_tool_response = f"\nFailed to use tool, no JSON block found. The original query:\n{prompt}"
@@ -234,10 +325,15 @@ class Agent:
                 # Return streaming response
                 if streaming:
                     return EventSourceResponse(response)
-                # Return complete response
-                content = [item async for item in response]
-                data = read_event_data(content)
-                return data
+                # Non-streaming: stream a single JSON body so response headers
+                # flush immediately (Safari aborts idle fetches with "Load
+                # failed" otherwise). Buffered/whitespace heartbeats keep the
+                # connection warm during long inference; the body itself is
+                # still a single JSON dict for HTTP API consumers.
+                return StreamingResponse(
+                    _buffered_json_response(response),
+                    media_type="application/json",
+                )
             # Long running conversation that remembers discussion history
             case CHAT_MODES.CHAT.value:
                 response = await self.llm.text_chat(
@@ -249,10 +345,12 @@ class Agent:
                 # Return streaming response
                 if streaming:
                     return EventSourceResponse(response)
-                # Return complete response
-                content = [item async for item in response]
-                data = read_event_data(content)
-                return data
+                # See INSTRUCT branch above — streamed JSON body keeps the
+                # response connection alive for non-streaming HTTP callers.
+                return StreamingResponse(
+                    _buffered_json_response(response),
+                    media_type="application/json",
+                )
             case CHAT_MODES.COLLAB.value:
                 # @TODO Add a mode for collaborate
                 # ...

@@ -28,6 +28,7 @@ def _create_vision_embed_fn(vision_embedder: ImageEmbedder) -> EmbedFnType:
     return vision_embed_fn
 
 
+# This is used exclusively for reading text/vision embeddings.
 # Client uses `options_source` to fetch the available options to select from.
 # If argument has `input_type` then it is user input, otherwise it is not shown in the FE menu.
 # `options` can be used to manually inline a set of options for selection on frontend.

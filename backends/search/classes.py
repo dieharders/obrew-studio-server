@@ -1,15 +1,18 @@
 import json
 from typing import List, Optional, Dict, Any, Union
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from .harness import (
     SearchResult,
     SearchResultData,
     SearchSource,
     DEFAULT_MAX_PREVIEW,
-    DEFAULT_MAX_EXTRACT,
+    DEFAULT_MAX_READ,
     DEFAULT_MAX_EXPAND,
     DEFAULT_MAX_DISCOVER_ITEMS,
 )
+
+# Limits for email search
+MAX_EMAIL_ITEMS = 500  # Maximum number of emails per request
 
 # Limits for structured search to prevent abuse
 MAX_STRUCTURED_ITEMS = 1000  # Maximum number of items
@@ -27,8 +30,8 @@ class FileSystemSearchRequest(BaseModel):
     file_patterns: Optional[List[str]] = (
         None  # File extensions to filter (e.g., [".pdf", ".docx"])
     )
-    max_files_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max files to preview
-    max_files_parse: Optional[int] = DEFAULT_MAX_EXTRACT  # Max files to fully parse
+    max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max files to preview
+    max_read: Optional[int] = DEFAULT_MAX_READ  # Max files to fully read/parse
     max_iterations: Optional[int] = DEFAULT_MAX_EXPAND  # Max directories to search (for expansion)
     auto_expand: Optional[bool] = True  # Whether to search additional directories
 
@@ -42,8 +45,8 @@ class FileSystemSearchRequest(BaseModel):
                         "/documents/archives",
                     ],
                     "file_patterns": [".pdf", ".docx"],
-                    "max_files_preview": 10,
-                    "max_files_parse": 3,
+                    "max_preview": 10,
+                    "max_read": 3,
                 }
             ]
         }
@@ -58,7 +61,7 @@ class VectorSearchRequest(BaseModel):
     collections: Optional[List[str]] = None  # Optional - if None/empty, discover all
     top_k: Optional[int] = DEFAULT_MAX_DISCOVER_ITEMS  # Max chunks to retrieve per collection
     max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max collections/chunks to preview
-    max_extract: Optional[int] = DEFAULT_MAX_EXTRACT  # Max collections/chunks to extract from
+    max_read: Optional[int] = DEFAULT_MAX_READ  # Max collections/chunks to read/extract from
     auto_expand: Optional[bool] = True  # Whether to search additional collections
 
     model_config = {
@@ -69,13 +72,13 @@ class VectorSearchRequest(BaseModel):
                     "collections": ["research_papers", "technical_docs"],
                     "top_k": 50,
                     "max_preview": 10,
-                    "max_extract": 3,
+                    "max_read": 3,
                 },
                 {
                     "query": "Find information about machine learning",
                     "top_k": 50,
                     "max_preview": 10,
-                    "max_extract": 3,
+                    "max_read": 3,
                 },
             ]
         }
@@ -90,9 +93,8 @@ class WebSearchRequest(BaseModel):
     website: Optional[List[str]] = (
         None  # Domain filter: None/[] = all, [one] = single site, [many] = whitelist
     )
-    max_pages: Optional[int] = DEFAULT_MAX_PREVIEW  # Max pages to fetch content from
     max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max URLs to preview
-    max_extract: Optional[int] = DEFAULT_MAX_EXTRACT  # Max pages to extract full content from
+    max_read: Optional[int] = DEFAULT_MAX_READ  # Max pages to read/extract full content from
 
     model_config = {
         "json_schema_extra": {
@@ -100,9 +102,8 @@ class WebSearchRequest(BaseModel):
                 {
                     "query": "Python asyncio best practices",
                     "website": ["docs.python.org", "stackoverflow.com"],
-                    "max_pages": 10,
                     "max_preview": 10,
-                    "max_extract": 3,
+                    "max_read": 3,
                 }
             ]
         }
@@ -185,7 +186,7 @@ class StructuredSearchRequest(BaseModel):
     query: str  # The search query
     items: List[StructuredItem]  # The data to search over
     max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max items to preview
-    max_extract: Optional[int] = DEFAULT_MAX_EXTRACT  # Max items to extract from
+    max_read: Optional[int] = DEFAULT_MAX_READ  # Max items to read/extract from
     group_by: Optional[str] = None  # Metadata field to group items by for expansion
     auto_expand: Optional[bool] = False  # Whether to search additional groups
 
@@ -239,9 +240,134 @@ class StructuredSearchRequest(BaseModel):
                         },
                     ],
                     "max_preview": 10,
-                    "max_extract": 3,
+                    "max_read": 3,
                     "group_by": "channel",
                     "auto_expand": True,
+                }
+            ]
+        }
+    }
+
+
+# Email Search classes
+class EmailSearchRequest(BaseModel):
+    """Request for agentic email search.
+
+    Searches over email data sent by the frontend (fetched from MS Graph API).
+    The emails exist only for the duration of the request.
+
+    The search uses the same multi-phase agentic pattern as filesystem search:
+    discover (metadata) → preview (bodyPreview) → extract (full body) → synthesize.
+    """
+
+    query: str  # The search query
+    emails: List[Dict[str, Any]]  # Raw email objects (Microsoft Graph API format)
+    max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max emails to preview
+    max_read: Optional[int] = DEFAULT_MAX_READ  # Max emails to read fully
+    auto_expand: Optional[bool] = False  # Group by conversationId and expand to other threads
+
+    @field_validator("emails")
+    @classmethod
+    def validate_emails_count(cls, v: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Validate that email count doesn't exceed maximum."""
+        if len(v) > MAX_EMAIL_ITEMS:
+            raise ValueError(
+                f"Number of emails ({len(v)}) exceeds maximum of {MAX_EMAIL_ITEMS}"
+            )
+        return v
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "query": "Summarize information about shareholders",
+                    "emails": [
+                        {
+                            "id": "AAMkAGI2...",
+                            "subject": "Q4 Shareholder Report",
+                            "from": {"emailAddress": {"name": "John", "address": "john@example.com"}},
+                            "bodyPreview": "Please find attached the Q4 shareholder report...",
+                            "receivedDateTime": "2025-12-15T10:30:00Z",
+                        }
+                    ],
+                    "max_preview": 10,
+                    "max_read": 3,
+                }
+            ]
+        }
+    }
+
+
+# SharePoint Search classes
+MAX_SHAREPOINT_ITEMS = 500  # Maximum number of SharePoint files per request
+MAX_SHAREPOINT_CONTENT_LENGTH = 102_400  # Maximum content length per file (~100KB)
+
+
+class SharePointSearchItem(BaseModel):
+    """Individual item in a SharePoint search request."""
+
+    id: str
+    name: str
+    content: str = Field(
+        ...,
+        min_length=1,
+        max_length=MAX_SHAREPOINT_CONTENT_LENGTH,
+        description="Text content fetched by frontend from Graph API. Must be non-empty.",
+    )
+    web_url: Optional[str] = None
+    mime_type: Optional[str] = None
+    drive_id: Optional[str] = None
+    last_modified: Optional[str] = None
+    last_modified_by: Optional[str] = None
+
+
+class SharePointSearchRequest(BaseModel):
+    """Request for agentic SharePoint file search.
+
+    Searches over SharePoint file data sent by the frontend (fetched from MS Graph API).
+    The data exists only for the duration of the request.
+
+    The search uses the same multi-phase agentic pattern:
+    discover (metadata) → preview (content snippet) → extract (full content) → synthesize.
+    """
+
+    query: str  # The search query
+    # Empty lists are intentionally allowed here; the route returns a
+    # graceful response when no items are provided instead of a 422.
+    items: List[SharePointSearchItem] = []  # SharePoint file data from frontend
+    max_preview: Optional[int] = DEFAULT_MAX_PREVIEW  # Max files to preview
+    max_read: Optional[int] = DEFAULT_MAX_READ  # Max files to read fully
+
+    @field_validator("items")
+    @classmethod
+    def validate_items_count(
+        cls, v: List[SharePointSearchItem],
+    ) -> List[SharePointSearchItem]:
+        """Validate that item count doesn't exceed maximum."""
+        if len(v) > MAX_SHAREPOINT_ITEMS:
+            raise ValueError(
+                f"Number of items ({len(v)}) exceeds maximum of {MAX_SHAREPOINT_ITEMS}"
+            )
+        return v
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "query": "Find the latest project proposal document",
+                    "items": [
+                        {
+                            "id": "01ABCDEF...",
+                            "name": "Project Proposal v2.docx",
+                            "content": "This document outlines the proposed project timeline...",
+                            "web_url": "https://contoso.sharepoint.com/sites/team/Documents/proposal.docx",
+                            "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            "last_modified": "2025-12-15T10:30:00Z",
+                            "last_modified_by": "John Smith",
+                        }
+                    ],
+                    "max_preview": 10,
+                    "max_read": 3,
                 }
             ]
         }
@@ -256,6 +382,9 @@ __all__ = [
     "WebSearchRequest",
     "StructuredItem",
     "StructuredSearchRequest",
+    "EmailSearchRequest",
+    "SharePointSearchItem",
+    "SharePointSearchRequest",
     "SearchResult",
     "SearchResultData",
     "SearchSource",

@@ -2,6 +2,6 @@
   "query": "Find information about aircraft parts and maintenance, specifically CAGE code and/or manufacturer name for Flight Computer.",
   "top_k": 10,
   "max_preview": 10,
-  "max_extract": 3,
+  "max_read": 3,
   "auto_expand": true
 }

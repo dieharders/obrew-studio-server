@@ -1,3 +1,6 @@
+import base64
+import os
+import tempfile
 from typing import Optional, List, Sequence
 from typing_extensions import TypedDict
 from core import common
@@ -12,6 +15,7 @@ from inference.classes import (
 # Event names
 GENERATING_TOKENS = "GENERATING_TOKENS"
 GENERATING_CONTENT = "GENERATING_CONTENT"
+GENERATING_REASONING = "GENERATING_REASONING"
 FEEDING_PROMPT = "FEEDING_PROMPT"
 
 # These are the supported template keys
@@ -231,6 +235,17 @@ def token_payload(text: str) -> SSEResponse:
     return payload
 
 
+# Streamed reasoning/thinking token (delta.reasoning_content from llama-server
+# when launched with --reasoning-format deepseek).
+def reasoning_token_payload(text: str) -> SSEResponse:
+    chunk = {"text": text}
+    payload = {
+        "event": GENERATING_REASONING,
+        "data": chunk,
+    }
+    return payload
+
+
 # Final text response. This should replace all previous text.
 def content_payload(text: str) -> SSEResponse:
     content = {"text": text}
@@ -259,8 +274,6 @@ def read_event_data(data_events: List[dict]) -> AgentOutput:
 
 
 # Vision/Multi-modal utilities
-import base64
-import os
 
 # Security limits for image processing
 MAX_BASE64_SIZE_MB = 50  # Maximum base64 string size in MB
@@ -414,6 +427,38 @@ def preprocess_image(
             flush=True,
         )
         return input_path
+
+
+def write_prompt_to_temp_file(prompt: str) -> str:
+    """
+    Write a prompt string to a temporary file and return the file path.
+    Uses delete=False so the file persists for the subprocess to read.
+    Caller is responsible for cleanup via cleanup_temp_file().
+    """
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".txt", delete=False, encoding="utf-8"
+    ) as f:
+        f.write(prompt)
+        return f.name
+
+
+def cleanup_temp_file(file_path: Optional[str]) -> None:
+    """
+    Safely cleanup a temporary file. Uses best-effort approach with error handling
+    to prevent orphan files while avoiding race conditions on locked files.
+    """
+    if not file_path:
+        return
+    try:
+        os.unlink(file_path)
+    except FileNotFoundError:
+        pass  # Already cleaned up (e.g. by finally block in generator)
+    except OSError as e:
+        # Best effort cleanup - log but don't raise
+        print(
+            f"{common.PRNT_LLAMA} Warning: Failed to cleanup temp file {file_path}: {e}",
+            flush=True,
+        )
 
 
 def cleanup_temp_images(image_paths: List[str]):

@@ -1,3 +1,4 @@
+import re
 import json
 import importlib.util
 from fastapi import Request
@@ -6,7 +7,7 @@ from pydantic import BaseModel
 from tools.classes import TOOL_SCHEMA_TYPES
 from core import common
 from core.classes import FastAPIApp, ToolDefinition, ToolFunctionSchema
-from inference.llama_cpp import LLAMA_CPP
+from inference.llama_server import LlamaServer
 from inference.classes import AgentOutput, LoadTextInferenceCall, LoadTextInferenceInit
 from tools.helpers import (
     KEY_TOOL_NAME,
@@ -19,6 +20,7 @@ from tools.helpers import (
     find_tool_in_response,
     get_llm_required_args,
     get_provided_args,
+    get_required_examples,
     get_required_schema,
     import_tool_function,
     load_function,
@@ -68,9 +70,7 @@ class Tool:
             schema = pydantic_model.model_json_schema()
             tool_description = schema.get("description", "This is a tool.")
             examples = schema.get("examples", [dict()])
-            example_tool_schema: dict = None
-            if len(examples) > 0:
-                example_tool_schema = examples[0]
+            example_tool_schema = examples[0] if len(examples) > 0 else {}
             properties: dict = schema.get("properties", dict())
             # Make params
             func_name = filename.split(".")[0]
@@ -80,6 +80,13 @@ class Tool:
             for key, value in list(properties.items()):  # Convert items to list
                 param = dict(**value)
                 param["name"] = key
+                # Resolve type from anyOf for Optional fields (Pydantic generates anyOf instead of type)
+                if "type" not in param and "anyOf" in param:
+                    non_null_types = [t for t in param["anyOf"] if t.get("type") != "null"]
+                    if non_null_types:
+                        param["type"] = non_null_types[0].get("type", "string")
+                    else:
+                        param["type"] = "string"
                 # Create tool schema
                 allowed_values = param.get("options", None)
                 schema_params = dict(
@@ -128,7 +135,7 @@ class Tool:
     # Used by Workers
     async def choose_tool_from_query(
         self,
-        llm: Type[LLAMA_CPP],
+        llm: Type[LlamaServer],
         query_prompt: str,
         assigned_tools: List[ToolDefinition],
     ):
@@ -187,7 +194,7 @@ class Tool:
     # Used by Workers
     async def choose_tool_from_description(
         self,
-        llm: Type[LLAMA_CPP],
+        llm: Type[LlamaServer],
         query_prompt: str,
         assigned_tools: List[ToolDefinition],
     ) -> str:
@@ -246,7 +253,7 @@ class Tool:
     async def native_call(
         self,
         tool_defs: List[ToolDefinition],
-        llm: Type[LLAMA_CPP] = None,
+        llm: Type[LlamaServer] = None,
         query: str = "",
         prompt_template: str = None,
         system_message: str = None,
@@ -323,7 +330,8 @@ class Tool:
             func_call_result = await tool_func(
                 **chosen_tool_params, app=self.app, request=self.request
             )
-            return dict(raw=func_call_result, text=str(func_call_result))
+            text_result = func_call_result if isinstance(func_call_result, str) else json.dumps(func_call_result, default=str)
+            return dict(raw=func_call_result, text=text_result)
 
     # Execute the tool function with the provided arguments (if any)
     # Tool defs are passed to llm are formatted as markdown text.
@@ -331,7 +339,7 @@ class Tool:
     async def universal_call(
         self,
         tool_def: ToolDefinition,
-        llm: Type[LLAMA_CPP] = None,
+        llm: Type[LlamaServer] = None,
         query: str = "",
         prompt_template: str = None,
         system_message: str = None,
@@ -359,52 +367,52 @@ class Tool:
             return func_results
         else:
             TOOL_ARGUMENTS = "{{tool_arguments_str}}"
-            # TOOL_EXAMPLE_ARGUMENTS = "{{tool_example_str}}"
+            TOOL_EXAMPLE_ARGUMENTS = "{{tool_example_str}}"
             TOOL_NAME_STR = "{{tool_name_str}}"
             TOOL_DESCRIPTION = "{{tool_description_str}}"
-            OUTPUT_SCHEMA = "{{output_schema}}"
-            tool_params = tool_def.get("params", None)
+            tool_params = tool_def.get("params") or []
             required_llm_arguments = get_llm_required_args(tool_params)
-            tool_instruction = f'# Tool\n\nYou are given a tool called "{TOOL_NAME_STR}" which does the following:\n{TOOL_DESCRIPTION}\n\n## Parameters\n\nA description of each parameter required by the tool.\n\n{TOOL_ARGUMENTS}\n\n## Instruction\n\nBased on this info and the user query, you are expected to return a JSON schema: {OUTPUT_SCHEMA}. Ensure the JSON is properly formatted and each parameter is the correct data type.'
-            tool_prompt = f"QUESTION:\n{KEY_PROMPT_MESSAGE}\n\nANSWER:\n"
+            tool_instruction = f'# Tool\n\nYou are given a tool called "{TOOL_NAME_STR}" which does the following:\n{TOOL_DESCRIPTION}\n\n## Parameters\n\nA description of each parameter required by the tool.\n\n{TOOL_ARGUMENTS}\n\n## Example\n\n{TOOL_EXAMPLE_ARGUMENTS}\n\n## Instruction\n\nBased on this info and the user query, you are expected to return valid JSON with the required parameters. Ensure the JSON is properly formatted and each parameter is the correct data type.'
+            tool_prompt = f"User query:\n{KEY_PROMPT_MESSAGE}\n\nJSON response:\n"
             # Return schema for llm to respond with
             tool_name_str = tool_def.get("name", "Tool")
             tool_description_str = tool_def.get("description", "")
-            tool_json_schema_str = tool_def.get("json_schema", "")
+            # Build a JSON schema constrained to only the params the LLM needs to fill
+            required_params = [p for p in tool_params if p.get("name") in required_llm_arguments]
+            constrain_schema = json.loads(tool_to_json_schema(params=required_params))
             # Parse these to only include data from the required_llm_arguments list
             params_schema_dict = get_required_schema(
                 required=required_llm_arguments,
                 schema=tool_def.get("params_schema", dict()),
             )
 
-            # params_example_dict = get_required_examples(
-            #     required=required_llm_arguments,
-            #     example=tool_def.get("params_example", dict()),
-            # )
+            params_example_dict = get_required_examples(
+                required=required_llm_arguments,
+                example=tool_def.get("params_example") or dict(),
+            )
 
             # Convert func arguments to machine readable strings
-            # tool_example_json = json.dumps(params_example_dict)
-            # tool_example_str = f"```json\n{tool_example_json}\n```"
+            tool_example_json = json.dumps(params_example_dict)
+            tool_example_str = f"```json\n{tool_example_json}\n```"
             tool_args_str = schema_to_markdown(params_schema_dict)
             # Inject template args into system message
             tool_prompt = tool_prompt.replace(KEY_PROMPT_MESSAGE, query or "")
-            # tool_prompt = tool_prompt.replace(OUTPUT_SCHEMA, tool_json_schema_str)
-            tool_system_message = tool_instruction.replace(
-                TOOL_ARGUMENTS, tool_args_str or ""
+            # Single-pass replacement to prevent double-substitution if a value contains another placeholder
+            replacements = {
+                TOOL_ARGUMENTS: tool_args_str or "",
+                TOOL_EXAMPLE_ARGUMENTS: tool_example_str,
+                TOOL_NAME_STR: tool_name_str or "",
+                TOOL_DESCRIPTION: tool_description_str or "",
+            }
+            pattern = re.compile("|".join(re.escape(k) for k in replacements))
+            tool_system_message = pattern.sub(
+                lambda m: replacements[m.group(0)], tool_instruction
             )
-            # @TODO Do we need an example?
-            # tool_system_message = tool_system_message.replace(
-            #     TOOL_EXAMPLE_ARGUMENTS, tool_example_str
-            # )
-            tool_system_message = tool_system_message.replace(
-                OUTPUT_SCHEMA, tool_json_schema_str or ""
-            )
-            tool_system_message = tool_system_message.replace(
-                TOOL_NAME_STR, tool_name_str or ""
-            )
-            tool_system_message = tool_system_message.replace(
-                TOOL_DESCRIPTION, tool_description_str or ""
-            )
+            # Prepend the original system message (if any) so caller-provided
+            # context (e.g. real-world date/time, user info) is preserved
+            # alongside the tool definition.
+            if system_message:
+                tool_system_message = f"{system_message}\n\n{tool_system_message}"
             # Prompt the LLM for a response using the tool's schema.
             # A lower temperature is better for tool use.
             llm_tool_use_response = await llm.text_completion(
@@ -412,7 +420,7 @@ class Tool:
                 system_message=tool_system_message,
                 stream=False,
                 request=self.request,
-                constrain_json_output=json.loads(tool_json_schema_str),
+                constrain_json_output=constrain_schema,
             )
             content: List[dict] = [item async for item in llm_tool_use_response]
             data = read_event_data(content)
@@ -449,7 +457,8 @@ class Tool:
                 app=self.app,
                 request=self.request,
             )
-            return dict(raw=func_call_result, text=str(func_call_result))
+            text_result = func_call_result if isinstance(func_call_result, str) else json.dumps(func_call_result, default=str)
+            return dict(raw=func_call_result, text=text_result)
 
 
 async def _call_func_with_tool_params(
@@ -493,5 +502,6 @@ async def _call_func_with_tool_params(
             system_message=system_message,
             memories=collections,
         )
-        # Return results
-        return dict(raw=func_call_result, text=str(func_call_result))
+        # Return results — use string directly to avoid double-serializing text tool responses (e.g. retrieval)
+        text_result = func_call_result if isinstance(func_call_result, str) else json.dumps(func_call_result, default=str)
+        return dict(raw=func_call_result, text=text_result)

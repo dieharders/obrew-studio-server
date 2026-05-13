@@ -3,7 +3,7 @@ import json
 import shutil
 from fastapi import APIRouter, Request, HTTPException, Depends
 from inference.agent import Agent
-from .llama_cpp import LLAMA_CPP
+from .llama_server import LlamaServer
 from core import classes, common
 from core.common import get_model_install_config, get_prompt_formats
 from core.download_manager import DownloadManager
@@ -160,15 +160,28 @@ async def load_text_inference(
         if app.state.llm:
             print(f"{common.PRNT_API} Ejecting current model before loading {model_id}")
             await unload_text_inference(request)
-        # Load the config for the model
-        model_config = get_model_install_config(model_id)
-        message_format_id = model_config.get("message_format")
-        model_name = model_config.get("model_name")
-        tags = model_config.get("tags") or []
+        # Resolve message_format and model_name. Caller-provided values win;
+        # otherwise fall back to the server-side registry for models the caller
+        # didn't pre-configure.
+        message_format_id = data.messageFormat
+        model_name = data.modelName
+        if not message_format_id or not model_name:
+            model_config = get_model_install_config(model_id)
+            message_format_id = message_format_id or model_config.get("message_format")
+            model_name = model_name or model_config.get("model_name")
+        if not message_format_id:
+            raise HTTPException(
+                status_code=422,
+                detail=f"messageFormat not provided and {model_id} not found in registry.",
+            )
+        # Enable --reasoning-format deepseek at launch time when the caller
+        # opts into thinking mode. Reasoning is bound to the loaded model —
+        # to toggle it, the model must be reloaded with a different call.enable_thinking.
+        is_reasoning_model = bool(data.call.enable_thinking)
         # Load the prompt formats
         message_template = get_prompt_formats(message_format_id)
         # Load the specified Ai model using a specific inference backend
-        app.state.llm = LLAMA_CPP(
+        app.state.llm = LlamaServer(
             model_url=None,
             model_path=model_path,
             model_name=model_name,
@@ -181,7 +194,10 @@ async def load_text_inference(
             message_format=message_template,
             generate_kwargs=data.call,
             model_init_kwargs=data.init,
+            is_reasoning_model=is_reasoning_model,
         )
+        # Start the llama-server process and wait for it to be ready
+        await app.state.llm.start_server()
         if data.responseMode == CHAT_MODES.CHAT.value:
             # @TODO webui needs to pass messages list with a system_message as first msg
             await app.state.llm.load_chat(chat_history=data.messages)
@@ -322,13 +338,8 @@ def download_text_model(request: Request, payload: classes.DownloadTextModelRequ
         mmproj_repo_id = payload.mmproj_repo_id
         mmproj_filename = payload.mmproj_filename
 
-        # Save initial path and details to json file
-        common.save_text_model(
-            {
-                "repoId": repo_id,
-                "savePath": {filename: ""},
-            }
-        )
+        # NOTE: Model metadata is only saved on successful completion (in on_model_complete)
+        # to avoid showing cancelled/failed downloads as "installed"
 
         def on_model_complete(task_id: str, file_path: str):
             """Called when main model download completes successfully."""
@@ -456,7 +467,9 @@ def _start_mmproj_download(
 
 # Remove a single text model weights file and its installation record.
 @router.post("/delete")
-def delete_text_model(payload: classes.DeleteTextModelRequest) -> classes.GenericEmptyResponse:
+def delete_text_model(
+    payload: classes.DeleteTextModelRequest,
+) -> classes.GenericEmptyResponse:
     filename = payload.filename
     repo_id = payload.repoId
 
@@ -733,6 +746,8 @@ async def generate_text(
         prompt_template = payload.promptTemplate
         assigned_tool_names = payload.tools
         collections = payload.memory.ids if payload.memory else []
+        # Store context items on request state for tool access
+        request.state.context_items = payload.context_items or []
         # messages = payload.messages # @TODO Implement...
 
         # We can re-use llm for multi-turn conversations
@@ -747,6 +762,12 @@ async def generate_text(
             msg = "No path to model provided."
             print(f"{common.PRNT_API} Error: {msg}", flush=True)
             raise Exception(msg)
+
+        # Reasoning incompatibilities (grammar / structured-output / tools) are
+        # handled inside LlamaServer.generate_kwargs and text_chat/text_completion,
+        # which override chat_template_kwargs per call without touching the
+        # load-time setting. Per-request enable_thinking is intentionally not a
+        # supported field on InferenceRequest.
 
         # Update llm props
         llm.generate_kwargs = payload
@@ -801,15 +822,9 @@ async def stop_text(request: Request):
     llm = app.state.llm
     if llm:
         llm.abort_requested = True
-        process = llm.process
-        process_type = llm.process_type
-        if process_type == "completion" and process:
-            # Only terminate /completion processes
-            process.terminate()
-            process = None
-        elif process_type == "chat":
-            # Otherwise send "turn" command to cli to pause the chat
-            await llm.pause_text_chat()
+        # Cancel server-side generation so the server stops immediately
+        # instead of buffering remaining tokens.
+        await llm.cancel_server_generation()
     return {
         "success": True,
         "message": "Closed connection and stopped inference.",

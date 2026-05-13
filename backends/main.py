@@ -216,7 +216,7 @@ if __name__ == "__main__":
     # Comment out if you want to debug on prod build (or set --mode=prod flag in command)
     if is_prod:
         # Remove prints in prod when deploying in window mode
-        sys.stdout = open(os.devnull, "w")
-        sys.stderr = open(os.devnull, "w")
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
 
     main()

@@ -3,6 +3,6 @@
   "collections": ["resolve15wachs"],
   "top_k": 20,
   "max_preview": 5,
-  "max_extract": 3,
+  "max_read": 3,
   "auto_expand": false
 }

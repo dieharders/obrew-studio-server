@@ -1,4 +1,4 @@
-"""Extract a JSON object from input data based on a prompt."""
+"""Return a JSON object from input data based on a prompt."""
 
 import json
 from typing import Dict, Any
@@ -6,11 +6,11 @@ from pydantic import BaseModel, Field
 
 
 class Params(BaseModel):
-    """Extract a JSON object with key-value pairs from the input data according to the user's instructions."""
+    """Return a JSON object with key-value pairs from the input data according to the user's instructions."""
 
     value: Dict[str, Any] = Field(
         ...,
-        description="The extracted object with key-value pairs.",
+        description="The object with key-value pairs.",
     )
 
     model_config = {
@@ -24,9 +24,9 @@ class Params(BaseModel):
     }
 
 
-async def main(**kwargs) -> str:
+async def main(**kwargs) -> dict:
     """
-    Return the extracted object.
+    Return the object.
     The LLM provides the value parameter which is constrained to be a dict.
     """
     value = kwargs.get("value")
@@ -45,4 +45,4 @@ async def main(**kwargs) -> str:
         raise ValueError(f"Expected an object, got {type(value).__name__}")
 
     result = {"value": value}
-    return json.dumps(result, indent=2)
+    return result

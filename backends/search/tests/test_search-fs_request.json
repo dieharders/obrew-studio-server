@@ -6,8 +6,8 @@
     "C:\\Project Files\\FileBuff\\public\\examples\\projects\\air-force\\files\\inventory-reports"
   ],
   "file_patterns": null,
-  "max_files_preview": 10,
-  "max_files_parse": 12,
+  "max_preview": 10,
+  "max_read": 12,
   "max_iterations": 3,
   "auto_expand": true
 }
