@@ -120,19 +120,9 @@ class LlamaServer:
         self.is_reasoning_model = is_reasoning_model
         # Reasoning controls are bound to the loaded model (LoadTextInferenceCall).
         # They are NOT exposed per request — flip them by reloading the model.
-        self._enable_thinking = (
-            bool(generate_kwargs.enable_thinking) if generate_kwargs else False
-        )
-        self._reasoning_budget = (
-            generate_kwargs.reasoning_budget
-            if generate_kwargs and generate_kwargs.reasoning_budget is not None
-            else 0
-        )
-        self._preserve_thinking = (
-            bool(generate_kwargs.preserve_thinking)
-            if generate_kwargs and generate_kwargs.preserve_thinking is not None
-            else False
-        )
+        self._enable_thinking = bool(generate_kwargs.enable_thinking)
+        self._reasoning_budget = generate_kwargs.reasoning_budget
+        self._preserve_thinking = bool(generate_kwargs.preserve_thinking)
         self.model_init_kwargs = init_kwargs
         self._is_ready = False
 
