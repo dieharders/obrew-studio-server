@@ -128,6 +128,11 @@ class LlamaServer:
             if generate_kwargs and generate_kwargs.reasoning_budget is not None
             else 0
         )
+        self._preserve_thinking = (
+            bool(generate_kwargs.preserve_thinking)
+            if generate_kwargs and generate_kwargs.preserve_thinking is not None
+            else False
+        )
         self.model_init_kwargs = init_kwargs
         self._is_ready = False
 
@@ -271,7 +276,8 @@ class LlamaServer:
         # output is handled in text_chat/text_completion via constrain_json_output.
         if self.is_reasoning_model:
             self._api_generate_kwargs["chat_template_kwargs"] = {
-                "enable_thinking": self._enable_thinking and not grammar
+                "enable_thinking": self._enable_thinking and not grammar,
+                "preserve_thinking": self._preserve_thinking,
             }
             self._api_generate_kwargs["reasoning_budget"] = (
                 0 if grammar else self._reasoning_budget
@@ -739,7 +745,7 @@ class LlamaServer:
             # Tools/JSON-schema constraints conflict with thinking mode: force
             # off for this single call without changing the load-time setting.
             if self.is_reasoning_model and constrain_json_output:
-                body["chat_template_kwargs"] = {"enable_thinking": False}
+                body["chat_template_kwargs"] = {"enable_thinking": False, "preserve_thinking": False}
                 body["reasoning_budget"] = 0
 
             print(f"{LOG_PREFIX} Generating chat response", flush=True)

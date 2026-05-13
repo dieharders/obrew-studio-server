@@ -118,6 +118,7 @@ class LoadTextInferenceCall(BaseModel):
     enable_thinking: Optional[bool] = False
     # -1 unlimited, 0 disabled, N token cap
     reasoning_budget: Optional[int] = 0
+    preserve_thinking: Optional[bool] = False
 
 
 class LoadTextInferenceInit(BaseModel):
