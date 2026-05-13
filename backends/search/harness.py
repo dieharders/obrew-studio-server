@@ -98,7 +98,7 @@ class SearchSource(BaseModel):
     type: str
     name: str
     snippet: Optional[str] = None
-    score: Optional[float] = None  # Similarity score (0-1) for vector search results
+    score: Optional[float] = None  # Cosine similarity for vector results; [-1, 1], typically [0, 1] for normalized embeddings
 
 
 class SearchResultData(BaseModel):
