@@ -1132,8 +1132,8 @@ def get_model_install_config(model_id: str = None) -> dict:
     """Get model installation config from text_model_configs.json.
 
     Returns the full models list when no model_id is given. When a model_id is
-    given but not present in the registry, returns an empty config dict — callers
-    are expected to supply the needed fields (messageFormat, modelName) directly.
+    given but not present in the registry, returns {} — callers are expected to
+    supply the needed fields (messageFormat, modelName) directly.
     """
     try:
         config_path = dep_path(os.path.join("public", "text_model_configs.json"))
@@ -1143,7 +1143,7 @@ def get_model_install_config(model_id: str = None) -> dict:
                 return dict(models=text_models)
             config = text_models.get(model_id)
             if config is None:
-                return dict(models=text_models)
+                return {}
             message_format = config["messageFormat"]
             model_name = config["name"]
             tags = config.get("tags")
