@@ -160,11 +160,19 @@ async def load_text_inference(
         if app.state.llm:
             print(f"{common.PRNT_API} Ejecting current model before loading {model_id}")
             await unload_text_inference(request)
-        # Load the config for the model
-        model_config = get_model_install_config(model_id)
-        message_format_id = model_config.get("message_format")
-        model_name = model_config.get("model_name")
-        tags = model_config.get("tags") or []
+        # Resolve message_format and model_name. Caller-provided values win;
+        # otherwise fall back to the server-side registry for models the caller
+        # didn't pre-configure.
+        message_format_id = data.messageFormat
+        model_name = data.modelName
+        if not message_format_id or not model_name:
+            model_config = get_model_install_config(model_id)
+            message_format_id = message_format_id or model_config.get("message_format")
+            model_name = model_name or model_config.get("model_name")
+        if not message_format_id:
+            raise Exception(
+                f"messageFormat not provided and {model_id} not found in registry."
+            )
         # Enable --reasoning-format deepseek at launch time when the caller
         # opts into thinking mode. Reasoning is bound to the loaded model —
         # to toggle it, the model must be reloaded with a different call.enable_thinking.
