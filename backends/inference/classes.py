@@ -141,6 +141,8 @@ class LoadTextInferenceInit(BaseModel):
 class LoadInferenceRequest(BaseModel):
     modelId: str
     modelPath: Optional[str] = None  # If not provided, looked up from modelId
+    messageFormat: Optional[str] = None  # Prompt format key (e.g. "qwen"). If not provided, looked up from modelId
+    modelName: Optional[str] = None  # Display name. If not provided, looked up from modelId
     raw_input: Optional[bool] = False  # user can send manually formatted messages
     responseMode: Optional[str] = DEFAULT_CHAT_MODE
     toolUseMode: Optional[str] = DEFAULT_TOOL_USE_MODE
@@ -326,6 +328,7 @@ class LoadVisionInferenceRequest(BaseModel):
     modelId: str
     modelPath: Optional[str] = None  # If not provided, looked up from modelId
     mmprojPath: Optional[str] = None  # If not provided, looked up from modelId
+    modelName: Optional[str] = None  # Display name. If not provided, looked up from modelId
     init: LoadTextInferenceInit
     call: LoadTextInferenceCall
 

@@ -82,9 +82,14 @@ async def load_vision_model(
             await app.state.llm.unload()
             app.state.llm = None
 
-        # Get model config
-        model_config = get_model_install_config(model_id)
-        model_name = model_config.get("model_name")
+        # Resolve model_name. Caller-provided value wins; otherwise fall back
+        # to the server-side registry.
+        model_name = data.modelName
+        if not model_name:
+            model_config = get_model_install_config(model_id)
+            model_name = model_config.get("model_name")
+        if not model_name:
+            print(f"{common.PRNT_API} Warning: modelName not provided and {model_id} not found in registry. Proceeding without a display name.")
 
         # Create unified model instance with mmproj for vision capability
         app.state.llm = LlamaServer(

@@ -1129,14 +1129,21 @@ def release_server_port(port: int):
 
 
 def get_model_install_config(model_id: str = None) -> dict:
-    """Get model installation config from text_model_configs.json"""
+    """Get model installation config from text_model_configs.json.
+
+    Returns the full models list when no model_id is given. When a model_id is
+    given but not present in the registry, returns {} — callers are expected to
+    supply the needed fields (messageFormat, modelName) directly.
+    """
     try:
         config_path = dep_path(os.path.join("public", "text_model_configs.json"))
         with open(config_path, "r") as file:
             text_models = json.load(file)
             if not model_id:
                 return dict(models=text_models)
-            config = text_models[model_id]
+            config = text_models.get(model_id)
+            if config is None:
+                return {}
             message_format = config["messageFormat"]
             model_name = config["name"]
             tags = config.get("tags")
