@@ -15,6 +15,7 @@ from inference.classes import (
 # Event names
 GENERATING_TOKENS = "GENERATING_TOKENS"
 GENERATING_CONTENT = "GENERATING_CONTENT"
+GENERATING_REASONING = "GENERATING_REASONING"
 FEEDING_PROMPT = "FEEDING_PROMPT"
 
 # These are the supported template keys
@@ -229,6 +230,17 @@ def token_payload(text: str) -> SSEResponse:
     chunk = {"text": text}
     payload = {
         "event": GENERATING_TOKENS,
+        "data": chunk,
+    }
+    return payload
+
+
+# Streamed reasoning/thinking token (delta.reasoning_content from llama-server
+# when launched with --reasoning-format deepseek).
+def reasoning_token_payload(text: str) -> SSEResponse:
+    chunk = {"text": text}
+    payload = {
+        "event": GENERATING_REASONING,
         "data": chunk,
     }
     return payload

@@ -75,6 +75,9 @@ DEFAULT_SYSTEM_MESSAGE = """You are an AI assistant that answers questions in a 
 
 class AgentOutput(BaseModel):
     text: str  # current tokenized output or entire output
+    reasoningText: Optional[str] = (
+        None  # thinking-block content (delta.reasoning_content)
+    )
     raw: Optional[Any] = None  # tokens, including template tokens
     logging: Optional[List[str]] = None
     metrics: Optional[dict] = None
@@ -108,6 +111,14 @@ class LoadTextInferenceCall(BaseModel):
     temperature: Optional[float] = DEFAULT_TEMPERATURE
     grammar: Optional[dict] = None
     max_tokens: Optional[int] = DEFAULT_MAX_TOKENS
+    # Reasoning/thinking-mode controls (Qwen3, QwQ, DeepSeek-R1, ...).
+    # Set at load time only — enable_thinking=True launches llama-server with
+    # --reasoning-format deepseek and forwards chat_template_kwargs.enable_thinking
+    # so the Jinja chat template emits the <think> block.
+    enable_thinking: Optional[bool] = False
+    # -1 unlimited, 0 disabled, N token cap
+    reasoning_budget: Optional[int] = 0
+    preserve_thinking: Optional[bool] = False
 
 
 class LoadTextInferenceInit(BaseModel):
@@ -212,6 +223,8 @@ class InferenceRequest(BaseModel):
         0.0  # The penalty to apply to tokens based on their frequency in the prompt
     )
     similarity_top_k: Optional[int] = None
+    # Note: reasoning/thinking-mode controls live on LoadTextInferenceCall only.
+    # They are bound to the loaded model and cannot be toggled per request.
     # Contextual raw data items passed through to tool functions (e.g. pre-fetched emails)
     # *Note - Normally we pass this context as a string injected into the prompt, but for
     # things like email that are already fetched on the frontend, we pass them like this

@@ -165,6 +165,10 @@ async def load_text_inference(
         message_format_id = model_config.get("message_format")
         model_name = model_config.get("model_name")
         tags = model_config.get("tags") or []
+        # Enable --reasoning-format deepseek at launch time when the caller
+        # opts into thinking mode. Reasoning is bound to the loaded model —
+        # to toggle it, the model must be reloaded with a different call.enable_thinking.
+        is_reasoning_model = bool(data.call.enable_thinking)
         # Load the prompt formats
         message_template = get_prompt_formats(message_format_id)
         # Load the specified Ai model using a specific inference backend
@@ -181,6 +185,7 @@ async def load_text_inference(
             message_format=message_template,
             generate_kwargs=data.call,
             model_init_kwargs=data.init,
+            is_reasoning_model=is_reasoning_model,
         )
         # Start the llama-server process and wait for it to be ready
         await app.state.llm.start_server()
@@ -748,6 +753,12 @@ async def generate_text(
             msg = "No path to model provided."
             print(f"{common.PRNT_API} Error: {msg}", flush=True)
             raise Exception(msg)
+
+        # Reasoning incompatibilities (grammar / structured-output / tools) are
+        # handled inside LlamaServer.generate_kwargs and text_chat/text_completion,
+        # which override chat_template_kwargs per call without touching the
+        # load-time setting. Per-request enable_thinking is intentionally not a
+        # supported field on InferenceRequest.
 
         # Update llm props
         llm.generate_kwargs = payload

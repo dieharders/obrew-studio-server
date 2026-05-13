@@ -19,9 +19,12 @@ from core import common
 from inference.helpers import (
     FEEDING_PROMPT,
     GENERATING_TOKENS,
+    GENERATING_REASONING,
+    GENERATING_CONTENT,
     completion_to_prompt,
     event_payload,
     token_payload,
+    reasoning_token_payload,
     content_payload,
     sanitize_kwargs,
     inference_call_to_cli_args,
@@ -45,6 +48,7 @@ SERVER_READY_TIMEOUT = 120
 # Timeout for waiting on process termination during cleanup
 PROCESS_TERMINATION_TIMEOUT = 5.0
 
+
 class LlamaServer:
     """Run inference via llama-server HTTP API (replaces LLAMA_CPP CLI)."""
 
@@ -64,6 +68,7 @@ class LlamaServer:
         debug=False,
         model_init_kwargs: LoadTextInferenceInit = None,
         generate_kwargs: LoadTextInferenceCall = None,
+        is_reasoning_model: bool = False,
     ):
         # Build model init kwargs (used as CLI flags for server startup)
         n_ctx = model_init_kwargs.n_ctx or DEFAULT_CONTEXT_WINDOW
@@ -97,7 +102,9 @@ class LlamaServer:
         self.task_logging = None
         self._last_stderr_lines: list = []  # recent stderr for crash diagnostics
         self._abort_event: Optional[asyncio.Event] = None  # per-request abort signal
-        self._active_client: Optional[httpx.AsyncClient] = None  # active streaming client
+        self._active_client: Optional[httpx.AsyncClient] = (
+            None  # active streaming client
+        )
         self.prompt_template = None
         self.message_format = message_format or {}
         self.response_mode = response_mode
@@ -110,6 +117,12 @@ class LlamaServer:
         self.debug = debug
         self.model_path = model_path
         self.mmproj_path = mmproj_path
+        self.is_reasoning_model = is_reasoning_model
+        # Reasoning controls are bound to the loaded model (LoadTextInferenceCall).
+        # They are NOT exposed per request — flip them by reloading the model.
+        self._enable_thinking = bool(generate_kwargs.enable_thinking)
+        self._reasoning_budget = generate_kwargs.reasoning_budget
+        self._preserve_thinking = bool(generate_kwargs.preserve_thinking)
         self.model_init_kwargs = init_kwargs
         self._is_ready = False
 
@@ -246,6 +259,20 @@ class LlamaServer:
         if grammar:
             self._api_generate_kwargs["grammar"] = grammar
 
+        # Reasoning controls come from the load-time LoadTextInferenceCall, not
+        # from per-request settings. Grammar conflicts with thinking mode in
+        # llama.cpp (it disables grammar enforcement and bloats output), so
+        # disable for this call when grammar is set. Tool-driven structured
+        # output is handled in text_chat/text_completion via constrain_json_output.
+        if self.is_reasoning_model:
+            self._api_generate_kwargs["chat_template_kwargs"] = {
+                "enable_thinking": self._enable_thinking and not grammar,
+                "preserve_thinking": self._preserve_thinking,
+            }
+            self._api_generate_kwargs["reasoning_budget"] = (
+                0 if grammar else self._reasoning_budget
+            )
+
     # ──────────────────────────────────────────────
     # Server lifecycle
     # ──────────────────────────────────────────────
@@ -266,14 +293,22 @@ class LlamaServer:
         # Build command
         cmd = [
             self.BINARY_PATH,
-            "-m", self.model_path,
-            "--port", str(self.port),
+            "-m",
+            self.model_path,
+            "--port",
+            str(self.port),
             "--jinja",  # enable jinja chat templates
         ]
 
         # Add mmproj for vision models
         if self.mmproj_path and os.path.exists(self.mmproj_path):
             cmd.extend(["--mmproj", self.mmproj_path])
+
+        # Enable reasoning_content splitting for reasoning-capable models.
+        # Uses --reasoning-format deepseek so llama-server emits delta.reasoning_content
+        # separately from delta.content (applies to Qwen3, QwQ, DeepSeek-R1, etc.).
+        if self.is_reasoning_model:
+            cmd.extend(["--reasoning-format", "deepseek"])
 
         # Add model init kwargs as CLI flags
         sanitized = sanitize_kwargs(kwargs=self.model_init_kwargs)
@@ -417,7 +452,10 @@ class LlamaServer:
             if self.task_logging:
                 self.task_logging.cancel()
             if self.process:
-                print(f"{LOG_PREFIX} Stopping llama-server on port {self.port}", flush=True)
+                print(
+                    f"{LOG_PREFIX} Stopping llama-server on port {self.port}",
+                    flush=True,
+                )
                 try:
                     self.process.terminate()
                     await asyncio.wait_for(
@@ -458,9 +496,7 @@ class LlamaServer:
         """
         try:
             async with httpx.AsyncClient() as client:
-                await client.post(
-                    f"{self.base_url}/slots/0?action=erase", timeout=3.0
-                )
+                await client.post(f"{self.base_url}/slots/0?action=erase", timeout=3.0)
                 print(f"{LOG_PREFIX} Server-side generation cancelled", flush=True)
         except Exception as e:
             print(f"{LOG_PREFIX} Could not cancel server generation: {e}", flush=True)
@@ -484,6 +520,37 @@ class LlamaServer:
         native_tool_defs: Optional[str] = None,
         constrain_json_output: Optional[dict] = None,
     ):
+        # Reasoning models emit <think> blocks. llama-server only splits these
+        # into reasoning_content on /v1/chat/completions — the raw /completion
+        # endpoint inlines them in content. Route to text_chat so the frontend
+        # gets reasoning and answer on separate streams.
+        #
+        # Parity note: /completion uses the obrew-side messageFormat template
+        # (with KEY_TOOL_MESSAGE substitution); /v1/chat/completions uses the
+        # model's native Jinja template (selected by --jinja at server launch).
+        # When rerouted, native_tool_defs are concatenated into the system
+        # message instead of substituted into a template slot — fine for most
+        # reasoning models, which don't expose a tool-defs slot. Non-reasoning
+        # models skip this branch entirely (gated by is_reasoning_model), so
+        # tool selection on non-reasoning models is unaffected. text_chat
+        # itself handles the thinking-vs-JSON override.
+        if self.is_reasoning_model:
+            chat_system_message = system_message
+            if native_tool_defs:
+                chat_system_message = (
+                    f"{system_message}\n\n{native_tool_defs}"
+                    if system_message
+                    else native_tool_defs
+                )
+            return await self.text_chat(
+                prompt=prompt,
+                request=request,
+                system_message=chat_system_message,
+                stream=stream,
+                override_args=override_args,
+                constrain_json_output=constrain_json_output,
+            )
+
         try:
             abort_event = self._new_abort_event()
             await self._ensure_server()
@@ -513,6 +580,10 @@ class LlamaServer:
             if override_args:
                 body.update(override_args)
 
+            # Note: no need to override chat_template_kwargs here. Reasoning
+            # models reroute to text_chat above (which handles the override),
+            # and non-reasoning servers don't emit reasoning tokens regardless.
+
             print(f"{LOG_PREFIX} Generating completion", flush=True)
             self.process_type = "completion"
 
@@ -529,7 +600,10 @@ class LlamaServer:
             raise Exception(f"Failed to query llama-server: {e}")
 
     async def _completion_generator(
-        self, body: dict, stream: bool, request: Request,
+        self,
+        body: dict,
+        stream: bool,
+        request: Request,
         abort_event: asyncio.Event = None,
     ):
         """Stream tokens from POST /completion and yield SSE events."""
@@ -599,6 +673,9 @@ class LlamaServer:
 
             payload = content_payload(content)
             if stream:
+                # Mark the final SSE frame so the frontend's lastEvent advances
+                # past GENERATING_TOKENS — see the matching comment in text_chat.
+                yield event_payload(GENERATING_CONTENT)
                 yield json.dumps(payload)
             else:
                 yield payload
@@ -655,6 +732,12 @@ class LlamaServer:
             if override_args:
                 body.update(override_args)
 
+            # Tools/JSON-schema constraints conflict with thinking mode: force
+            # off for this single call without changing the load-time setting.
+            if self.is_reasoning_model and constrain_json_output:
+                body["chat_template_kwargs"] = {"enable_thinking": False, "preserve_thinking": False}
+                body["reasoning_budget"] = 0
+
             print(f"{LOG_PREFIX} Generating chat response", flush=True)
             self.process_type = "chat"
 
@@ -671,12 +754,17 @@ class LlamaServer:
             raise Exception(f"Failed to query llama-server: {e}")
 
     async def _chat_generator(
-        self, body: dict, stream: bool, request: Request,
+        self,
+        body: dict,
+        stream: bool,
+        request: Request,
         abort_event: asyncio.Event = None,
     ):
         """Stream tokens from POST /v1/chat/completions and yield SSE events."""
         content = ""
+        reasoning = ""
         has_gen_started = False
+        has_reasoning_started = False
         was_aborted = False
         url = f"{self.base_url}/v1/chat/completions"
 
@@ -710,16 +798,37 @@ class LlamaServer:
                         continue
 
                     # OpenAI format: choices[0].delta.content
+                    # With --reasoning-format deepseek, llama-server also populates
+                    # choices[0].delta.reasoning_content for thinking blocks.
                     choices = data.get("choices", [])
                     if not choices:
                         continue
                     delta = choices[0].get("delta", {})
                     token_text = delta.get("content", "")
+                    reasoning_text = delta.get("reasoning_content", "")
                     finish_reason = choices[0].get("finish_reason")
+
+                    if reasoning_text:
+                        if not has_reasoning_started:
+                            has_reasoning_started = True
+                            print(
+                                f"{LOG_PREFIX} Generating Reasoning: ",
+                                end="",
+                                flush=True,
+                            )
+                            yield event_payload(GENERATING_REASONING)
+
+                        reasoning += reasoning_text
+                        # print(reasoning_text, end="", flush=True)
+
+                        if stream:
+                            yield json.dumps(reasoning_token_payload(reasoning_text))
 
                     if token_text:
                         if not has_gen_started:
                             has_gen_started = True
+                            # if has_reasoning_started:
+                            #     print("", flush=True)  # newline after reasoning block
                             yield event_payload(GENERATING_TOKENS)
 
                         content += token_text
@@ -735,7 +844,7 @@ class LlamaServer:
                 return
 
             content = content.strip()
-            if not content:
+            if not content and not reasoning:
                 errMsg = (
                     "No response from model. Check available memory, "
                     "try to lower amount of GPU Layers or offload to CPU only."
@@ -744,7 +853,22 @@ class LlamaServer:
                 raise Exception(errMsg)
 
             payload = content_payload(content)
+            if reasoning:
+                payload["data"]["reasoningText"] = reasoning.strip()
+            # print(
+            #     f"{LOG_PREFIX} Final payload keys: {list(payload['data'].keys())}, "
+            #     f"reasoning_len={len(reasoning)}",
+            #     flush=True,
+            # )
             if stream:
+                # Emit the GENERATING_CONTENT event marker before the JSON data
+                # line. sse-starlette only writes an `event:` line when a dict
+                # with an `event` key is yielded; a plain string yield becomes
+                # a bare `data:` line. Without this marker the frontend's
+                # lastEvent stays on GENERATING_TOKENS, so it routes the final
+                # payload through the token-append branch and never reads
+                # data.reasoningText for the thinking pulldown.
+                yield event_payload(GENERATING_CONTENT)
                 yield json.dumps(payload)
             else:
                 yield payload
@@ -806,10 +930,12 @@ class LlamaServer:
                 }
                 mime = mime_types.get(ext, "image/png")
 
-                content_parts.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:{mime};base64,{img_data}"},
-                })
+                content_parts.append(
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime};base64,{img_data}"},
+                    }
+                )
 
             # Add text prompt
             content_parts.append({"type": "text", "text": prompt.strip()})
@@ -837,7 +963,9 @@ class LlamaServer:
                 "seed": self._api_generate_kwargs.get("seed"),
             }
             # Remove None values
-            vision_api_args = {k: v for k, v in vision_api_args.items() if v is not None}
+            vision_api_args = {
+                k: v for k, v in vision_api_args.items() if v is not None
+            }
             body.update(vision_api_args)
 
             # Apply overrides
