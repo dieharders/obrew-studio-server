@@ -328,6 +328,20 @@
       }
     }
   },
+  "unsloth/Qwen3.6-35B-A3B-GGUF": {
+    "repoId": "unsloth/Qwen3.6-35B-A3B-GGUF",
+    "name": "Qwen 3.6 35B",
+    "description": "A 35B MoE model with ~3B active parameters featuring 256K context, vision capabilities, advanced reasoning with thinking mode, tool calling, and support for 200+ languages. Excels at complex reasoning, code generation, and agentic tasks.",
+    "messageFormat": "qwen",
+    "tags": ["vision", "instruct", "reasoning", "multilingual", "long-context", "function-calling", "MoE"],
+    "vision": {
+      "enabled": true,
+      "mmproj": {
+        "repoId": "unsloth/Qwen3.6-35B-A3B-GGUF",
+        "filename": "mmproj-F16.gguf"
+      }
+    }
+  },
   "unsloth/Qwen3.5-4B-GGUF": {
     "repoId": "unsloth/Qwen3.5-4B-GGUF",
     "name": "Qwen 3.5 4B",
