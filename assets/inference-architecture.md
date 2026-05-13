@@ -55,6 +55,21 @@ Two modes, both streamed from the server as Server-Sent Events and re-emitted th
 
 `LlamaServer` always asks the server to stream; if the caller wants a non-streaming response we aggregate tokens server-side in the wrapper and yield a single final payload.
 
+### SSE event protocol
+
+Streaming responses on `/v1/text/inference/generate` are Server-Sent Events. Each event has an `event:` line naming the kind and a `data:` line carrying a JSON payload. Clients should track the **most recent event name** and route the next `data:` payload accordingly.
+
+| Event name             | When emitted                                                                                              | `data` shape                                                       |
+| ---------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `FEEDING_PROMPT`       | After the HTTP connection to llama-server is established but before any tokens have been generated.       | _(no data)_                                                        |
+| `GENERATING_TOKENS`    | On the first regular content token. Subsequent token frames stream as bare `data:` lines with `{ text }`. | `{ "text": "<token>" }` (per token, when streaming)                |
+| `GENERATING_REASONING` | On the first `delta.reasoning_content` token from a reasoning-capable model (requires `--reasoning-format deepseek`, set automatically when the model was loaded with `enable_thinking=True`). Reasoning tokens stream as bare `data:` lines with `{ text }` until regular content begins. | `{ "text": "<reasoning token>" }` (per token, when streaming) |
+| `GENERATING_CONTENT`   | Final aggregated payload emitted once at the end of the response.                                         | `{ "text": "<full content>", "reasoning_text"?: "<full reasoning>" }` |
+
+`reasoning_text` is only present on the final `GENERATING_CONTENT` payload when the model actually emitted thinking tokens during streaming.
+
+Non-streaming HTTP requests (`stream: false`) receive the `GENERATING_CONTENT` payload's `data` field as a single JSON body — the response is wrapped in `application/json` with whitespace heartbeats so the connection stays warm during long inference (RFC 8259 permits leading whitespace before a JSON value). Internal callers of `agent.call()` (tool selection, search) bypass the HTTP layer entirely.
+
 ### Cancellation
 
 Two-layer abort design:

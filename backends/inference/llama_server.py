@@ -118,6 +118,16 @@ class LlamaServer:
         self.model_path = model_path
         self.mmproj_path = mmproj_path
         self.is_reasoning_model = is_reasoning_model
+        # Reasoning controls are bound to the loaded model (LoadTextInferenceCall).
+        # They are NOT exposed per request — flip them by reloading the model.
+        self._enable_thinking = (
+            bool(generate_kwargs.enable_thinking) if generate_kwargs else False
+        )
+        self._reasoning_budget = (
+            generate_kwargs.reasoning_budget
+            if generate_kwargs and generate_kwargs.reasoning_budget is not None
+            else 0
+        )
         self.model_init_kwargs = init_kwargs
         self._is_ready = False
 
@@ -254,14 +264,18 @@ class LlamaServer:
         if grammar:
             self._api_generate_kwargs["grammar"] = grammar
 
-        # Reasoning/thinking-mode controls.
-        # enable_thinking is forwarded via chat_template_kwargs so the Jinja chat
-        # template (Qwen3/Qwen3.5) can toggle the <think> block on/off.
-        # reasoning_budget is a top-level llama-server field (-1 unlimited, 0 disabled, N cap).
-        self._api_generate_kwargs["chat_template_kwargs"] = {
-            "enable_thinking": bool(settings.enable_thinking)
-        }
-        self._api_generate_kwargs["reasoning_budget"] = settings.reasoning_budget
+        # Reasoning controls come from the load-time LoadTextInferenceCall, not
+        # from per-request settings. Grammar conflicts with thinking mode in
+        # llama.cpp (it disables grammar enforcement and bloats output), so
+        # disable for this call when grammar is set. Tool-driven structured
+        # output is handled in text_chat/text_completion via constrain_json_output.
+        if self.is_reasoning_model:
+            self._api_generate_kwargs["chat_template_kwargs"] = {
+                "enable_thinking": self._enable_thinking and not grammar
+            }
+            self._api_generate_kwargs["reasoning_budget"] = (
+                0 if grammar else self._reasoning_budget
+            )
 
     # ──────────────────────────────────────────────
     # Server lifecycle
@@ -514,6 +528,16 @@ class LlamaServer:
         # into reasoning_content on /v1/chat/completions — the raw /completion
         # endpoint inlines them in content. Route to text_chat so the frontend
         # gets reasoning and answer on separate streams.
+        #
+        # Parity note: /completion uses the obrew-side messageFormat template
+        # (with KEY_TOOL_MESSAGE substitution); /v1/chat/completions uses the
+        # model's native Jinja template (selected by --jinja at server launch).
+        # When rerouted, native_tool_defs are concatenated into the system
+        # message instead of substituted into a template slot — fine for most
+        # reasoning models, which don't expose a tool-defs slot. Non-reasoning
+        # models skip this branch entirely (gated by is_reasoning_model), so
+        # tool selection on non-reasoning models is unaffected. text_chat
+        # itself handles the thinking-vs-JSON override.
         if self.is_reasoning_model:
             chat_system_message = system_message
             if native_tool_defs:
@@ -559,6 +583,10 @@ class LlamaServer:
             # Apply overrides
             if override_args:
                 body.update(override_args)
+
+            # Note: no need to override chat_template_kwargs here. Reasoning
+            # models reroute to text_chat above (which handles the override),
+            # and non-reasoning servers don't emit reasoning tokens regardless.
 
             print(f"{LOG_PREFIX} Generating completion", flush=True)
             self.process_type = "completion"
@@ -707,6 +735,12 @@ class LlamaServer:
             # Apply overrides
             if override_args:
                 body.update(override_args)
+
+            # Tools/JSON-schema constraints conflict with thinking mode: force
+            # off for this single call without changing the load-time setting.
+            if self.is_reasoning_model and constrain_json_output:
+                body["chat_template_kwargs"] = {"enable_thinking": False}
+                body["reasoning_budget"] = 0
 
             print(f"{LOG_PREFIX} Generating chat response", flush=True)
             self.process_type = "chat"

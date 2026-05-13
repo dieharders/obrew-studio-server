@@ -165,9 +165,10 @@ async def load_text_inference(
         message_format_id = model_config.get("message_format")
         model_name = model_config.get("model_name")
         tags = model_config.get("tags") or []
-        # Enable --reasoning-format deepseek at launch time for reasoning-capable models
-        # so llama-server splits <think> blocks into delta.reasoning_content.
-        is_reasoning_model = data.call.enable_thinking
+        # Enable --reasoning-format deepseek at launch time when the caller
+        # opts into thinking mode. Reasoning is bound to the loaded model —
+        # to toggle it, the model must be reloaded with a different call.enable_thinking.
+        is_reasoning_model = bool(data.call.enable_thinking)
         # Load the prompt formats
         message_template = get_prompt_formats(message_format_id)
         # Load the specified Ai model using a specific inference backend
@@ -753,25 +754,11 @@ async def generate_text(
             print(f"{common.PRNT_API} Error: {msg}", flush=True)
             raise Exception(msg)
 
-        # Reasoning is incompatible with tool use and grammar/JSON constraints.
-        # Force it off when either is requested to avoid known llama.cpp issues
-        # where thinking mode disables grammar enforcement or bloats tool-call output.
-        if (assigned_tool_names and len(assigned_tool_names) > 0) or payload.grammar:
-            payload.reasoning_budget = 0
-            payload.enable_thinking = False
-
-        # Force SSE streaming for all HTTP inference requests. Non-streaming
-        # buffers every token before sending the HTTP response (see agent.py —
-        # it does [item async for item in response] before returning), so the
-        # socket stays silent for the full request duration. Browsers (Safari
-        # in particular) abort idle fetches with "Load failed" / "request timed
-        # out" — this affects any long request, not just reasoning.
-        # EventSourceResponse keeps the connection warm via sse-starlette's
-        # built-in 15s ping. The frontend client routes by content-type, so it
-        # handles the SSE response transparently when stream=false was requested.
-        # Internal agent.call() callers (tool.py, search/harness.py) bypass
-        # this route and keep their buffered dict path.
-        streaming = True
+        # Reasoning incompatibilities (grammar / structured-output / tools) are
+        # handled inside LlamaServer.generate_kwargs and text_chat/text_completion,
+        # which override chat_template_kwargs per call without touching the
+        # load-time setting. Per-request enable_thinking is intentionally not a
+        # supported field on InferenceRequest.
 
         # Update llm props
         llm.generate_kwargs = payload
