@@ -196,7 +196,9 @@ class VectorProvider(SearchProvider):
             else:
                 content = doc or ""
 
-            # Convert distance to similarity score (0-1)
+            # Convert cosine distance to similarity. Cosine distance is in [0, 2],
+            # so similarity = 1 - distance is in [-1, 1] (typically [0, 1] for
+            # normalized embeddings).
             distance = distances[i] if i < len(distances) else None
             similarity = 1 - distance if distance is not None else None
 
@@ -243,7 +245,7 @@ class VectorProvider(SearchProvider):
             zip(documents, metadatas, ids, distances)
         ):
             # Convert distance to similarity score
-            similarity = 1 - distance if distance else 0
+            similarity = 1 - distance if distance is not None else 0
 
             items.append(
                 SearchItem(
