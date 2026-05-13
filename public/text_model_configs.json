@@ -328,6 +328,20 @@
       }
     }
   },
+  "unsloth/Qwen3.5-4B-GGUF": {
+    "repoId": "unsloth/Qwen3.5-4B-GGUF",
+    "name": "Qwen 3.5 4B",
+    "description": "A 4B parameter dense model featuring 256K context, vision capabilities, tool calling, and support for 200+ languages. Fast, efficient inference optimized for reasoning, instruction following, and basic coding tasks.",
+    "messageFormat": "qwen",
+    "tags": ["vision", "instruct", "reasoning", "multilingual", "long-context", "function-calling"],
+    "vision": {
+      "enabled": true,
+      "mmproj": {
+        "repoId": "unsloth/Qwen3.5-4B-GGUF",
+        "filename": "mmproj-F16.gguf"
+      }
+    }
+  },
   "unsloth/Qwen3.5-9B-GGUF": {
     "repoId": "unsloth/Qwen3.5-9B-GGUF",
     "name": "Qwen 3.5 9B",
