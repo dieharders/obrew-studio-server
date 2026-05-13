@@ -170,8 +170,9 @@ async def load_text_inference(
             message_format_id = message_format_id or model_config.get("message_format")
             model_name = model_name or model_config.get("model_name")
         if not message_format_id:
-            raise Exception(
-                f"messageFormat not provided and {model_id} not found in registry."
+            raise HTTPException(
+                status_code=422,
+                detail=f"messageFormat not provided and {model_id} not found in registry.",
             )
         # Enable --reasoning-format deepseek at launch time when the caller
         # opts into thinking mode. Reasoning is bound to the loaded model —
