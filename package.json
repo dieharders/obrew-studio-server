@@ -3,7 +3,7 @@
   "version": "0.16.0",
   "author": "OpenBrewAi",
   "license": "MIT",
-  "productName": "Obrew Studio Engine",
+  "productName": "Obrew Engine",
   "description": "Your personal Ai engine.",
   "private": false,
   "hosted_apps_urls": [
