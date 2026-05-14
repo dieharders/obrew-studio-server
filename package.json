@@ -1,9 +1,9 @@
 {
   "name": "obrew-studio-server",
-  "version": "0.15.2",
+  "version": "0.15.3",
   "author": "OpenBrewAi",
   "license": "MIT",
-  "productName": "Obrew Studio Engine",
+  "productName": "Obrew Engine",
   "description": "Your personal Ai engine.",
   "private": false,
   "hosted_apps_urls": [
