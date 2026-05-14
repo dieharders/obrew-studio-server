@@ -103,6 +103,10 @@
     "system": "",
     "user": "<start_of_turn>user\n{{user_message}}<end_of_turn>\n<start_of_turn>model\n"
   },
+  "gemma4": {
+    "system": "",
+    "user": "<|turn>user\n{{user_message}}<turn|>\n<|turn>model\n"
+  },
   "qwq": {
     "system": "",
     "user": "<|im_start|>user\n{{user_message}}<|im_end|>\n<|im_start|>assistant\n<think>\n"

@@ -1,6 +1,7 @@
 import os
 import json
 import shutil
+import asyncio
 from fastapi import APIRouter, Request, HTTPException, Depends
 from inference.agent import Agent
 from .llama_server import LlamaServer
@@ -22,7 +23,6 @@ from inference.classes import (
     SSEResponse,
 )
 from updater import get_gpu_details
-
 
 router = APIRouter()
 
@@ -179,7 +179,13 @@ async def load_text_inference(
         # to toggle it, the model must be reloaded with a different call.enable_thinking.
         is_reasoning_model = bool(data.call.enable_thinking)
         # Load the prompt formats
-        message_template = get_prompt_formats(message_format_id)
+        try:
+            message_template = get_prompt_formats(message_format_id)
+        except Exception as err:
+            raise HTTPException(
+                status_code=422,
+                detail=f"No messageFormat '{message_format_id}' found: {err}",
+            )
         # Load the specified Ai model using a specific inference backend
         app.state.llm = LlamaServer(
             model_url=None,
@@ -208,6 +214,9 @@ async def load_text_inference(
             "success": True,
             "data": None,
         }
+    except HTTPException as http_err:
+        print(f"{common.PRNT_API} Failed loading model: {model_id}\n{http_err.detail}")
+        raise
     except (Exception, KeyError) as error:
         print(f"{common.PRNT_API} Failed loading model: {model_id}\n{error}")
         return {
@@ -834,9 +843,16 @@ async def stop_text(request: Request):
 
 # Remove request from queue
 async def complete_request(app: classes.FastAPIApp):
-    """Remove the last request and complete the task."""
+    """Remove the last request and complete the task.
+
+    Safe to call from error handlers that may run before a request was queued —
+    a missing entry is a no-op rather than a QueueEmpty crash.
+    """
     print(f"{common.PRNT_API} Request completed", flush=True)
-    app.state.request_queue.get_nowait()
-    app.state.request_queue.task_done()  # Signal the end of requests
+    try:
+        app.state.request_queue.get_nowait()
+        app.state.request_queue.task_done()  # Signal the end of requests
+    except asyncio.QueueEmpty:
+        return
     await app.state.request_queue.join()  # Wait for all tasks to complete
     return
