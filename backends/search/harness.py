@@ -98,6 +98,7 @@ class SearchSource(BaseModel):
     type: str
     name: str
     snippet: Optional[str] = None
+    score: Optional[float] = None  # Cosine similarity for vector results; [-1, 1], typically [0, 1] for normalized embeddings
 
 
 class SearchResultData(BaseModel):
@@ -457,6 +458,7 @@ Instructions:
                     if c.get("content")
                     else None
                 ),
+                score=c.get("score"),  # Pass through similarity score if available
             )
             for c in context
         ]
