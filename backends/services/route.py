@@ -378,6 +378,46 @@ def get_services_api(request: Request) -> classes.ServicesApiResponse:
     }
     data.append(downloads_api)
 
+    # Return text-to-speech services
+    tts_api = {
+        "name": "tts",
+        "port": app.state.api.SERVER_PORT,
+        "endpoints": [
+            {"name": "load", "urlPath": "/v1/tts/load", "method": "POST"},
+            {"name": "unload", "urlPath": "/v1/tts/unload", "method": "POST"},
+            {"name": "model", "urlPath": "/v1/tts/model", "method": "GET"},
+            {"name": "models", "urlPath": "/v1/tts/models", "method": "GET"},
+            {"name": "installed", "urlPath": "/v1/tts/installed", "method": "GET"},
+            {"name": "download", "urlPath": "/v1/tts/download", "method": "POST"},
+            {"name": "delete", "urlPath": "/v1/tts/delete", "method": "POST"},
+            {"name": "generate", "urlPath": "/v1/tts/generate", "method": "POST"},
+            {
+                "name": "generateStreamOut",
+                "urlPath": "/v1/tts/generate-stream-out",
+                "method": "POST",
+            },
+            {
+                "name": "generateStreamInOut",
+                "urlPath": "/v1/tts/generate-stream-in-out",
+                "method": "POST",
+            },
+            {"name": "stop", "urlPath": "/v1/tts/stop", "method": "POST"},
+            {"name": "voices", "urlPath": "/v1/tts/voices", "method": "GET"},
+            {"name": "addVoice", "urlPath": "/v1/tts/voices/add", "method": "POST"},
+            {
+                "name": "deleteVoice",
+                "urlPath": "/v1/tts/voices/delete",
+                "method": "POST",
+            },
+            {
+                "name": "voiceSample",
+                "urlPath": "/v1/tts/voices/{voice_id}/sample",
+                "method": "GET",
+            },
+        ],
+    }
+    data.append(tts_api)
+
     # Return search services (agentic search over various data sources)
     search_api = {
         "name": "search",

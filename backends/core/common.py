@@ -116,6 +116,7 @@ def get_env_path():
 
 MODEL_METADATAS_FILENAME = "installed_models.json"
 EMBEDDING_METADATAS_FILENAME = "installed_embedding_models.json"
+TTS_METADATAS_FILENAME = "installed_tts_models.json"
 BACKENDS_FOLDER = "backends"
 APP_SETTINGS_FOLDER = "settings"
 APP_SETTINGS_PATH = app_path(APP_SETTINGS_FOLDER)
@@ -128,14 +129,18 @@ MODEL_METADATAS_FILEPATH = os.path.join(APP_SETTINGS_PATH, MODEL_METADATAS_FILEN
 EMBEDDING_METADATAS_FILEPATH = os.path.join(
     APP_SETTINGS_PATH, EMBEDDING_METADATAS_FILENAME
 )
+TTS_METADATAS_FILEPATH = os.path.join(APP_SETTINGS_PATH, TTS_METADATAS_FILENAME)
 TEXT_MODELS_CACHE_DIR = "text_models"
 EMBEDDING_MODELS_CACHE_DIR = "embed_models"
 VISION_EMBEDDING_MODELS_CACHE_DIR = "vision_embed_models"
+TTS_MODELS_CACHE_DIR = "tts_models"
+TTS_VOICES_DIR = "tts_voices"
 INSTALLED_TEXT_MODELS = "installed_text_models"  # key in json file
 INSTALLED_EMBEDDING_MODELS = "installed_embedding_models"  # key in json file
 INSTALLED_VISION_EMBEDDING_MODELS = (
     "installed_vision_embedding_models"  # key in json file
 )
+INSTALLED_TTS_MODELS = "installed_tts_models"  # key in json file
 DEFAULT_SETTINGS_DICT = {
     "current_download_path": "",
     INSTALLED_TEXT_MODELS: [],
@@ -143,6 +148,7 @@ DEFAULT_SETTINGS_DICT = {
 }
 DEFAULT_EMBEDDING_SETTINGS_DICT = {INSTALLED_EMBEDDING_MODELS: []}
 DEFAULT_VISION_EMBEDDING_SETTINGS_DICT = {INSTALLED_VISION_EMBEDDING_MODELS: []}
+DEFAULT_TTS_SETTINGS_DICT = {INSTALLED_TTS_MODELS: []}
 DEFAULT_MAX_TOKENS = 128
 
 
@@ -1171,3 +1177,165 @@ def get_prompt_formats(message_format: str) -> dict:
             return message_template
     except Exception as err:
         raise Exception(f"Error finding prompt format templates: {err}")
+
+
+# ============================================================================
+# TTS Model Metadata Functions
+# ============================================================================
+
+
+def save_tts_model(data: dict):
+    """Persist an installed TTS model's metadata.
+
+    data shape (mirrors save_text_model):
+        repoId, savePath: {filename: absolute_path}, vocoderPath (optional)
+    """
+    repo_id = data["repoId"]
+    folderpath = APP_SETTINGS_PATH
+    filepath = TTS_METADATAS_FILEPATH
+    existing_data = DEFAULT_TTS_SETTINGS_DICT
+
+    try:
+        if not os.path.exists(folderpath):
+            os.makedirs(folderpath)
+        with open(filepath, "r") as file:
+            existing_data = json.load(file)
+    except (Exception, FileNotFoundError):
+        existing_data = DEFAULT_TTS_SETTINGS_DICT
+
+    models_list: List = existing_data.get(INSTALLED_TTS_MODELS, [])
+    modelIndex = next(
+        (x for x, item in enumerate(models_list) if item["repoId"] == repo_id), None
+    )
+    if modelIndex is None:
+        new_data = {**data}
+        if "savePath" not in new_data:
+            new_data["savePath"] = {}
+        models_list.append(new_data)
+    else:
+        model = models_list[modelIndex]
+        for key, val in data.items():
+            if key == "savePath":
+                new_save_paths: dict = data[key]
+                prev_save_paths: dict = model.get(key, {})
+                model[key] = {**prev_save_paths, **new_save_paths}
+            else:
+                model[key] = val
+        models_list[modelIndex] = model
+
+    existing_data[INSTALLED_TTS_MODELS] = models_list
+
+    with open(filepath, "w") as file:
+        json.dump(existing_data, file, indent=2)
+    return existing_data
+
+
+def get_tts_model_file_path(model_repo_id: str) -> str | None:
+    """Return the first installed file path for a TTS model repo (the LM GGUF)."""
+    filepath = TTS_METADATAS_FILEPATH
+    try:
+        with open(filepath, "r") as file:
+            existing_data = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+    models_list: List = existing_data.get(INSTALLED_TTS_MODELS, [])
+    model_entry = next(
+        (item for item in models_list if item.get("repoId") == model_repo_id),
+        None,
+    )
+    if model_entry and model_entry.get("savePath"):
+        save_paths = model_entry["savePath"]
+        if isinstance(save_paths, dict) and save_paths:
+            return next(iter(save_paths.values()), None)
+    return None
+
+
+def get_tts_vocoder_path(model_repo_id: str) -> str | None:
+    """Return the vocoder file path linked to a TTS model entry."""
+    filepath = TTS_METADATAS_FILEPATH
+    try:
+        with open(filepath, "r") as file:
+            existing_data = json.load(file)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+
+    models_list: List = existing_data.get(INSTALLED_TTS_MODELS, [])
+    model_entry = next(
+        (item for item in models_list if item.get("repoId") == model_repo_id),
+        None,
+    )
+    if model_entry:
+        return model_entry.get("vocoderPath")
+    return None
+
+
+def save_tts_vocoder_path(model_repo_id: str, vocoder_path: str):
+    """Link a downloaded vocoder file path to a TTS model entry."""
+    filepath = TTS_METADATAS_FILEPATH
+    try:
+        with open(filepath, "r") as file:
+            existing_data = json.load(file)
+    except (Exception, FileNotFoundError):
+        existing_data = DEFAULT_TTS_SETTINGS_DICT
+
+    models_list: List = existing_data.get(INSTALLED_TTS_MODELS, [])
+    model_index = next(
+        (
+            i
+            for i, item in enumerate(models_list)
+            if item.get("repoId") == model_repo_id
+        ),
+        None,
+    )
+
+    if model_index is None:
+        models_list.append(
+            {"repoId": model_repo_id, "savePath": {}, "vocoderPath": vocoder_path}
+        )
+    else:
+        models_list[model_index]["vocoderPath"] = vocoder_path
+
+    existing_data[INSTALLED_TTS_MODELS] = models_list
+    with open(filepath, "w") as file:
+        json.dump(existing_data, file, indent=2)
+    return existing_data
+
+
+def delete_tts_model(filename: str, repo_id: str):
+    """Remove a single (quant) file entry from a TTS model record."""
+    filepath = TTS_METADATAS_FILEPATH
+    try:
+        with open(filepath, "r") as file:
+            metadata = json.load(file)
+        models_list: List = metadata.get(INSTALLED_TTS_MODELS, [])
+        modelIndex = next(
+            (x for x, item in enumerate(models_list) if item["repoId"] == repo_id),
+            None,
+        )
+        if modelIndex is None:
+            return
+        model = models_list[modelIndex]
+        if filename in model.get("savePath", {}):
+            del model["savePath"][filename]
+        # If no files remain, drop the whole entry
+        if not model.get("savePath"):
+            del models_list[modelIndex]
+        metadata[INSTALLED_TTS_MODELS] = models_list
+        with open(filepath, "w") as file:
+            json.dump(metadata, file, indent=2)
+    except FileNotFoundError:
+        print(f"{PRNT_API} TTS metadata file not found.", flush=True)
+    except json.JSONDecodeError:
+        print(f"{PRNT_API} TTS metadata JSON parsing error.", flush=True)
+
+
+def get_installed_tts_models() -> List:
+    """Return the list of installed TTS model metadata records."""
+    filepath = TTS_METADATAS_FILEPATH
+    try:
+        with open(filepath, "r") as file:
+            existing_data = json.load(file)
+        return existing_data.get(INSTALLED_TTS_MODELS, [])
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []

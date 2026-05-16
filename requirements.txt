@@ -57,3 +57,11 @@ pyobjc-framework-Cocoa==10.3.1; sys_platform == 'darwin'  # macOS only - for App
 ddgs>=9.10.0
 # Parse html into structured data
 beautifulsoup4>=4.12.0
+# TTS — OuteTTS 1.0 via llama.cpp llama-server (Apache 2.0)
+# Uses the same llama-server binary already vendored for inference.
+# NOT added: llama-cpp-python (outetts talks to llama-server over HTTP).
+outetts==0.4.4
+torch>=2.1.0
+torchaudio>=2.1.0
+soundfile>=0.12.1
+librosa>=0.10.1

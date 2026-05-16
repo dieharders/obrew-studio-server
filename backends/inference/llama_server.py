@@ -13,7 +13,7 @@ import subprocess
 import platform
 from asyncio.subprocess import Process
 from fastapi import Request
-from typing import List, Optional
+from typing import List, Literal, Optional
 import httpx
 from core import common
 from inference.helpers import (
@@ -69,6 +69,7 @@ class LlamaServer:
         model_init_kwargs: LoadTextInferenceInit = None,
         generate_kwargs: LoadTextInferenceCall = None,
         is_reasoning_model: bool = False,
+        model_kind: Literal["text", "tts"] = "text",
     ):
         # Build model init kwargs (used as CLI flags for server startup)
         n_ctx = model_init_kwargs.n_ctx or DEFAULT_CONTEXT_WINDOW
@@ -113,6 +114,9 @@ class LlamaServer:
         self.model_url = model_url
         self.model_name = model_name or "chatbot"
         self.model_id = model_id
+        # Distinguishes whether this server hosts a text LLM or a TTS model.
+        # Route handlers check this to reject mismatched generate calls.
+        self.model_kind: Literal["text", "tts"] = model_kind
         self.verbose = verbose
         self.debug = debug
         self.model_path = model_path

@@ -24,6 +24,7 @@ from vision.route import router as vision_inference
 from storage.route import router as storage
 from downloads.route import router as downloads
 from search.route import router as search
+from tts.route import router as tts_inference
 
 
 class ApiServer:
@@ -126,7 +127,8 @@ class ApiServer:
             app.state.api = self
             app.state.request_queue = asyncio.Queue()
             app.state.db_client = None
-            app.state.llm = None  # Set each time user loads a model (text or vision)
+            app.state.llm = None  # Set each time user loads a model (text or vision or TTS)
+            app.state.tts_engine = None  # Set only when llm.model_kind == "tts"
             app.state.vision_embedder = (
                 None  # Set each time user loads a vision embedding model
             )
@@ -200,6 +202,11 @@ class ApiServer:
     def shutdown(self, *args):
         try:
             print(f"{common.PRNT_API} Server forced to shutdown.", flush=True)
+            if self.app.state.tts_engine:
+                try:
+                    self._run_async_cleanup(self.app.state.tts_engine.unload())
+                except Exception:
+                    pass  # No subprocess to force-kill; engine is pure-Python.
             if self.app.state.llm:
                 # llm.unload() is now async — fall back to sync kill if it fails
                 try:
@@ -326,6 +333,9 @@ class ApiServer:
         )
         endpoint_router.include_router(
             search, prefix="/v1/search", tags=["search"]
+        )
+        endpoint_router.include_router(
+            tts_inference, prefix="/v1/tts", tags=["text-to-speech"]
         )
         app.include_router(endpoint_router)
 

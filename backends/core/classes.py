@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from backends.vision.image_embedder import ImageEmbedder
     from backends.embeddings.gguf_embedder_server import GGUFEmbedderServer
     from core.download_manager import DownloadManager
+    from tts.tts_engine import TTSEngine
 
 
 class ApiServerClass(dict):
@@ -44,10 +45,11 @@ class AppState(dict):
     request_queue: Type[asyncio.Queue] | None
     db_client: Type[ClientAPI] | None
     api: Type[ApiServerClass] | None
-    llm: "LlamaServer"  # Unified model for text and vision (when mmproj is loaded)
+    llm: "LlamaServer"  # Shared slot: text LLM, vision (with mmproj), or TTS model
     vision_embedder: "ImageEmbedder"
     text_embedder: "GGUFEmbedderServer"
     download_manager: "DownloadManager"
+    tts_engine: "TTSEngine"  # Pure-Python orchestrator; set only when llm.model_kind=="tts"
 
 
 class FastAPIApp(FastAPI):

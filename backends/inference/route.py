@@ -119,6 +119,13 @@ def get_model_list():
 async def unload_text_inference(request: Request):
     try:
         app: classes.FastAPIApp = request.app
+        # Tear down any active TTS engine first — it depends on app.state.llm.
+        if getattr(app.state, "tts_engine", None):
+            try:
+                await app.state.tts_engine.unload()
+            except Exception as e:
+                print(f"{common.PRNT_API} tts_engine unload error: {e}", flush=True)
+            app.state.tts_engine = None
         if app.state.llm:
             await app.state.llm.unload()
         app.state.llm = None
@@ -765,6 +772,13 @@ async def generate_text(
         # Verify there is a model to run
         if not llm:
             msg = "No LLM loaded."
+            print(f"{common.PRNT_API} Error: {msg}", flush=True)
+            raise Exception(msg)
+        if getattr(llm, "model_kind", "text") != "text":
+            msg = (
+                "Wrong model loaded — current model is a TTS model. "
+                "Call /v1/text/load to load a text LLM, or use /v1/tts/generate for speech."
+            )
             print(f"{common.PRNT_API} Error: {msg}", flush=True)
             raise Exception(msg)
         if not llm.model_path:
