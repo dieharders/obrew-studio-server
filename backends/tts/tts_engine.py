@@ -74,6 +74,30 @@ class TTSEngine:
             flush=True,
         )
 
+        # Point huggingface_hub at our TTS cache directory so outetts' internal
+        # snapshot_download call for the DAC vocoder finds the files we
+        # pre-fetched via /v1/tts/download instead of pulling from the network.
+        #
+        # huggingface_hub freezes its cache path into a module-level constant
+        # at import time, so setting only the env var is too late by the time
+        # TTS loads (download_manager already imported huggingface_hub at app
+        # startup). We set both: the env var (for any subprocesses) AND the
+        # in-process constant (for outetts calls in this process). Other
+        # backends pass explicit cache_dir= args so they're unaffected.
+        tts_cache = common.app_path(common.TTS_MODELS_CACHE_DIR)
+        os.makedirs(tts_cache, exist_ok=True)
+        os.environ["HF_HUB_CACHE"] = tts_cache
+        try:
+            import huggingface_hub.constants as _hf_const
+
+            _hf_const.HF_HUB_CACHE = tts_cache
+        except Exception as e:
+            print(
+                f"{LOG_PREFIX} Could not patch huggingface_hub.constants.HF_HUB_CACHE: {e}",
+                flush=True,
+            )
+        print(f"{LOG_PREFIX} HF_HUB_CACHE -> {tts_cache}", flush=True)
+
         try:
             import outetts  # type: ignore
         except ImportError as e:
